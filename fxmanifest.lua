@@ -73,6 +73,8 @@ server_scripts {
   'server/dienste/nachreichung_service.lua',
   'server/dienste/attachment_service.lua',
 
+  'server/dienste/entwurf_service.lua',
+
   'server/dienste/webhook_service.lua',
   'server/dienste/benachrichtigung_service.lua',
   'server/dienste/payment_service.lua',
@@ -95,7 +97,8 @@ server_scripts {
   'server/api_admin_crud.lua',
   'server/api_audit.lua',
   'server/api_export.lua',
-  'server/api_job_settings.lua'
+  'server/api_job_settings.lua',
+  'server/api_entwuerfe.lua'
 }
 
 dependencies {

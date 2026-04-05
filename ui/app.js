@@ -60,12 +60,20 @@ const justizStatusResult = document.getElementById("justizStatusResult");
 
 const justizInterneNotizText = document.getElementById("justizInterneNotizText");
 const btnJustizInterneNotiz = document.getElementById("btnJustizInterneNotiz");
+const btnJustizNotizEntwurfSpeichern = document.getElementById("btnJustizNotizEntwurfSpeichern");
+const btnJustizNotizEntwurfLaden = document.getElementById("btnJustizNotizEntwurfLaden");
+const btnJustizNotizEntwurfLoeschen = document.getElementById("btnJustizNotizEntwurfLoeschen");
+const justizNotizEntwurfMeta = document.getElementById("justizNotizEntwurfMeta");
 
 const justizOeffentlicheAntwortText = document.getElementById("justizOeffentlicheAntwortText");
 const btnJustizOeffentlicheAntwort = document.getElementById("btnJustizOeffentlicheAntwort");
 
 const justizRueckfrageText = document.getElementById("justizRueckfrageText");
 const btnJustizRueckfrageStellen = document.getElementById("btnJustizRueckfrageStellen");
+const btnJustizRueckfrageEntwurfSpeichern = document.getElementById("btnJustizRueckfrageEntwurfSpeichern");
+const btnJustizRueckfrageEntwurfLaden = document.getElementById("btnJustizRueckfrageEntwurfLaden");
+const btnJustizRueckfrageEntwurfLoeschen = document.getElementById("btnJustizRueckfrageEntwurfLoeschen");
+const justizRueckfrageEntwurfMeta = document.getElementById("justizRueckfrageEntwurfMeta");
 const justizRueckfrageMeta = document.getElementById("justizRueckfrageMeta");
 
 const btnJustizPdfExport = document.getElementById("btnJustizPdfExport");
@@ -790,6 +798,52 @@ function antraegeRendern(antraege) {
 }
 
 // ==========================
+// Verlauf: Hilfsfunktionen
+// ==========================
+const EINTRAGSTYP_LABELS = {
+  internal_note:  "Interne Notiz",
+  public_message: "Öffentliche Nachricht",
+  request_info:   "Rückfrage",
+  system:         "Systemeintrag",
+  status_change:  "Statusänderung",
+  nachreichung:   "Nachreichung",
+};
+const SICHTBARKEIT_LABELS = {
+  internal: "intern",
+  citizen:  "öffentlich",
+};
+
+function eintragtypLabel(typ) {
+  return EINTRAGSTYP_LABELS[typ] || typ || "Unbekannt";
+}
+
+function sichtbarkeitLabel(vis) {
+  return SICHTBARKEIT_LABELS[vis] || vis || "";
+}
+
+function verlaufEintragRendern(e, mitSichtbarkeit) {
+  let text = "";
+  try {
+    const c = typeof e.content === "string" ? JSON.parse(e.content) : e.content;
+    text = c && c.text ? c.text : JSON.stringify(c);
+  } catch {
+    text = String(e.content || "");
+  }
+
+  const autor = escapeHtml(e.author_name || "System");
+  const datum = escapeHtml(e.created_at || "");
+  const typLabel = escapeHtml(eintragtypLabel(e.entry_type));
+  const visLabel = mitSichtbarkeit && e.visibility ? ` (${escapeHtml(sichtbarkeitLabel(e.visibility))})` : "";
+
+  const div = document.createElement("div");
+  div.className = "eintrag";
+  div.innerHTML =
+    `<div class="meta">${typLabel}${visLabel} – ${autor} – ${datum}</div>` +
+    `<div>${escapeHtml(text)}</div>`;
+  return div;
+}
+
+// ==========================
 // Bürger: Details + Verlauf + Antwort
 // ==========================
 function buergerVerlaufRendern(timeline) {
@@ -801,19 +855,7 @@ function buergerVerlaufRendern(timeline) {
   }
 
   for (const e of arr) {
-    const meta = `${e.created_at} | ${e.entry_type} | ${e.author_name || "-"}`;
-    let text = "";
-    try {
-      const c = typeof e.content === "string" ? JSON.parse(e.content) : e.content;
-      text = c && c.text ? c.text : JSON.stringify(c);
-    } catch {
-      text = String(e.content || "");
-    }
-
-    const div = document.createElement("div");
-    div.className = "eintrag";
-    div.innerHTML = `<div class="meta">${escapeHtml(meta)}</div><div>${escapeHtml(text)}</div>`;
-    buergerVerlauf.appendChild(div);
+    buergerVerlauf.appendChild(verlaufEintragRendern(e, false));
   }
 }
 
@@ -1074,6 +1116,8 @@ function justizKategorienRendern(liste) {
         justizStatusResult.textContent = "";
         justizRueckfrageMeta.textContent = "";
         justizRueckfrageText.value = "";
+        if (justizNotizEntwurfMeta) justizNotizEntwurfMeta.textContent = "";
+        if (justizRueckfrageEntwurfMeta) justizRueckfrageEntwurfMeta.textContent = "";
         justizAnhaengeSection.style.display = "none"; // PR8
 
         // Formular-Editor: Kategorie vorauswählen, wenn Rechte vorhanden
@@ -1156,6 +1200,8 @@ function justizAntraegeRendern(liste) {
       ausgewaehlterJustizAntragId = a.id;
       justizStatusResult.textContent = "";
       justizRueckfrageMeta.textContent = "";
+      if (justizNotizEntwurfMeta) justizNotizEntwurfMeta.textContent = "";
+      if (justizRueckfrageEntwurfMeta) justizRueckfrageEntwurfMeta.textContent = "";
       nuiAufruf("hm_bp:justiz_details_laden", { antragId: a.id });
       justizAntraegeRendern(arr);
     });
@@ -1247,19 +1293,7 @@ function justizVerlaufRendern(timeline) {
   }
 
   for (const e of arr) {
-    const meta = `${e.created_at} | ${e.entry_type} | ${e.visibility} | ${e.author_name || "-"}`;
-    let text = "";
-    try {
-      const c = typeof e.content === "string" ? JSON.parse(e.content) : e.content;
-      text = c && c.text ? c.text : JSON.stringify(c);
-    } catch {
-      text = String(e.content || "");
-    }
-
-    const div = document.createElement("div");
-    div.className = "eintrag";
-    div.innerHTML = `<div class="meta">${escapeHtml(meta)}</div><div>${escapeHtml(text)}</div>`;
-    justizVerlauf.appendChild(div);
+    justizVerlauf.appendChild(verlaufEintragRendern(e, true));
   }
 }
 
@@ -1361,9 +1395,9 @@ function bearbeiterSelectFuellen(selectedIdentifier) {
     const o = document.createElement("option");
     o.value = b.identifier;
 
-    const onlineTag = b.online ? "ONLINE" : "OFFLINE";
+    const onlineTag = b.online ? "Online" : "Nicht verfügbar";
     const jobTag = (b.job || "").toUpperCase();
-    o.textContent = `[${onlineTag}] ${b.name} (${jobTag} / Grad ${b.grade})`;
+    o.textContent = `[${onlineTag}] ${b.name} (${jobTag} / Rang ${b.grade})`;
 
     if (selectedIdentifier && b.identifier === selectedIdentifier) o.selected = true;
     justizBearbeiterSelect.appendChild(o);
@@ -1408,12 +1442,18 @@ function setBearbeitungNachRegeln() {
 
     btnJustizInterneNotiz.disabled = true;
     justizInterneNotizText.disabled = true;
+    if (btnJustizNotizEntwurfSpeichern) btnJustizNotizEntwurfSpeichern.disabled = true;
+    if (btnJustizNotizEntwurfLaden) btnJustizNotizEntwurfLaden.disabled = true;
+    if (btnJustizNotizEntwurfLoeschen) btnJustizNotizEntwurfLoeschen.disabled = true;
 
     btnJustizOeffentlicheAntwort.disabled = true;
     justizOeffentlicheAntwortText.disabled = true;
 
     btnJustizRueckfrageStellen.disabled = true;
     justizRueckfrageText.disabled = true;
+    if (btnJustizRueckfrageEntwurfSpeichern) btnJustizRueckfrageEntwurfSpeichern.disabled = true;
+    if (btnJustizRueckfrageEntwurfLaden) btnJustizRueckfrageEntwurfLaden.disabled = true;
+    if (btnJustizRueckfrageEntwurfLoeschen) btnJustizRueckfrageEntwurfLoeschen.disabled = true;
     if (btnJustizPdfExport) btnJustizPdfExport.disabled = true;
     return;
   }
@@ -1437,12 +1477,18 @@ function setBearbeitungNachRegeln() {
 
     btnJustizInterneNotiz.disabled = true;
     justizInterneNotizText.disabled = true;
+    if (btnJustizNotizEntwurfSpeichern) btnJustizNotizEntwurfSpeichern.disabled = true;
+    if (btnJustizNotizEntwurfLaden) btnJustizNotizEntwurfLaden.disabled = true;
+    if (btnJustizNotizEntwurfLoeschen) btnJustizNotizEntwurfLoeschen.disabled = true;
 
     btnJustizOeffentlicheAntwort.disabled = true;
     justizOeffentlicheAntwortText.disabled = true;
 
     btnJustizRueckfrageStellen.disabled = true;
     justizRueckfrageText.disabled = true;
+    if (btnJustizRueckfrageEntwurfSpeichern) btnJustizRueckfrageEntwurfSpeichern.disabled = true;
+    if (btnJustizRueckfrageEntwurfLaden) btnJustizRueckfrageEntwurfLaden.disabled = true;
+    if (btnJustizRueckfrageEntwurfLoeschen) btnJustizRueckfrageEntwurfLoeschen.disabled = true;
     // PDF-Export auch bei Sperre erlaubt (nur Lesezugriff nötig)
     if (btnJustizPdfExport) btnJustizPdfExport.disabled = false;
     return;
@@ -1473,6 +1519,9 @@ function setBearbeitungNachRegeln() {
   const note = (a.interneNotizSchreiben === true);
   btnJustizInterneNotiz.disabled = !note;
   justizInterneNotizText.disabled = !note;
+  if (btnJustizNotizEntwurfSpeichern) btnJustizNotizEntwurfSpeichern.disabled = !note;
+  if (btnJustizNotizEntwurfLaden) btnJustizNotizEntwurfLaden.disabled = !note;
+  if (btnJustizNotizEntwurfLoeschen) btnJustizNotizEntwurfLoeschen.disabled = !note;
 
   const pub = (a.oeffentlicheAntwortSchreiben === true);
   btnJustizOeffentlicheAntwort.disabled = !pub;
@@ -1481,6 +1530,9 @@ function setBearbeitungNachRegeln() {
   const rq = (a.rueckfrageStellen === true);
   btnJustizRueckfrageStellen.disabled = !rq;
   justizRueckfrageText.disabled = !rq;
+  if (btnJustizRueckfrageEntwurfSpeichern) btnJustizRueckfrageEntwurfSpeichern.disabled = !rq;
+  if (btnJustizRueckfrageEntwurfLaden) btnJustizRueckfrageEntwurfLaden.disabled = !rq;
+  if (btnJustizRueckfrageEntwurfLoeschen) btnJustizRueckfrageEntwurfLoeschen.disabled = !rq;
 
   // PDF-Export ist immer erlaubt, solange ein Antrag ausgewählt ist (Justiz/Admin)
   if (btnJustizPdfExport) btnJustizPdfExport.disabled = false;
@@ -2216,6 +2268,39 @@ btnJustizInterneNotiz.addEventListener("click", async () => {
   nuiAufruf("hm_bp:justiz_details_laden", { antragId: ausgewaehlterJustizAntragId });
 });
 
+// Entwurf-Buttons: Interne Notiz
+if (btnJustizNotizEntwurfSpeichern) {
+  btnJustizNotizEntwurfSpeichern.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizNotizEntwurfSpeichern.disabled) return;
+    const text = (justizInterneNotizText.value || "").trim();
+    if (!text) return fehlerAnzeigen("Entwurfstext ist leer.");
+    justizNotizEntwurfMeta.textContent = "Wird gespeichert…";
+    nuiAufruf("hm_bp:entwurf_speichern", { antragId: ausgewaehlterJustizAntragId, typ: "internal_note", text });
+  });
+}
+
+if (btnJustizNotizEntwurfLaden) {
+  btnJustizNotizEntwurfLaden.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizNotizEntwurfLaden.disabled) return;
+    justizNotizEntwurfMeta.textContent = "Entwurf wird geladen…";
+    nuiAufruf("hm_bp:entwurf_laden", { antragId: ausgewaehlterJustizAntragId, typ: "internal_note" });
+  });
+}
+
+if (btnJustizNotizEntwurfLoeschen) {
+  btnJustizNotizEntwurfLoeschen.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizNotizEntwurfLoeschen.disabled) return;
+    justizNotizEntwurfMeta.textContent = "Entwurf wird gelöscht…";
+    nuiAufruf("hm_bp:entwurf_loeschen", { antragId: ausgewaehlterJustizAntragId, typ: "internal_note" });
+  });
+}
+
 btnJustizOeffentlicheAntwort.addEventListener("click", async () => {
   fehlerVerstecken();
   if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
@@ -2251,6 +2336,39 @@ btnJustizRueckfrageStellen.addEventListener("click", async () => {
   justizRueckfrageMeta.textContent = "Rückfrage wird gesendet…";
   await nuiAufruf("hm_bp:justiz_rueckfrage_stellen", { antragId: ausgewaehlterJustizAntragId, text });
 });
+
+// Entwurf-Buttons: Rückfrage
+if (btnJustizRueckfrageEntwurfSpeichern) {
+  btnJustizRueckfrageEntwurfSpeichern.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizRueckfrageEntwurfSpeichern.disabled) return;
+    const text = (justizRueckfrageText.value || "").trim();
+    if (!text) return fehlerAnzeigen("Entwurfstext ist leer.");
+    justizRueckfrageEntwurfMeta.textContent = "Wird gespeichert…";
+    nuiAufruf("hm_bp:entwurf_speichern", { antragId: ausgewaehlterJustizAntragId, typ: "question", text });
+  });
+}
+
+if (btnJustizRueckfrageEntwurfLaden) {
+  btnJustizRueckfrageEntwurfLaden.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizRueckfrageEntwurfLaden.disabled) return;
+    justizRueckfrageEntwurfMeta.textContent = "Entwurf wird geladen…";
+    nuiAufruf("hm_bp:entwurf_laden", { antragId: ausgewaehlterJustizAntragId, typ: "question" });
+  });
+}
+
+if (btnJustizRueckfrageEntwurfLoeschen) {
+  btnJustizRueckfrageEntwurfLoeschen.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizRueckfrageEntwurfLoeschen.disabled) return;
+    justizRueckfrageEntwurfMeta.textContent = "Entwurf wird gelöscht…";
+    nuiAufruf("hm_bp:entwurf_loeschen", { antragId: ausgewaehlterJustizAntragId, typ: "question" });
+  });
+}
 
 // PR11: PDF-Export
 if (btnJustizPdfExport) {
@@ -2613,6 +2731,47 @@ window.addEventListener("message", (event) => {
     }
   }
 
+  if (msg.typ === "hm_bp:entwurf:speichern_antwort") {
+    const payload = msg.payload || {};
+    const isNotiz = (payload.typ === "internal_note");
+    const metaEl = isNotiz ? justizNotizEntwurfMeta : justizRueckfrageEntwurfMeta;
+    if (!payload.ok) {
+      if (metaEl) metaEl.textContent = "";
+      return fehlerAnzeigen(payload.fehler?.nachricht || "Entwurf konnte nicht gespeichert werden.");
+    }
+    const ts = payload.updated_at ? new Date(payload.updated_at).toLocaleString("de-DE") : "";
+    if (metaEl) metaEl.textContent = ts ? `Zuletzt gespeichert: ${ts}` : "Entwurf gespeichert.";
+  }
+
+  if (msg.typ === "hm_bp:entwurf:laden_antwort") {
+    const payload = msg.payload || {};
+    const isNotiz = (payload.typ === "internal_note");
+    const textEl = isNotiz ? justizInterneNotizText : justizRueckfrageText;
+    const metaEl = isNotiz ? justizNotizEntwurfMeta : justizRueckfrageEntwurfMeta;
+    if (!payload.ok) {
+      if (metaEl) metaEl.textContent = "";
+      return fehlerAnzeigen(payload.fehler?.nachricht || "Entwurf konnte nicht geladen werden.");
+    }
+    if (payload.entwurf) {
+      if (textEl) textEl.value = payload.entwurf.text || "";
+      const ts = payload.entwurf.updated_at ? new Date(payload.entwurf.updated_at).toLocaleString("de-DE") : "";
+      if (metaEl) metaEl.textContent = ts ? `Zuletzt gespeichert: ${ts}` : "Entwurf geladen.";
+    } else {
+      if (metaEl) metaEl.textContent = "Kein Entwurf vorhanden.";
+    }
+  }
+
+  if (msg.typ === "hm_bp:entwurf:loeschen_antwort") {
+    const payload = msg.payload || {};
+    const isNotiz = (payload.typ === "internal_note");
+    const metaEl = isNotiz ? justizNotizEntwurfMeta : justizRueckfrageEntwurfMeta;
+    if (!payload.ok) {
+      if (metaEl) metaEl.textContent = "";
+      return fehlerAnzeigen(payload.fehler?.nachricht || "Entwurf konnte nicht gelöscht werden.");
+    }
+    if (metaEl) metaEl.textContent = payload.geloescht ? "Entwurf gelöscht." : "Kein Entwurf vorhanden.";
+  }
+
 if (msg.typ === "hm_bp:antrag:details_mein_antwort") {  
     const payload = msg.payload || {};
     if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Details konnten nicht geladen werden.");
@@ -2753,7 +2912,7 @@ function pdfExportGenerierenUndDrucken(daten) {
     const autor = esc(eintrag.author_name || "System");
     const datum = esc(eintrag.created_at || "");
     verlaufHtml += `<div class="verlauf-item">
-      <div class="verlauf-meta">${esc(eintrag.entry_type || "")}${vis} – ${autor} – ${datum}</div>
+      <div class="verlauf-meta">${esc(eintragtypLabel(eintrag.entry_type))}${vis} – ${autor} – ${datum}</div>
       <div>${inhalt}</div>
     </div>`;
   }
@@ -3842,7 +4001,7 @@ async function adminJobSettingsLaden() {
 
   jobSettingsJobListeAnzeigen();
   if (jobSettingsGradeListe) jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Bitte einen Job ausw\u00e4hlen.</div>";
-  if (jobSettingsPermGrid)   jobSettingsPermGrid.innerHTML   = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermGrid)   jobSettingsPermGrid.innerHTML   = "<div class='muted' style='padding:8px;'>Bitte einen Rang ausw\u00e4hlen.</div>";
   if (jobSettingsPermTitel)  jobSettingsPermTitel.textContent = "Berechtigungen";
 }
 
@@ -3878,7 +4037,7 @@ function jobSettingsJobAuswaehlen(jobName) {
       : "";
   });
 
-  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Rang ausw\u00e4hlen.</div>";
   if (jobSettingsPermTitel) jobSettingsPermTitel.textContent = "Berechtigungen";
   jobSettingsGradeListeAnzeigen(jobName);
 }
@@ -3889,7 +4048,7 @@ function jobSettingsGradeListeAnzeigen(jobName) {
   const jobDef = ((jobSettingsDaten.Jobs) || {})[jobName] || {};
   const grades = Array.isArray(jobDef.grades) ? jobDef.grades : [];
   if (grades.length === 0) {
-    jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine Grades definiert.</div>";
+    jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine R\u00e4nge definiert.</div>";
     return;
   }
   const sortedGrades = [...grades].sort((a, b) => (a.grade ?? 0) - (b.grade ?? 0));
@@ -3898,8 +4057,8 @@ function jobSettingsGradeListeAnzeigen(jobName) {
     btn.className = "admin-crud-item";
     btn.style.cssText = "cursor:pointer; width:100%; text-align:left; background:none; border:none; padding:6px 8px;";
     btn.dataset.grade = String(g.grade);
-    btn.setAttribute("aria-label", `Grade ${g.grade}${g.name ? ", " + g.name : ""}`);
-    btn.innerHTML = `<strong>Grade ${escapeHtml(String(g.grade))}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(g.name || "")}</span>`;
+    btn.setAttribute("aria-label", `Rang ${g.grade}${g.name ? ", " + g.name : ""}`);
+    btn.innerHTML = `<strong>Rang ${escapeHtml(String(g.grade))}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(g.name || "")}</span>`;
     btn.addEventListener("click", () => jobSettingsGradeAuswaehlen(jobName, g.grade));
     jobSettingsGradeListe.appendChild(btn);
   }
@@ -3927,7 +4086,7 @@ function jobSettingsPermAnzeigen(jobName, gradeNum) {
   const gradPerms    = (jobDef.gradPermissions || {})[gradeNum] || { allow: [], deny: [] };
 
   if (jobSettingsPermTitel) {
-    jobSettingsPermTitel.textContent = `Berechtigungen – ${jobName} Grade ${gradeNum}${gradeName ? " (" + gradeName + ")" : ""}`;
+    jobSettingsPermTitel.textContent = `Berechtigungen – ${jobName} Rang ${gradeNum}${gradeName ? " (" + gradeName + ")" : ""}`;
   }
 
   const globalAllow = rolleDefault.allow || [];
@@ -4088,7 +4247,7 @@ function jobSettingsGradeHinzufuegen() {
   const gradeNum  = parseInt(jobSettingsNeuerGrade ? jobSettingsNeuerGrade.value : "");
   const gradeName = jobSettingsNeuerGradeName ? jobSettingsNeuerGradeName.value.trim() : "";
   if (isNaN(gradeNum) || gradeNum < 0) {
-    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte eine g\u00fcltige Grade-Nummer eingeben."; jobSettingsMeta.style.color = "#eb5757"; }
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte eine g\u00fcltige Rang-Nummer eingeben."; jobSettingsMeta.style.color = "#eb5757"; }
     return;
   }
   const jobDef = ((jobSettingsDaten.Jobs) || {})[jobSettingsAktivJob];
@@ -4098,22 +4257,22 @@ function jobSettingsGradeHinzufuegen() {
   }
   if (!Array.isArray(jobDef.grades)) jobDef.grades = [];
   if (jobDef.grades.find(g => g.grade === gradeNum)) {
-    if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${gradeNum} existiert bereits.`; jobSettingsMeta.style.color = "#eb5757"; }
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = `Rang ${gradeNum} existiert bereits.`; jobSettingsMeta.style.color = "#eb5757"; }
     return;
   }
-  jobDef.grades.push({ grade: gradeNum, name: gradeName || `Grade ${gradeNum}` });
+  jobDef.grades.push({ grade: gradeNum, name: gradeName || `Rang ${gradeNum}` });
   if (jobSettingsNeuerGrade)     jobSettingsNeuerGrade.value     = "";
   if (jobSettingsNeuerGradeName) jobSettingsNeuerGradeName.value = "";
-  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${gradeNum} hinzugef\u00fcgt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Rang ${gradeNum} hinzugef\u00fcgt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
   jobSettingsGradeListeAnzeigen(jobSettingsAktivJob);
 }
 
 function jobSettingsGradeEntfernen() {
   if (!jobSettingsAktivJob || jobSettingsAktivGrade === null) {
-    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte zuerst einen Grade ausw\u00e4hlen."; jobSettingsMeta.style.color = "#eb5757"; }
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte zuerst einen Rang ausw\u00e4hlen."; jobSettingsMeta.style.color = "#eb5757"; }
     return;
   }
-  if (!confirm(`Grade ${jobSettingsAktivGrade} aus Job "${jobSettingsAktivJob}" entfernen?`)) return;
+  if (!confirm(`Rang ${jobSettingsAktivGrade} aus Job "${jobSettingsAktivJob}" entfernen?`)) return;
   const jobDef = ((jobSettingsDaten.Jobs) || {})[jobSettingsAktivJob];
   if (!jobDef) return;
   if (Array.isArray(jobDef.grades)) {
@@ -4122,9 +4281,9 @@ function jobSettingsGradeEntfernen() {
   if (jobDef.gradPermissions) {
     delete jobDef.gradPermissions[jobSettingsAktivGrade];
   }
-  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${jobSettingsAktivGrade} entfernt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Rang ${jobSettingsAktivGrade} entfernt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
   jobSettingsAktivGrade = null;
-  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Rang ausw\u00e4hlen.</div>";
   if (jobSettingsPermTitel) jobSettingsPermTitel.textContent = "Berechtigungen";
   jobSettingsGradeListeAnzeigen(jobSettingsAktivJob);
 }

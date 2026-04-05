@@ -120,7 +120,7 @@
 
             <div class="feld">
               <div class="label">Antwort an die Justiz</div>
-              <textarea id="buergerAntwortText" placeholder="Antwort... (nur wenn Rückfrage offen ist)"></textarea>
+              <textarea id="buergerAntwortText" placeholder="Antwort eingeben… (nur wenn Rückfrage offen ist)"></textarea>
               <button id="btnBuergerAntwortSenden" class="btn" type="button">Antwort senden</button>
               <div class="muted" id="buergerAntwortMeta"></div>
             </div>
@@ -308,19 +308,35 @@
 
             <div class="feld">
               <div class="label">Kommunikation</div>
-              <textarea id="justizInterneNotizText" placeholder="Interne Notiz..."></textarea>
-              <button id="btnJustizInterneNotiz" class="btn btn-secondary" type="button">Interne Notiz speichern</button>
+
+              <div class="label muted" style="font-size:0.85em;">Interne Notiz</div>
+              <textarea id="justizInterneNotizText" placeholder="Interne Notiz eingeben…"></textarea>
+              <div class="btn-gruppe" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                <button id="btnJustizInterneNotiz" class="btn btn-secondary" type="button">Notiz speichern</button>
+                <button id="btnJustizNotizEntwurfSpeichern" class="btn btn-secondary" type="button">Entwurf speichern</button>
+                <button id="btnJustizNotizEntwurfLaden" class="btn btn-secondary" type="button">Entwurf laden</button>
+                <button id="btnJustizNotizEntwurfLoeschen" class="btn btn-secondary" type="button">Entwurf löschen</button>
+              </div>
+              <div class="muted" id="justizNotizEntwurfMeta" style="margin-top:4px;"></div>
 
               <div class="trenner"></div>
 
-              <textarea id="justizOeffentlicheAntwortText" placeholder="Öffentliche Antwort an den Bürger..."></textarea>
+              <div class="label muted" style="font-size:0.85em;">Öffentliche Antwort</div>
+              <textarea id="justizOeffentlicheAntwortText" placeholder="Öffentliche Antwort an den Bürger eingeben…"></textarea>
               <button id="btnJustizOeffentlicheAntwort" class="btn" type="button">Öffentliche Antwort senden</button>
 
               <div class="trenner"></div>
 
-              <textarea id="justizRueckfrageText" placeholder="Rückfrage an den Bürger..."></textarea>
-              <button id="btnJustizRueckfrageStellen" class="btn btn-secondary" type="button">Rückfrage stellen</button>
-              <div class="muted" id="justizRueckfrageMeta"></div>
+              <div class="label muted" style="font-size:0.85em;">Rückfrage</div>
+              <textarea id="justizRueckfrageText" placeholder="Rückfrage an den Bürger eingeben…"></textarea>
+              <div class="btn-gruppe" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                <button id="btnJustizRueckfrageStellen" class="btn btn-secondary" type="button">Rückfrage stellen</button>
+                <button id="btnJustizRueckfrageEntwurfSpeichern" class="btn btn-secondary" type="button">Entwurf speichern</button>
+                <button id="btnJustizRueckfrageEntwurfLaden" class="btn btn-secondary" type="button">Entwurf laden</button>
+                <button id="btnJustizRueckfrageEntwurfLoeschen" class="btn btn-secondary" type="button">Entwurf löschen</button>
+              </div>
+              <div class="muted" id="justizRueckfrageEntwurfMeta" style="margin-top:4px;"></div>
+              <div class="muted" id="justizRueckfrageMeta" style="margin-top:2px;"></div>
             </div>
           </div>
 
@@ -404,8 +420,8 @@
 
                   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
-                      <div class="muted" style="margin:0 0 6px 0;">Key</div>
-                      <input id="formEditorFieldKey" type="text" placeholder="z.B. phone" />
+                      <div class="muted" style="margin:0 0 6px 0;">Feldschlüssel</div>
+                      <input id="formEditorFieldKey" type="text" placeholder="z.B. telefon" />
                     </div>
                     <div>
                       <div class="muted" style="margin:0 0 6px 0;">Typ</div>
@@ -420,7 +436,7 @@
                         <option value="checkbox">Checkbox (Ja/Nein)</option>
                         <option value="select">Dropdown (Einfachauswahl)</option>
                         <option value="multiselect">Mehrfachauswahl</option>
-                        <option value="radio">Radio-Buttons</option>
+                        <option value="radio">Radio-Schaltflächen</option>
                         <option value="url">URL / Link</option>
                         <option value="license_plate">Kennzeichen</option>
                         <option value="player_reference">Spieler-Referenz</option>
@@ -435,12 +451,12 @@
 
                   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div>
-                      <div class="muted" style="margin:0 0 6px 0;">Label</div>
-                      <input id="formEditorFieldLabel" type="text" placeholder="Label" />
+                      <div class="muted" style="margin:0 0 6px 0;">Bezeichnung</div>
+                      <input id="formEditorFieldLabel" type="text" placeholder="Bezeichnung" />
                     </div>
                     <div>
-                      <div class="muted" style="margin:0 0 6px 0;">Placeholder</div>
-                      <input id="formEditorFieldPlaceholder" type="text" placeholder="Placeholder (optional)" />
+                      <div class="muted" style="margin:0 0 6px 0;">Platzhaltertext</div>
+                      <input id="formEditorFieldPlaceholder" type="text" placeholder="Platzhaltertext (optional)" />
                     </div>
                   </div>
 
@@ -524,7 +540,7 @@ Option B'></textarea>
               <button class="tab admin-subtab" data-subtab="Status">Status/Workflow</button>
               <button class="tab admin-subtab" data-subtab="Webhooks">Webhooks</button>
               <button class="tab admin-subtab" data-subtab="Module">Module</button>
-              <button class="tab admin-subtab" data-subtab="JobSettings">JobSettings</button>
+              <button class="tab admin-subtab" data-subtab="JobSettings">Job-Einstellungen</button>
               <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
             </div>
 
@@ -609,28 +625,28 @@ Option B'></textarea>
                 <div style="min-width:200px; max-width:240px; flex-shrink:0;">
                   <div class="admin-form-section-title" style="margin-bottom:6px;">Jobs</div>
                   <div id="jobSettingsJobListe" class="admin-crud-list" style="max-height:200px; overflow-y:auto;"></div>
-                  <div class="admin-form-section-title" style="margin:10px 0 6px;">Grades</div>
+                  <div class="admin-form-section-title" style="margin:10px 0 6px;">Ränge</div>
                   <div id="jobSettingsGradeListe" class="admin-crud-list" style="max-height:300px; overflow-y:auto;">
                     <div class="muted" style="padding:8px;">Bitte zuerst einen Job auswählen.</div>
                   </div>
-                  <!-- Grade hinzufügen / entfernen -->
+                  <!-- Rang hinzufügen / entfernen -->
                   <div style="margin-top:8px; display:flex; gap:6px; align-items:center;">
-                    <input id="jobSettingsNeuerGrade"     type="number" min="0" placeholder="Grade Nr." style="width:90px;" />
-                    <input id="jobSettingsNeuerGradeName" type="text"   placeholder="Name"              style="flex:1;" />
+                    <input id="jobSettingsNeuerGrade"     type="number" min="0" placeholder="Rang Nr." style="width:90px;" />
+                    <input id="jobSettingsNeuerGradeName" type="text"   placeholder="Bezeichnung"      style="flex:1;" />
                   </div>
                   <div style="margin-top:6px; display:flex; gap:6px;">
-                    <button id="btnJobSettingsGradeHinzu"   class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em;">+ Grade</button>
-                    <button id="btnJobSettingsGradeEntf"    class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em; color:#eb5757;">− Grade</button>
+                    <button id="btnJobSettingsGradeHinzu"   class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em;">+ Rang</button>
+                    <button id="btnJobSettingsGradeEntf"    class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em; color:#eb5757;">− Rang</button>
                   </div>
                 </div>
-                <!-- Rechte Spalte: Permission-Matrix für ausgewählten Grade -->
+                <!-- Rechte Spalte: Permission-Matrix für ausgewählten Rang -->
                 <div style="flex:1; min-width:280px;">
                   <div class="admin-form-section-title" style="margin-bottom:6px;" id="jobSettingsPermTitel">Berechtigungen</div>
                   <div class="muted" style="margin-bottom:6px; font-size:0.85em;">
                     ✓ = explizit erlaubt (Override) &nbsp;·&nbsp; ✗ = explizit verweigert (Override) &nbsp;·&nbsp; <span style="opacity:0.6;">●</span> = geerbt (globale Defaults)
                   </div>
                   <div id="jobSettingsPermGrid" style="max-height:480px; overflow-y:auto;">
-                    <div class="muted" style="padding:8px;">Bitte zuerst einen Grade auswählen.</div>
+                    <div class="muted" style="padding:8px;">Bitte zuerst einen Rang auswählen.</div>
                   </div>
                 </div>
               </div>
@@ -645,7 +661,7 @@ Option B'></textarea>
                 <input id="auditFilterActorName"   type="text"   placeholder="Akteur (Name)" style="width:140px;" />
                 <input id="auditFilterAktion"      type="text"   placeholder="Aktion (exakt)" style="width:150px;" />
                 <input id="auditFilterPublicId"    type="text"   placeholder="Aktenzeichen" style="width:130px;" />
-                <input id="auditFilterRequestId"   type="text"   placeholder="Request-ID" style="width:140px;" />
+                <input id="auditFilterRequestId"   type="text"   placeholder="Anfrage-ID" style="width:140px;" />
                 <button id="btnAuditSuchen"  class="btn"           type="button">Suchen</button>
                 <button id="btnAuditZurueck" class="btn btn-secondary" type="button">Zurücksetzen</button>
               </div>
