@@ -377,6 +377,9 @@ Config.Permissions = {
         -- Anhänge: Bürger darf hinzufügen (Status-Prüfung im Service) und eigene ansehen
         "attachment.add",
         "attachment.view",
+        -- Delegation (PR3): Bürger (z.B. als Anwalt) darf im Auftrag einreichen
+        "delegate.submit_for_citizen",
+        "delegate.submit_for_company",
       },
       deny  = {},
     },
@@ -415,6 +418,12 @@ Config.Permissions = {
         "attachment.remove",
         -- Export: Justiz darf PDFs exportieren (PR11)
         "export.pdf",
+        -- Delegation (PR3): Justiz darf Hilfsantrag erstellen + im Auftrag einreichen
+        "delegate.submit_for_citizen",
+        "delegate.submit_for_company",
+        "delegate.justice_create_for_citizen",
+        -- Vollmacht ansehen (Leitung/Admin über Grade-Override schreiben)
+        "vollmacht.view",
       },
       deny  = {},
     },
@@ -1575,7 +1584,8 @@ Config.Module = {
   -- Unterstützt wasabi_banking/wasabi_billing (Primär) und esx_banking/esx_billing (Fallback).
   Gebuehren        = true,
 
-  -- Delegation: Anträge an andere Bearbeiter weiterdelegieren (Implementierung folgt).
+  -- Delegation: Im-Auftrag-Einreichung (Anwalt/Firmenvertreter/Justiz-Hilfsantrag).
+  -- PR3: Vollständig implementiert. Hier auf false lassen = default OFF.
   Delegation       = false,
 
   -- Entwürfe: Bürger kann Anträge als Entwurf speichern.
@@ -1715,4 +1725,49 @@ Config.SLA = {
 
   -- Intervall des SLA-Checkers in Sekunden.
   TickIntervalSekunden = 60,
+}
+
+-- =============================================================
+-- Config.Delegation
+-- Delegation / Stellvertretung (PR3)
+--
+-- Ermöglicht das Einreichen von Anträgen im Auftrag anderer:
+--   A) Anwalt/Bevollmächtigter → für einen Bürger
+--   B) Firmenvertreter         → für eine Firma
+--   C) Justiz/Admin            → Hilfsantrag im Namen eines Bürgers
+--
+-- Auswahl ausschließlich über Ingame-Name (online Spieler).
+-- Vollmacht: optionales Prüfsystem (default OFF).
+--
+-- Aktiviert wird das Feature über Config.Module.Delegation = true.
+-- =============================================================
+Config.Delegation = {
+
+  -- Vollmacht-Prüfsystem.
+  -- Wenn Aktiviert = true: Delegation A (Bürger) und B (Firma) sind
+  -- NUR erlaubt, wenn eine gültige Vollmacht in hm_bp_vollmachten
+  -- vorhanden ist. Justiz-Hilfsantrag (Typ C) ist davon NICHT betroffen.
+  -- Sicherheitsrelevant: explicit opt-in erforderlich (default false).
+  -- Setze auf true, wenn dein RP-Server Vollmachten operativ nutzt.
+  -- default OFF = Delegation ohne Vollmacht-Prüfung erlaubt.
+  Vollmacht = {
+    Aktiviert = false,
+  },
+
+  -- Suche: Maximale Treffer bei der Ingame-Namenssuche.
+  MaxSuchergebnisse = 20,
+
+  -- Welche Rollen dürfen welche Delegationstypen nutzen.
+  -- Wird ZUSÄTZLICH zu den Permission-Actions geprüft.
+  -- (Permission-Actions sind die kanonischen Checks, diese Tabelle
+  --  dient nur als schnelle Übersicht / Dokumentation.)
+  --
+  -- delegate.submit_for_citizen        → Anwalt/Bevollmächtigter für Bürger
+  -- delegate.submit_for_company        → Firmenvertreter für Firma
+  -- delegate.justice_create_for_citizen → Justiz/Admin Hilfsantrag für Bürger
+  ErlaubteTypen = {
+    buerger = { "submit_for_citizen", "submit_for_company" },
+    justiz  = { "submit_for_citizen", "submit_for_company", "justice_create_for_citizen" },
+    admin   = { "submit_for_citizen", "submit_for_company", "justice_create_for_citizen" },
+  },
 }

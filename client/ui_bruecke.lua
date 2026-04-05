@@ -86,7 +86,8 @@ RegisterNUICallback("hm_bp:antrag_einreichen", function(daten, cb)
   TriggerServerEvent("hm_bp:antrag:einreichen", {
     standortId = letzterStandort,
     formularId = daten.formularId,
-    antworten = daten.antworten
+    antworten  = daten.antworten,
+    delegation = daten.delegation,  -- PR3: optional { typ, ziel_source }
   })
   cb({ ok = true })
 end)
@@ -240,6 +241,37 @@ RegisterNUICallback("hm_bp:export_pdf_starten", function(daten, cb)
 end)
 
 -- ==========================
+-- Delegation / Stellvertretung (PR3)
+-- ==========================
+RegisterNUICallback("hm_bp:delegation_online_spieler_suchen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:delegation:online_spieler_suchen", { name = daten.name })
+  cb({ ok = true })
+end)
+
+RegisterNUICallback("hm_bp:delegation_vollmacht_anlegen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:delegation:vollmacht_anlegen", {
+    typ                       = daten.typ,
+    auftraggeber_source       = daten.auftraggeber_source,
+    bevollmaechtigter_source  = daten.bevollmaechtigter_source,
+  })
+  cb({ ok = true })
+end)
+
+RegisterNUICallback("hm_bp:delegation_vollmacht_widerrufen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:delegation:vollmacht_widerrufen", { vollmacht_id = daten.vollmacht_id })
+  cb({ ok = true })
+end)
+
+RegisterNUICallback("hm_bp:delegation_vollmachten_laden", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:delegation:vollmachten_listen", { typ = daten.typ, nur_aktiv = daten.nur_aktiv })
+  cb({ ok = true })
+end)
+
+-- ==========================
 -- Formular-Editor (Direkte NUI-Callbacks mit Promise/Await)
 -- ==========================
 -- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
@@ -357,6 +389,12 @@ RegisterNetEvent("hm_bp:debug:oeffentliche_id_test_antwort", function(payload) s
 
 -- PR11: PDF-Export Antwort (Daten + Discord-Status)
 RegisterNetEvent("hm_bp:export:pdf_daten_antwort", function(payload) sende("hm_bp:export:pdf_daten_antwort", payload) end)
+
+-- PR3: Delegation / Stellvertretung
+RegisterNetEvent("hm_bp:delegation:online_spieler_ergebnis", function(payload) sende("hm_bp:delegation:online_spieler_ergebnis", payload) end)
+RegisterNetEvent("hm_bp:delegation:vollmacht_anlegen_antwort", function(payload) sende("hm_bp:delegation:vollmacht_anlegen_antwort", payload) end)
+RegisterNetEvent("hm_bp:delegation:vollmacht_widerrufen_antwort", function(payload) sende("hm_bp:delegation:vollmacht_widerrufen_antwort", payload) end)
+RegisterNetEvent("hm_bp:delegation:vollmachten_ergebnis", function(payload) sende("hm_bp:delegation:vollmachten_ergebnis", payload) end)
 
 function HM_BP.Client.UIOeffnen(kontext)
   if uiOffen then return end

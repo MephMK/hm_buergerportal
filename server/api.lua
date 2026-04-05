@@ -49,7 +49,9 @@ RegisterNetEvent("hm_bp:portal:daten_anfordern", function(payload)
           and HM_BP.Server.Dienste.WorkflowService.IstLeitung
           and HM_BP.Server.Dienste.WorkflowService.IstLeitung(spieler)) and true or false,
       },
-      standort = standort and { id = standort.id, name = standort.name } or nil
+      standort = standort and { id = standort.id, name = standort.name } or nil,
+      -- PR3: Delegation aktiviert?
+      delegation_aktiviert = (Config.Module and Config.Module.Delegation == true),
     }
   })
 end)
@@ -184,14 +186,15 @@ RegisterNetEvent("hm_bp:antrag:einreichen", function(payload)
 
   local standortId = payload.standortId
   local formularId = payload.formularId
-  local antworten = payload.antworten
+  local antworten  = payload.antworten
+  local delegation = payload.delegation  -- optional: { typ, ziel_source }
 
   if not formularId or type(antworten) ~= "table" then
     TriggerClientEvent("hm_bp:antrag:einreichen_antwort", quelle, { ok = false, fehler = { nachricht = "Ungültige Daten (Formular/Antworten fehlen)." } })
     return
   end
 
-  local res, err2 = HM_BP.Server.Dienste.AntragService.Einreichen(spieler, standortId, formularId, antworten)
+  local res, err2 = HM_BP.Server.Dienste.AntragService.Einreichen(spieler, standortId, formularId, antworten, delegation)
   if not res then
     TriggerClientEvent("hm_bp:antrag:einreichen_antwort", quelle, { ok = false, fehler = err2 })
     return
@@ -200,16 +203,17 @@ RegisterNetEvent("hm_bp:antrag:einreichen", function(payload)
   -- Webhook + Ingame-Benachrichtigung (nur falls aktiviert/konfiguriert)
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
     HM_BP.Server.Dienste.WebhookService.Emit("antrag_created", {
-      submission_id = res.id,
-      public_id     = res.public_id,
-      aktenzeichen  = res.public_id,
-      category_id   = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].kategorieId) or nil,
-      form_id       = formularId,
-      akteur_name   = anzeigeNameAuflosen(quelle, spieler.name),
-      buerger_name  = anzeigeNameAuflosen(quelle, spieler.name),
-      -- citizen_identifier wird NICHT an Discord übermittelt
-      priority      = res.prioritaet,
-      status        = res.status,
+      submission_id  = res.id,
+      public_id      = res.public_id,
+      aktenzeichen   = res.public_id,
+      category_id    = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].kategorieId) or nil,
+      form_id        = formularId,
+      -- Kein Identifier-Leak: nur Anzeigenamen
+      akteur_name    = anzeigeNameAuflosen(quelle, spieler.name),
+      buerger_name   = res.buerger_name or anzeigeNameAuflosen(quelle, spieler.name),
+      delegation_typ = res.delegation_typ,
+      priority       = res.prioritaet,
+      status         = res.status,
     })
   end
 

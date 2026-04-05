@@ -481,4 +481,40 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ALTER TABLE hm_bp_submission_timeline
       ADD COLUMN IF NOT EXISTS author_role VARCHAR(16) NULL;
   ]])
+
+  -- v16: PR3 – Delegation / Stellvertretung + Vollmacht
+  -- Submissions: actor_* (wer eingereicht hat) vs. citizen_* (für wen).
+  -- Bei normalen Anträgen sind actor = citizen.
+  migrationAnwenden("v16_submissions_delegation", [[
+    ALTER TABLE hm_bp_submissions
+      ADD COLUMN IF NOT EXISTS actor_identifier VARCHAR(128) NULL,
+      ADD COLUMN IF NOT EXISTS actor_name       VARCHAR(128) NULL,
+      ADD COLUMN IF NOT EXISTS delegation_type  VARCHAR(32)  NULL;
+  ]])
+  migrationAnwenden("v16_idx_actor", [[
+    ALTER TABLE hm_bp_submissions
+      ADD INDEX IF NOT EXISTS idx_sub_actor (actor_identifier);
+  ]])
+  -- Vollmachten-Tabelle: Bürger ↔ Bevollmächtigter und Firma ↔ Firmenvertreter
+  migrationAnwenden("v16_vollmachten", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_vollmachten (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      vollmacht_typ VARCHAR(32) NOT NULL COMMENT 'buerger_anwalt | firma_vertreter',
+      auftraggeber_identifier VARCHAR(128) NOT NULL COMMENT 'Bürger oder Firma (als pseudo-ID)',
+      auftraggeber_name       VARCHAR(128) NOT NULL,
+      bevollmaechtigter_identifier VARCHAR(128) NOT NULL,
+      bevollmaechtigter_name       VARCHAR(128) NOT NULL,
+      erteilt_von_identifier  VARCHAR(128) NOT NULL COMMENT 'Justiz-Leitung/Admin der die Vollmacht angelegt hat',
+      erteilt_von_name        VARCHAR(128) NOT NULL,
+      aktiv TINYINT(1) NOT NULL DEFAULT 1,
+      erstellt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      widerrufen_at DATETIME NULL,
+      widerrufen_von_identifier VARCHAR(128) NULL,
+      widerrufen_von_name       VARCHAR(128) NULL,
+      PRIMARY KEY (id),
+      INDEX idx_vm_typ_auftraggeber (vollmacht_typ, auftraggeber_identifier),
+      INDEX idx_vm_bevollmaechtigter (bevollmaechtigter_identifier),
+      INDEX idx_vm_aktiv (aktiv)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 end

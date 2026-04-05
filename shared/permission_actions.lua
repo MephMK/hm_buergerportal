@@ -148,4 +148,18 @@ HM_BP.Shared.Actions = {
   -- -------------------------------------------------------
   -- Antrag als PDF exportieren und Discord-Webhook auslösen (nur Justiz/Admin)
   EXPORT_PDF        = "export.pdf",
+
+  -- -------------------------------------------------------
+  -- Delegation / Stellvertretung (PR3)
+  -- -------------------------------------------------------
+  -- Bürger/Anwalt: Antrag im Auftrag eines anderen Bürgers einreichen
+  DELEGATE_SUBMIT_FOR_CITIZEN          = "delegate.submit_for_citizen",
+  -- Firmenvertreter: Antrag im Auftrag einer Firma einreichen
+  DELEGATE_SUBMIT_FOR_COMPANY          = "delegate.submit_for_company",
+  -- Justiz/Admin: Hilfsantrag im Namen eines Bürgers anlegen
+  DELEGATE_JUSTICE_CREATE_FOR_CITIZEN  = "delegate.justice_create_for_citizen",
+  -- Vollmacht-Verwaltung: anlegen/entziehen (nur Justiz-Leitung/Admin)
+  VOLLMACHT_MANAGE                     = "vollmacht.manage",
+  -- Vollmacht-Übersicht ansehen
+  VOLLMACHT_VIEW                       = "vollmacht.view",
 }

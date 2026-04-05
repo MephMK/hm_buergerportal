@@ -27,6 +27,23 @@ const felderContainer = document.getElementById("felderContainer");
 const btnEinreichen = document.getElementById("btnEinreichen");
 const einreichenStatus = document.getElementById("einreichenStatus");
 
+// PR3: Delegation-Elemente (Bürger-Formular)
+const delegationBereich          = document.getElementById("delegationBereich");
+const delegationTyp              = document.getElementById("delegationTyp");
+const delegationZielBereich      = document.getElementById("delegationZielBereich");
+const delegationSuchname         = document.getElementById("delegationSuchname");
+const btnDelegationSuchen        = document.getElementById("btnDelegationSuchen");
+const delegationSuchMeta         = document.getElementById("delegationSuchMeta");
+const delegationSuchergebnisse   = document.getElementById("delegationSuchergebnisse");
+const delegationAuswahlAnzeige   = document.getElementById("delegationAuswahlAnzeige");
+// PR3: Hilfsantrag-Elemente (Justiz)
+const hilfsantragBereich         = document.getElementById("hilfsantragBereich");
+const hilfsantragSuchname        = document.getElementById("hilfsantragSuchname");
+const btnHilfsantragSuchen       = document.getElementById("btnHilfsantragSuchen");
+const hilfsantragSuchMeta        = document.getElementById("hilfsantragSuchMeta");
+const hilfsantragSuchergebnisse  = document.getElementById("hilfsantragSuchergebnisse");
+const hilfsantragAuswahlAnzeige  = document.getElementById("hilfsantragAuswahlAnzeige");
+
 const btnPublicIdTest = document.getElementById("btnPublicIdTest");
 const publicIdAusgabe = document.getElementById("publicIdAusgabe");
 
@@ -185,6 +202,13 @@ let aktuellerSpieler = { rolle: null, identifier: null };
 let aktuellesJustizRegelObjekt = null; // { sehen, aktionen }
 let aktuellerLock = null;
 let gesperrtVonAnderem = false;
+
+// PR3: Delegation State
+let delegationAktiviert = false;
+let delegationAusgewaehlterSpieler = null; // { source, name }
+let hilfsantragAusgewaehlterSpieler = null; // { source, name } für Justiz-Hilfsantrag
+let vollmachtAuftraggeberSpieler = null; // { source, name } für Vollmacht anlegen
+let vollmachtBevollmaechtigterSpieler = null; // { source, name } für Vollmacht anlegen
 
 let prioritaetenListe = [];
 let bearbeiterListe = [];
@@ -2044,7 +2068,21 @@ btnEinreichen.addEventListener("click", async () => {
   }
 
   einreichenStatus.textContent = "Wird eingereicht...";
-  await nuiAufruf("hm_bp:antrag_einreichen", { formularId: ausgewaehltesFormularId, antworten });
+
+  // PR3: Delegation zusammenbauen
+  let delegation = null;
+  if (delegationAktiviert && delegationTyp && delegationTyp.value) {
+    if (!delegationAusgewaehlterSpieler) {
+      einreichenStatus.textContent = "";
+      return fehlerAnzeigen("Bitte wähle den Ziel-Spieler für die Delegation aus.");
+    }
+    delegation = {
+      typ: delegationTyp.value,
+      ziel_source: delegationAusgewaehlterSpieler.source,
+    };
+  }
+
+  await nuiAufruf("hm_bp:antrag_einreichen", { formularId: ausgewaehltesFormularId, antworten, delegation });
 });
 
 btnBuergerAntwortSenden.addEventListener("click", async () => {
@@ -2560,6 +2598,27 @@ window.addEventListener("message", (event) => {
       adminTabEl.style.display = darfAdmin ? "" : "none";
       // Merke ob Spieler nur Leitung ist (kein voller Admin)
       adminIstNurLeitung = darfAdmin && (sp.rolle !== "admin");
+    }
+
+    // PR3: Delegation aktiviert? Bereich anzeigen wenn Spieler Berechtigung hat
+    delegationAktiviert = !!(payload.daten?.delegation_aktiviert);
+    if (delegationBereich) {
+      const darfDelegieren = delegationAktiviert &&
+        (sp.rolle === "admin" || sp.rolle === "justiz" || sp.rolle === "buerger");
+      delegationBereich.style.display = darfDelegieren ? "" : "none";
+    }
+    // Hilfsantrag: nur für Justiz/Admin anzeigen wenn Delegation aktiv
+    if (hilfsantragBereich) {
+      const darfHilfsantrag = delegationAktiviert &&
+        (sp.rolle === "admin" || sp.rolle === "justiz");
+      hilfsantragBereich.style.display = darfHilfsantrag ? "" : "none";
+    }
+    // Vollmachten-Tab für Leitung/Admin anzeigen
+    const vollmachtenTab = document.getElementById("adminSubtabVollmachten");
+    if (vollmachtenTab) {
+      const darfVollmacht = delegationAktiviert &&
+        ((sp.rolle === "admin") || (sp.ist_leitung === true));
+      vollmachtenTab.style.display = darfVollmacht ? "" : "none";
     }
   }
 
@@ -3102,20 +3161,32 @@ function adminSubtabSetzen(sektion) {
     btn.classList.toggle("active", btn.dataset.subtab === sektion);
   });
 
+  // PR3: Vollmachten-Panel
+  const vollmachtenPanelEl = document.getElementById("adminVollmachtenPanel");
+
   if (sektion === "Audit") {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "block";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
+    if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
     auditListeLaden(1);
   } else if (sektion === "JobSettings") {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "block";
+    if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
     adminJobSettingsLaden();
+  } else if (sektion === "Vollmachten") {
+    if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
+    if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
+    if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
+    if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "block";
+    vollmachtenListeLaden();
   } else {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "block";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
+    if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
     adminFormularAusblenden();
     adminModusSetzen(adminModus);
     if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = sektion;
@@ -3133,13 +3204,20 @@ function adminSubtabSetzen(sektion) {
 async function adminPanelLaden() {
   if (!adminStatusMeta) return;
 
-  // Justiz-Leitung: nur Audit-Tab laden (kein Admin-Panel)
+  // Justiz-Leitung: nur Audit-Tab (+ Vollmachten wenn Delegation aktiviert)
   if (adminIstNurLeitung) {
     if (adminPanelBox) adminPanelBox.style.display = "block";
     if (adminStatusMeta) adminStatusMeta.textContent = "";
-    // Nicht-Audit-Subtabs für Leitung ausblenden
+    // Nicht-Audit-Subtabs für Leitung ausblenden, außer Vollmachten wenn aktiv
     document.querySelectorAll(".admin-subtab").forEach(btn => {
-      btn.style.display = (btn.dataset.subtab === "Audit") ? "" : "none";
+      const subtab = btn.dataset.subtab;
+      if (subtab === "Audit") {
+        btn.style.display = "";
+      } else if (subtab === "Vollmachten" && delegationAktiviert) {
+        btn.style.display = "";
+      } else {
+        btn.style.display = "none";
+      }
     });
     adminAktiveSubsektion = "Audit";
     adminSubtabSetzen("Audit"); // loads audit list
@@ -3159,6 +3237,12 @@ async function adminPanelLaden() {
   adminPanelDaten = res.sektionen || {};
   if (adminPanelBox) adminPanelBox.style.display = "block";
   if (tabAdmin) tabAdmin.style.display = "";
+
+  // PR3: Vollmachten-Tab sichtbar machen wenn Delegation aktiv
+  const vollmachtenTabEl = document.getElementById("adminSubtabVollmachten");
+  if (vollmachtenTabEl) {
+    vollmachtenTabEl.style.display = delegationAktiviert ? "" : "none";
+  }
 
   adminSubtabSetzen(adminAktiveSubsektion);
 }
@@ -4344,6 +4428,334 @@ if (tabAdmin) {
     adminPanelLaden();
   });
 }
+
+// ==========================
+// PR3: Delegation / Stellvertretung
+// ==========================
+
+// Hilfs-Funktion: Spieler-Suchergebnisse als klickbare Liste rendern
+function delegationSpielerListeRendern(container, ergebnisse, onAuswahl) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!ergebnisse || ergebnisse.length === 0) {
+    container.innerHTML = "<div class='muted'>Keine Treffer.</div>";
+    return;
+  }
+  // Prüfe auf Doppelname
+  const nameCount = {};
+  ergebnisse.forEach(e => {
+    nameCount[e.name] = (nameCount[e.name] || 0) + 1;
+  });
+  ergebnisse.forEach(sp => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "display:block; margin-bottom:4px; text-align:left; width:100%;";
+    // Bei Doppelname: Server-ID zur Unterscheidung anzeigen (kein Identifier-Leak)
+    if (nameCount[sp.name] > 1) {
+      btn.textContent = `${sp.name} (Spieler #${sp.source})`;
+    } else {
+      btn.textContent = sp.name;
+    }
+    btn.addEventListener("click", () => onAuswahl(sp));
+    container.appendChild(btn);
+  });
+}
+
+// Delegation-Bereich: Typ-Auswahl steuert Zielbereich
+if (delegationTyp) {
+  delegationTyp.addEventListener("change", () => {
+    const gewaehlt = delegationTyp.value;
+    if (delegationZielBereich) {
+      delegationZielBereich.style.display = gewaehlt ? "" : "none";
+    }
+    // Auswahl zurücksetzen
+    delegationAusgewaehlterSpieler = null;
+    if (delegationAuswahlAnzeige) delegationAuswahlAnzeige.textContent = "";
+    if (delegationSuchergebnisse) delegationSuchergebnisse.innerHTML = "";
+    if (delegationSuchMeta) delegationSuchMeta.textContent = "";
+  });
+}
+
+// Delegation-Suche starten
+if (btnDelegationSuchen) {
+  btnDelegationSuchen.addEventListener("click", async () => {
+    if (!delegationSuchname) return;
+    const name = delegationSuchname.value.trim();
+    if (name.length < 2) {
+      if (delegationSuchMeta) delegationSuchMeta.textContent = "Bitte mindestens 2 Zeichen eingeben.";
+      return;
+    }
+    if (delegationSuchMeta) delegationSuchMeta.textContent = "Suche läuft…";
+    if (delegationSuchergebnisse) delegationSuchergebnisse.innerHTML = "";
+    await nuiAufruf("hm_bp:delegation_online_spieler_suchen", { name });
+  });
+}
+
+// Hilfsantrag-Suche starten (Justiz/Admin)
+if (btnHilfsantragSuchen) {
+  btnHilfsantragSuchen.addEventListener("click", async () => {
+    if (!hilfsantragSuchname) return;
+    const name = hilfsantragSuchname.value.trim();
+    if (name.length < 2) {
+      if (hilfsantragSuchMeta) hilfsantragSuchMeta.textContent = "Bitte mindestens 2 Zeichen eingeben.";
+      return;
+    }
+    if (hilfsantragSuchMeta) hilfsantragSuchMeta.textContent = "Suche läuft…";
+    if (hilfsantragSuchergebnisse) hilfsantragSuchergebnisse.innerHTML = "";
+    // Merke Kontext: Hilfsantrag
+    window._delegationSuchKontext = "hilfsantrag";
+    await nuiAufruf("hm_bp:delegation_online_spieler_suchen", { name });
+  });
+}
+
+// Vollmacht-Suche: Auftraggeber
+const btnVollmachtAuftraggeberSuchen = document.getElementById("btnVollmachtAuftraggeberSuchen");
+const vollmachtAuftraggeberSuche     = document.getElementById("vollmachtAuftraggeberSuche");
+const vollmachtAuftraggeberErgebnisse= document.getElementById("vollmachtAuftraggeberErgebnisse");
+const vollmachtAuftraggeberAuswahl   = document.getElementById("vollmachtAuftraggeberAuswahl");
+
+if (btnVollmachtAuftraggeberSuchen) {
+  btnVollmachtAuftraggeberSuchen.addEventListener("click", async () => {
+    const name = vollmachtAuftraggeberSuche?.value?.trim() || "";
+    if (name.length < 2) {
+      if (vollmachtAuftraggeberErgebnisse) vollmachtAuftraggeberErgebnisse.innerHTML = "<div class='muted'>Bitte mindestens 2 Zeichen eingeben.</div>";
+      return;
+    }
+    if (vollmachtAuftraggeberErgebnisse) vollmachtAuftraggeberErgebnisse.innerHTML = "<div class='muted'>Suche läuft…</div>";
+    window._delegationSuchKontext = "vollmacht_auftraggeber";
+    await nuiAufruf("hm_bp:delegation_online_spieler_suchen", { name });
+  });
+}
+
+// Vollmacht-Suche: Bevollmächtigter
+const btnVollmachtBevollmaechtigterSuchen  = document.getElementById("btnVollmachtBevollmaechtigterSuchen");
+const vollmachtBevollmaechtigterSuche      = document.getElementById("vollmachtBevollmaechtigterSuche");
+const vollmachtBevollmaechtigterErgebnisse = document.getElementById("vollmachtBevollmaechtigterErgebnisse");
+const vollmachtBevollmaechtigterAuswahl    = document.getElementById("vollmachtBevollmaechtigterAuswahl");
+
+if (btnVollmachtBevollmaechtigterSuchen) {
+  btnVollmachtBevollmaechtigterSuchen.addEventListener("click", async () => {
+    const name = vollmachtBevollmaechtigterSuche?.value?.trim() || "";
+    if (name.length < 2) {
+      if (vollmachtBevollmaechtigterErgebnisse) vollmachtBevollmaechtigterErgebnisse.innerHTML = "<div class='muted'>Bitte mindestens 2 Zeichen eingeben.</div>";
+      return;
+    }
+    if (vollmachtBevollmaechtigterErgebnisse) vollmachtBevollmaechtigterErgebnisse.innerHTML = "<div class='muted'>Suche läuft…</div>";
+    window._delegationSuchKontext = "vollmacht_bevollmaechtigter";
+    await nuiAufruf("hm_bp:delegation_online_spieler_suchen", { name });
+  });
+}
+
+// Vollmacht anlegen
+const btnVollmachtAnlegen  = document.getElementById("btnVollmachtAnlegen");
+const vollmachtAnlegenMeta = document.getElementById("vollmachtAnlegenMeta");
+const vollmachtNeuTyp      = document.getElementById("vollmachtNeuTyp");
+
+if (btnVollmachtAnlegen) {
+  btnVollmachtAnlegen.addEventListener("click", async () => {
+    if (!vollmachtNeuTyp?.value) {
+      if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = "Bitte einen Vollmacht-Typ auswählen.";
+      return;
+    }
+    if (!vollmachtAuftraggeberSpieler) {
+      if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = "Bitte den Auftraggeber auswählen.";
+      return;
+    }
+    if (!vollmachtBevollmaechtigterSpieler) {
+      if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = "Bitte den Bevollmächtigten auswählen.";
+      return;
+    }
+    if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = "Vollmacht wird angelegt…";
+    await nuiAufruf("hm_bp:delegation_vollmacht_anlegen", {
+      typ: vollmachtNeuTyp.value,
+      auftraggeber_source: vollmachtAuftraggeberSpieler.source,
+      bevollmaechtigter_source: vollmachtBevollmaechtigterSpieler.source,
+    });
+  });
+}
+
+// Vollmachten laden
+const btnVollmachtenLaden  = document.getElementById("btnVollmachtenLaden");
+const vollmachtNurAktiv    = document.getElementById("vollmachtenNurAktiv");
+const vollmachtenListe     = document.getElementById("vollmachtenListe");
+
+async function vollmachtenListeLaden() {
+  if (vollmachtenListe) vollmachtenListe.innerHTML = "<div class='muted'>Lade Vollmachten…</div>";
+  const nurAktiv = vollmachtNurAktiv ? vollmachtNurAktiv.checked : true;
+  await nuiAufruf("hm_bp:delegation_vollmachten_laden", { nur_aktiv: nurAktiv });
+}
+
+if (btnVollmachtenLaden) {
+  btnVollmachtenLaden.addEventListener("click", () => vollmachtenListeLaden());
+}
+if (vollmachtNurAktiv) {
+  vollmachtNurAktiv.addEventListener("change", () => vollmachtenListeLaden());
+}
+
+// Vollmacht-Verwaltung: Admin-Subtab
+const VOLLMACHT_SUBTAB = "Vollmachten";
+const adminVollmachtenPanel = document.getElementById("adminVollmachtenPanel");
+
+// Vollmacht-Subtab in adminSubtabSetzen einbinden
+const _origAdminSubtabSetzen = typeof adminSubtabSetzen === "function" ? adminSubtabSetzen : null;
+// Wir patchen die Funktion nach Definition
+(function patchAdminSubtab() {
+  // Da adminSubtabSetzen nach diesem Abschnitt definiert ist, führen wir den Patch
+  // in einem MutationObserver/Timeout durch oder wir ergänzen direkt im Subtab-Click-Listener.
+})();
+
+// Delegation Server-Antworten
+window.addEventListener("message", function(event) {
+  const msg = event.data || {};
+
+  // Spieler-Suchergebnis (für alle Delegation-Kontexte)
+  if (msg.typ === "hm_bp:delegation:online_spieler_ergebnis") {
+    const payload = msg.payload || {};
+    const kontext = window._delegationSuchKontext || "delegation";
+    window._delegationSuchKontext = null;
+
+    if (!payload.ok) {
+      const fehlermsg = payload.fehler?.nachricht || "Suche fehlgeschlagen.";
+      if (kontext === "hilfsantrag") {
+        if (hilfsantragSuchMeta) hilfsantragSuchMeta.textContent = fehlermsg;
+      } else if (kontext === "vollmacht_auftraggeber") {
+        if (vollmachtAuftraggeberErgebnisse) vollmachtAuftraggeberErgebnisse.innerHTML = `<div class='muted'>${escapeHtml(fehlermsg)}</div>`;
+      } else if (kontext === "vollmacht_bevollmaechtigter") {
+        if (vollmachtBevollmaechtigterErgebnisse) vollmachtBevollmaechtigterErgebnisse.innerHTML = `<div class='muted'>${escapeHtml(fehlermsg)}</div>`;
+      } else {
+        if (delegationSuchMeta) delegationSuchMeta.textContent = fehlermsg;
+      }
+      return;
+    }
+
+    const spielerListe = payload.spieler || [];
+
+    if (kontext === "hilfsantrag") {
+      if (hilfsantragSuchMeta) hilfsantragSuchMeta.textContent = spielerListe.length === 0 ? "Kein online Spieler gefunden." : `${spielerListe.length} Treffer.`;
+      delegationSpielerListeRendern(hilfsantragSuchergebnisse, spielerListe, (sp) => {
+        hilfsantragAusgewaehlterSpieler = sp;
+        if (hilfsantragAuswahlAnzeige) hilfsantragAuswahlAnzeige.textContent = `Ausgewählt: ${sp.name}`;
+        if (hilfsantragSuchergebnisse) hilfsantragSuchergebnisse.innerHTML = "";
+      });
+    } else if (kontext === "vollmacht_auftraggeber") {
+      delegationSpielerListeRendern(vollmachtAuftraggeberErgebnisse, spielerListe, (sp) => {
+        vollmachtAuftraggeberSpieler = sp;
+        if (vollmachtAuftraggeberAuswahl) vollmachtAuftraggeberAuswahl.textContent = `Ausgewählt: ${sp.name}`;
+        if (vollmachtAuftraggeberErgebnisse) vollmachtAuftraggeberErgebnisse.innerHTML = "";
+      });
+    } else if (kontext === "vollmacht_bevollmaechtigter") {
+      delegationSpielerListeRendern(vollmachtBevollmaechtigterErgebnisse, spielerListe, (sp) => {
+        vollmachtBevollmaechtigterSpieler = sp;
+        if (vollmachtBevollmaechtigterAuswahl) vollmachtBevollmaechtigterAuswahl.textContent = `Ausgewählt: ${sp.name}`;
+        if (vollmachtBevollmaechtigterErgebnisse) vollmachtBevollmaechtigterErgebnisse.innerHTML = "";
+      });
+    } else {
+      // Standard: Delegation im Bürger-Formular
+      if (delegationSuchMeta) delegationSuchMeta.textContent = spielerListe.length === 0 ? "Kein online Spieler gefunden." : `${spielerListe.length} Treffer.`;
+      delegationSpielerListeRendern(delegationSuchergebnisse, spielerListe, (sp) => {
+        delegationAusgewaehlterSpieler = sp;
+        if (delegationAuswahlAnzeige) delegationAuswahlAnzeige.textContent = `Ausgewählt: ${sp.name}`;
+        if (delegationSuchergebnisse) delegationSuchergebnisse.innerHTML = "";
+        if (delegationSuchMeta) delegationSuchMeta.textContent = "";
+      });
+    }
+    return;
+  }
+
+  // Vollmacht anlegen Antwort
+  if (msg.typ === "hm_bp:delegation:vollmacht_anlegen_antwort") {
+    const payload = msg.payload || {};
+    if (!payload.ok) {
+      if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = `Fehler: ${payload.fehler?.nachricht || "Unbekannter Fehler."}`;
+    } else {
+      if (vollmachtAnlegenMeta) vollmachtAnlegenMeta.textContent = payload.ergebnis?.nachricht || "Vollmacht erfolgreich angelegt.";
+      // Felder zurücksetzen
+      if (vollmachtNeuTyp) vollmachtNeuTyp.value = "";
+      if (vollmachtAuftraggeberSuche) vollmachtAuftraggeberSuche.value = "";
+      if (vollmachtBevollmaechtigterSuche) vollmachtBevollmaechtigterSuche.value = "";
+      if (vollmachtAuftraggeberAuswahl) vollmachtAuftraggeberAuswahl.textContent = "";
+      if (vollmachtBevollmaechtigterAuswahl) vollmachtBevollmaechtigterAuswahl.textContent = "";
+      vollmachtAuftraggeberSpieler = null;
+      vollmachtBevollmaechtigterSpieler = null;
+      vollmachtenListeLaden();
+    }
+    return;
+  }
+
+  // Vollmacht widerrufen Antwort
+  if (msg.typ === "hm_bp:delegation:vollmacht_widerrufen_antwort") {
+    const payload = msg.payload || {};
+    if (!payload.ok) {
+      fehlerAnzeigen(payload.fehler?.nachricht || "Vollmacht widerrufen fehlgeschlagen.");
+    } else {
+      vollmachtenListeLaden();
+    }
+    return;
+  }
+
+  // Vollmachten Liste Antwort
+  if (msg.typ === "hm_bp:delegation:vollmachten_ergebnis") {
+    const payload = msg.payload || {};
+    if (!vollmachtenListe) return;
+    if (!payload.ok) {
+      vollmachtenListe.innerHTML = `<div class='muted'>Fehler: ${escapeHtml(payload.fehler?.nachricht || "Laden fehlgeschlagen.")}</div>`;
+      return;
+    }
+    const liste = payload.liste || [];
+    if (liste.length === 0) {
+      vollmachtenListe.innerHTML = "<div class='muted'>Keine Vollmachten gefunden.</div>";
+      return;
+    }
+    const typLabels = {
+      buerger_anwalt:   "Bürger ↔ Bevollmächtigter",
+      firma_vertreter:  "Firma ↔ Firmenvertreter",
+    };
+    vollmachtenListe.innerHTML = "";
+    liste.forEach(vm => {
+      const div = document.createElement("div");
+      div.className = "liste-eintrag";
+      div.style.cssText = "padding:8px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; gap:8px;";
+      const info = document.createElement("div");
+      info.innerHTML = `
+        <strong>${escapeHtml(typLabels[vm.vollmacht_typ] || vm.vollmacht_typ)}</strong><br>
+        <span class="muted">Auftraggeber: ${escapeHtml(vm.auftraggeber_name)}</span> →
+        <span class="muted">Bevollmächtigter: ${escapeHtml(vm.bevollmaechtigter_name)}</span><br>
+        <span class="muted" style="font-size:0.85em;">Erteilt von ${escapeHtml(vm.erteilt_von_name)} am ${escapeHtml(vm.erstellt_at || "")}</span>
+        ${!vm.aktiv ? `<span class="muted" style="color:#e74c3c;"> – widerrufen von ${escapeHtml(vm.widerrufen_von_name || "")} am ${escapeHtml(vm.widerrufen_at || "")}</span>` : ""}
+      `;
+      div.appendChild(info);
+      if (vm.aktiv) {
+        const btnWiderrufen = document.createElement("button");
+        btnWiderrufen.type = "button";
+        btnWiderrufen.className = "btn btn-secondary";
+        btnWiderrufen.textContent = "Widerrufen";
+        btnWiderrufen.style.cssText = "flex-shrink:0; color:#e74c3c; border-color:#e74c3c;";
+        btnWiderrufen.addEventListener("click", async () => {
+          if (!confirm(`Vollmacht zwischen "${vm.auftraggeber_name}" und "${vm.bevollmaechtigter_name}" wirklich widerrufen?`)) return;
+          await nuiAufruf("hm_bp:delegation_vollmacht_widerrufen", { vollmacht_id: vm.id });
+        });
+        div.appendChild(btnWiderrufen);
+      }
+      vollmachtenListe.appendChild(div);
+    });
+    return;
+  }
+});
+
+// Beim Schließen des UI: Delegation-State zurücksetzen
+window.addEventListener("message", function(e) {
+  if ((e.data || {}).typ === "hm_bp:ui_schliessen") {
+    delegationAusgewaehlterSpieler = null;
+    hilfsantragAusgewaehlterSpieler = null;
+    vollmachtAuftraggeberSpieler = null;
+    vollmachtBevollmaechtigterSpieler = null;
+    if (delegationAuswahlAnzeige) delegationAuswahlAnzeige.textContent = "";
+    if (delegationSuchergebnisse) delegationSuchergebnisse.innerHTML = "";
+    if (hilfsantragAuswahlAnzeige) hilfsantragAuswahlAnzeige.textContent = "";
+    if (hilfsantragSuchergebnisse) hilfsantragSuchergebnisse.innerHTML = "";
+  }
+});
 
 // ==========================
 // Startup
