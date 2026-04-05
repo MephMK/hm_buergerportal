@@ -2855,6 +2855,30 @@ const btnAdminCrudAktualisieren = document.getElementById("btnAdminCrudAktualisi
 const btnAdminCrudSpeichern = document.getElementById("btnAdminCrudSpeichern");
 const btnAdminCrudAbbrechen = document.getElementById("btnAdminCrudAbbrechen");
 
+// PR15: JobSettings DOM refs
+const adminJobSettingsPanel         = document.getElementById("adminJobSettingsPanel");
+const jobSettingsJobListe           = document.getElementById("jobSettingsJobListe");
+const jobSettingsGradeListe         = document.getElementById("jobSettingsGradeListe");
+const jobSettingsPermGrid           = document.getElementById("jobSettingsPermGrid");
+const jobSettingsPermTitel          = document.getElementById("jobSettingsPermTitel");
+const jobSettingsMeta               = document.getElementById("jobSettingsMeta");
+const jobSettingsGrund              = document.getElementById("jobSettingsGrund");
+const btnJobSettingsAktualisieren   = document.getElementById("btnJobSettingsAktualisieren");
+const btnJobSettingsSpeichern       = document.getElementById("btnJobSettingsSpeichern");
+const btnJobSettingsZuruecksetzen   = document.getElementById("btnJobSettingsZuruecksetzen");
+const btnJobSettingsGradeHinzu      = document.getElementById("btnJobSettingsGradeHinzu");
+const btnJobSettingsGradeEntf       = document.getElementById("btnJobSettingsGradeEntf");
+const jobSettingsNeuerGrade         = document.getElementById("jobSettingsNeuerGrade");
+const jobSettingsNeuerGradeName     = document.getElementById("jobSettingsNeuerGradeName");
+
+// PR15: JobSettings state
+let jobSettingsDaten          = {};  // aktuell geladene JobSettings (effektiv)
+let jobSettingsBasis          = {};  // Basis-Defaults (vor Overrides)
+let jobSettingsAktionen       = [];  // kanonische Aktionsschlüssel
+let jobSettingsRollenDefaults = {};  // globale Defaults pro Rolle
+let jobSettingsAktivJob       = null;
+let jobSettingsAktivGrade     = null;
+
 // -------------------------------------------------------
 // Modus-Umschalter: Gef\u00fchrt <-> Erweitert (JSON)
 // -------------------------------------------------------
@@ -2882,16 +2906,23 @@ function adminSubtabSetzen(sektion) {
   });
 
   if (sektion === "Audit") {
-    if (adminCrudPanel)  adminCrudPanel.style.display  = "none";
-    if (adminAuditPanel) adminAuditPanel.style.display = "block";
+    if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
+    if (adminAuditPanel)        adminAuditPanel.style.display        = "block";
+    if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
     auditListeLaden(1);
+  } else if (sektion === "JobSettings") {
+    if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
+    if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
+    if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "block";
+    adminJobSettingsLaden();
   } else {
-    if (adminCrudPanel)  adminCrudPanel.style.display  = "block";
-    if (adminAuditPanel) adminAuditPanel.style.display = "none";
+    if (adminCrudPanel)         adminCrudPanel.style.display         = "block";
+    if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
+    if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
     adminFormularAusblenden();
     adminModusSetzen(adminModus);
     if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = sektion;
-    // Zeige/verstecke "Neu anlegen"-Button nur f\u00fcr geeignete Sektionen
+    // Zeige/verstecke "Neu anlegen"-Button nur für geeignete Sektionen
     const neuErlaubt = ["Standorte", "Kategorien", "Formulare"].includes(sektion);
     if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = neuErlaubt ? "" : "none";
     adminCrudListeAktualisieren();
@@ -3749,6 +3780,316 @@ async function adminAuditLogLaden() {
 }
 
 // -------------------------------------------------------
+// PR15: JobSettings – Job-Grade-Berechtigungen verwalten
+// -------------------------------------------------------
+
+async function adminJobSettingsLaden() {
+  if (jobSettingsMeta) jobSettingsMeta.textContent = "Lade\u2026";
+  const res = await nuiAufruf("hm_bp:admin_job_settings_laden", {});
+  if (!res || !res.ok) {
+    if (jobSettingsMeta) {
+      jobSettingsMeta.textContent = res?.fehler?.nachricht || "Laden fehlgeschlagen.";
+      jobSettingsMeta.style.color = "#eb5757";
+    }
+    return;
+  }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = ""; jobSettingsMeta.style.color = ""; }
+
+  jobSettingsDaten          = res.daten          || {};
+  jobSettingsBasis          = res.basis          || {};
+  jobSettingsAktionen       = res.aktionen       || [];
+  jobSettingsRollenDefaults = res.rollenDefaults || {};
+  jobSettingsAktivJob       = null;
+  jobSettingsAktivGrade     = null;
+
+  jobSettingsJobListeAnzeigen();
+  if (jobSettingsGradeListe) jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Bitte einen Job ausw\u00e4hlen.</div>";
+  if (jobSettingsPermGrid)   jobSettingsPermGrid.innerHTML   = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermTitel)  jobSettingsPermTitel.textContent = "Berechtigungen";
+}
+
+function jobSettingsJobListeAnzeigen() {
+  if (!jobSettingsJobListe) return;
+  jobSettingsJobListe.innerHTML = "";
+  const jobs = (jobSettingsDaten.Jobs) || {};
+  const jobKeys = Object.keys(jobs).sort();
+  if (jobKeys.length === 0) {
+    jobSettingsJobListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine Jobs konfiguriert.</div>";
+    return;
+  }
+  for (const key of jobKeys) {
+    const jobDef = jobs[key] || {};
+    const btn = document.createElement("button");
+    btn.className = "admin-crud-item";
+    btn.style.cssText = "cursor:pointer; width:100%; text-align:left; background:none; border:none; padding:6px 8px;";
+    btn.innerHTML = `<strong>${escapeHtml(jobDef.anzeigeName || key)}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(key)}</span>`;
+    btn.addEventListener("click", () => jobSettingsJobAuswaehlen(key));
+    jobSettingsJobListe.appendChild(btn);
+  }
+}
+
+function jobSettingsJobAuswaehlen(jobName) {
+  jobSettingsAktivJob   = jobName;
+  jobSettingsAktivGrade = null;
+
+  // Highlight
+  jobSettingsJobListe.querySelectorAll(".admin-crud-item").forEach(el => {
+    el.style.background = el.querySelector("strong")?.textContent === ((jobSettingsDaten.Jobs || {})[jobName]?.anzeigeName || jobName)
+      ? "rgba(255,255,255,0.08)"
+      : "";
+  });
+
+  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermTitel) jobSettingsPermTitel.textContent = "Berechtigungen";
+  jobSettingsGradeListeAnzeigen(jobName);
+}
+
+function jobSettingsGradeListeAnzeigen(jobName) {
+  if (!jobSettingsGradeListe) return;
+  jobSettingsGradeListe.innerHTML = "";
+  const jobDef = ((jobSettingsDaten.Jobs) || {})[jobName] || {};
+  const grades = Array.isArray(jobDef.grades) ? jobDef.grades : [];
+  if (grades.length === 0) {
+    jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine Grades definiert.</div>";
+    return;
+  }
+  const sortedGrades = [...grades].sort((a, b) => (a.grade ?? 0) - (b.grade ?? 0));
+  for (const g of sortedGrades) {
+    const btn = document.createElement("button");
+    btn.className = "admin-crud-item";
+    btn.style.cssText = "cursor:pointer; width:100%; text-align:left; background:none; border:none; padding:6px 8px;";
+    btn.dataset.grade = String(g.grade);
+    btn.innerHTML = `<strong>Grade ${escapeHtml(String(g.grade))}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(g.name || "")}</span>`;
+    btn.addEventListener("click", () => jobSettingsGradeAuswaehlen(jobName, g.grade));
+    jobSettingsGradeListe.appendChild(btn);
+  }
+}
+
+function jobSettingsGradeAuswaehlen(jobName, gradeNum) {
+  jobSettingsAktivGrade = gradeNum;
+
+  // Highlight
+  jobSettingsGradeListe.querySelectorAll(".admin-crud-item").forEach(el => {
+    el.style.background = el.dataset.grade === String(gradeNum) ? "rgba(255,255,255,0.08)" : "";
+  });
+
+  jobSettingsPermAnzeigen(jobName, gradeNum);
+}
+
+function jobSettingsPermAnzeigen(jobName, gradeNum) {
+  if (!jobSettingsPermGrid) return;
+  jobSettingsPermGrid.innerHTML = "";
+
+  const jobDef       = ((jobSettingsDaten.Jobs) || {})[jobName] || {};
+  const gradeName    = (Array.isArray(jobDef.grades) ? jobDef.grades.find(g => g.grade === gradeNum) : null)?.name || "";
+  const defaultRolle = jobDef.globalDefaultRolle || jobName;
+  const rolleDefault = (jobSettingsRollenDefaults[defaultRolle]) || { allow: [], deny: [] };
+  const gradPerms    = (jobDef.gradPermissions || {})[gradeNum] || { allow: [], deny: [] };
+
+  if (jobSettingsPermTitel) {
+    jobSettingsPermTitel.textContent = `Berechtigungen – ${jobName} Grade ${gradeNum}${gradeName ? " (" + gradeName + ")" : ""}`;
+  }
+
+  const globalAllow = rolleDefault.allow || [];
+  const globalDeny  = rolleDefault.deny  || [];
+  const gradeAllow  = Array.isArray(gradPerms.allow) ? [...gradPerms.allow] : [];
+  const gradeDeny   = Array.isArray(gradPerms.deny)  ? [...gradPerms.deny]  : [];
+
+  const isGlobalAllowed = (action) => {
+    if (globalDeny.includes(action)) return false;
+    if (globalAllow.includes("*") || globalAllow.includes(action)) return true;
+    return false;
+  };
+
+  // Sortiere Aktionen nach Kategorie (Prefix vor dem Punkt)
+  const aktionen = [...jobSettingsAktionen];
+
+  // Legende
+  const legende = document.createElement("div");
+  legende.style.cssText = "margin-bottom:8px; font-size:0.82em; color:var(--muted,#888);";
+  legende.innerHTML = "Klicke eine Aktion um den Override-Status zu ändern: <strong style='color:#27ae60;'>&#10003;</strong> erlaubt &nbsp; <strong style='color:#eb5757;'>&#10007;</strong> verweigert &nbsp; <span style='opacity:0.6;'>&#9679;</span> geerbt";
+  jobSettingsPermGrid.appendChild(legende);
+
+  // Grid der Aktionen
+  const grid = document.createElement("div");
+  grid.style.cssText = "display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:4px;";
+  jobSettingsPermGrid.appendChild(grid);
+
+  for (const aktion of aktionen) {
+    const isOverrideAllow = gradeAllow.includes("*") || gradeAllow.includes(aktion);
+    const isOverrideDeny  = gradeDeny.includes(aktion);
+    const isInherited     = !isOverrideAllow && !isOverrideDeny;
+
+    // Status: "erlaubt" | "verweigert" | "geerbt-erlaubt" | "geerbt-verweigert"
+    let statusKlasse, statusIcon;
+    if (isOverrideAllow) {
+      statusKlasse = "js-allow";
+      statusIcon   = "\u2713";
+    } else if (isOverrideDeny) {
+      statusKlasse = "js-deny";
+      statusIcon   = "\u2717";
+    } else if (isGlobalAllowed(aktion)) {
+      statusKlasse = "js-inherited-allow";
+      statusIcon   = "\u25cf";
+    } else {
+      statusKlasse = "js-inherited-deny";
+      statusIcon   = "\u25cb";
+    }
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.cssText = "display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:4px; border:1px solid transparent; cursor:pointer; font-size:0.82em; text-align:left;";
+    btn.dataset.aktion  = aktion;
+    btn.dataset.status  = statusKlasse;
+
+    if (statusKlasse === "js-allow")           { btn.style.background = "rgba(39,174,96,0.18)";  btn.style.borderColor = "#27ae60"; }
+    else if (statusKlasse === "js-deny")       { btn.style.background = "rgba(235,87,87,0.18)";  btn.style.borderColor = "#eb5757"; }
+    else if (statusKlasse === "js-inherited-allow") { btn.style.background = "rgba(255,255,255,0.04)"; btn.style.opacity = "0.75"; }
+    else                                       { btn.style.background = "transparent";           btn.style.opacity = "0.5"; }
+
+    btn.innerHTML = `<span style="font-weight:700; min-width:16px; text-align:center;">${statusIcon}</span> ${escapeHtml(aktion)}`;
+
+    btn.addEventListener("click", () => {
+      // Zustand zyklisch wechseln: inherit → override-allow → override-deny → inherit
+      const curr = btn.dataset.status;
+      let next;
+      if (curr === "js-inherited-allow" || curr === "js-inherited-deny") {
+        next = "js-allow";
+      } else if (curr === "js-allow") {
+        next = "js-deny";
+      } else {
+        next = isGlobalAllowed(aktion) ? "js-inherited-allow" : "js-inherited-deny";
+      }
+
+      // gradeAllow / gradeDeny in jobSettingsDaten aktualisieren
+      const jDef = (jobSettingsDaten.Jobs || {})[jobName];
+      if (!jDef) return;
+      if (!jDef.gradPermissions) jDef.gradPermissions = {};
+      if (!jDef.gradPermissions[gradeNum]) jDef.gradPermissions[gradeNum] = { allow: [], deny: [] };
+      const gp = jDef.gradPermissions[gradeNum];
+      if (!Array.isArray(gp.allow)) gp.allow = [];
+      if (!Array.isArray(gp.deny))  gp.deny  = [];
+
+      // Entfernen aus alten Listen
+      gp.allow = gp.allow.filter(a => a !== aktion);
+      gp.deny  = gp.deny.filter(a  => a !== aktion);
+
+      if (next === "js-allow") {
+        gp.allow.push(aktion);
+      } else if (next === "js-deny") {
+        gp.deny.push(aktion);
+      }
+
+      // Button-Darstellung aktualisieren
+      btn.dataset.status = next;
+      if (next === "js-allow") {
+        btn.style.background  = "rgba(39,174,96,0.18)"; btn.style.borderColor = "#27ae60"; btn.style.opacity = "1";
+        btn.querySelector("span").textContent = "\u2713";
+      } else if (next === "js-deny") {
+        btn.style.background  = "rgba(235,87,87,0.18)"; btn.style.borderColor = "#eb5757"; btn.style.opacity = "1";
+        btn.querySelector("span").textContent = "\u2717";
+      } else if (next === "js-inherited-allow") {
+        btn.style.background = "rgba(255,255,255,0.04)"; btn.style.borderColor = "transparent"; btn.style.opacity = "0.75";
+        btn.querySelector("span").textContent = "\u25cf";
+      } else {
+        btn.style.background = "transparent"; btn.style.borderColor = "transparent"; btn.style.opacity = "0.5";
+        btn.querySelector("span").textContent = "\u25cb";
+      }
+    });
+
+    grid.appendChild(btn);
+  }
+}
+
+async function adminJobSettingsSpeichern() {
+  const grund = jobSettingsGrund ? jobSettingsGrund.value.trim() : "";
+  if (!grund) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld)."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = "Speichere\u2026"; jobSettingsMeta.style.color = ""; }
+  if (btnJobSettingsSpeichern) btnJobSettingsSpeichern.disabled = true;
+
+  const res = await nuiAufruf("hm_bp:admin_job_settings_speichern", { daten: jobSettingsDaten, grund });
+
+  if (btnJobSettingsSpeichern) btnJobSettingsSpeichern.disabled = false;
+  if (!res || !res.ok) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = res?.fehler?.nachricht || "Speichern fehlgeschlagen."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = res.nachricht || "Gespeichert."; jobSettingsMeta.style.color = "#27ae60"; }
+  if (jobSettingsGrund) jobSettingsGrund.value = "";
+}
+
+async function adminJobSettingsZuruecksetzen() {
+  const grund = jobSettingsGrund ? jobSettingsGrund.value.trim() : "";
+  if (!grund) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld)."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (!confirm("JobSettings auf Basis-Defaults zur\u00fccksetzen? Alle gespeicherten \u00dcberschreibungen gehen verloren.")) return;
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = "Setze zur\u00fcck\u2026"; jobSettingsMeta.style.color = ""; }
+
+  const res = await nuiAufruf("hm_bp:admin_job_settings_zuruecksetzen", { grund });
+  if (!res || !res.ok) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = res?.fehler?.nachricht || "Zur\u00fccksetzen fehlgeschlagen."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = res.nachricht || "Zur\u00fcckgesetzt."; jobSettingsMeta.style.color = "#27ae60"; }
+  if (jobSettingsGrund) jobSettingsGrund.value = "";
+  await adminJobSettingsLaden();
+}
+
+function jobSettingsGradeHinzufuegen() {
+  if (!jobSettingsAktivJob) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte zuerst einen Job ausw\u00e4hlen."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  const gradeNum  = parseInt(jobSettingsNeuerGrade ? jobSettingsNeuerGrade.value : "");
+  const gradeName = jobSettingsNeuerGradeName ? jobSettingsNeuerGradeName.value.trim() : "";
+  if (isNaN(gradeNum) || gradeNum < 0) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte eine g\u00fcltige Grade-Nummer eingeben."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  const jobDef = ((jobSettingsDaten.Jobs) || {})[jobSettingsAktivJob];
+  if (!jobDef) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Job nicht gefunden."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (!Array.isArray(jobDef.grades)) jobDef.grades = [];
+  if (jobDef.grades.find(g => g.grade === gradeNum)) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${gradeNum} existiert bereits.`; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  jobDef.grades.push({ grade: gradeNum, name: gradeName || `Grade ${gradeNum}` });
+  if (jobSettingsNeuerGrade)     jobSettingsNeuerGrade.value     = "";
+  if (jobSettingsNeuerGradeName) jobSettingsNeuerGradeName.value = "";
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${gradeNum} hinzugef\u00fcgt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
+  jobSettingsGradeListeAnzeigen(jobSettingsAktivJob);
+}
+
+function jobSettingsGradeEntfernen() {
+  if (!jobSettingsAktivJob || jobSettingsAktivGrade === null) {
+    if (jobSettingsMeta) { jobSettingsMeta.textContent = "Bitte zuerst einen Grade ausw\u00e4hlen."; jobSettingsMeta.style.color = "#eb5757"; }
+    return;
+  }
+  if (!confirm(`Grade ${jobSettingsAktivGrade} aus Job "${jobSettingsAktivJob}" entfernen?`)) return;
+  const jobDef = ((jobSettingsDaten.Jobs) || {})[jobSettingsAktivJob];
+  if (!jobDef) return;
+  if (Array.isArray(jobDef.grades)) {
+    jobDef.grades = jobDef.grades.filter(g => g.grade !== jobSettingsAktivGrade);
+  }
+  if (jobDef.gradPermissions) {
+    delete jobDef.gradPermissions[jobSettingsAktivGrade];
+  }
+  if (jobSettingsMeta) { jobSettingsMeta.textContent = `Grade ${jobSettingsAktivGrade} entfernt (noch nicht gespeichert).`; jobSettingsMeta.style.color = "#f39c12"; }
+  jobSettingsAktivGrade = null;
+  if (jobSettingsPermGrid)  jobSettingsPermGrid.innerHTML  = "<div class='muted' style='padding:8px;'>Bitte einen Grade ausw\u00e4hlen.</div>";
+  if (jobSettingsPermTitel) jobSettingsPermTitel.textContent = "Berechtigungen";
+  jobSettingsGradeListeAnzeigen(jobSettingsAktivJob);
+}
+
+// -------------------------------------------------------
 // Event-Listener binden
 // -------------------------------------------------------
 
@@ -3790,6 +4131,13 @@ if (btnAdminCrudNeu)            btnAdminCrudNeu.addEventListener("click",       
 if (btnAdminCrudAktualisieren)  btnAdminCrudAktualisieren.addEventListener("click",  () => adminCrudListeAktualisieren());
 if (btnAdminCrudSpeichern)      btnAdminCrudSpeichern.addEventListener("click",      () => adminCrudFormularSpeichern());
 if (btnAdminCrudAbbrechen)      btnAdminCrudAbbrechen.addEventListener("click",      () => adminFormularAusblenden());
+
+// PR15: JobSettings
+if (btnJobSettingsAktualisieren) btnJobSettingsAktualisieren.addEventListener("click", () => adminJobSettingsLaden());
+if (btnJobSettingsSpeichern)     btnJobSettingsSpeichern.addEventListener("click",     () => adminJobSettingsSpeichern());
+if (btnJobSettingsZuruecksetzen) btnJobSettingsZuruecksetzen.addEventListener("click", () => adminJobSettingsZuruecksetzen());
+if (btnJobSettingsGradeHinzu)    btnJobSettingsGradeHinzu.addEventListener("click",    () => jobSettingsGradeHinzufuegen());
+if (btnJobSettingsGradeEntf)     btnJobSettingsGradeEntf.addEventListener("click",     () => jobSettingsGradeEntfernen());
 
 if (tabAdmin) {
   tabAdmin.addEventListener("click", () => {

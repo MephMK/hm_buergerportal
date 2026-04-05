@@ -524,6 +524,7 @@ Option B'></textarea>
               <button class="tab admin-subtab" data-subtab="Status">Status/Workflow</button>
               <button class="tab admin-subtab" data-subtab="Webhooks">Webhooks</button>
               <button class="tab admin-subtab" data-subtab="Module">Module</button>
+              <button class="tab admin-subtab" data-subtab="JobSettings">JobSettings</button>
               <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
             </div>
 
@@ -586,6 +587,53 @@ Option B'></textarea>
                 <div class="muted" id="adminAktionMeta" style="margin-top:8px;"></div>
               </div>
 
+            </div>
+
+            <!-- Sektion: JobSettings (PR15) -->
+            <div id="adminJobSettingsPanel" style="display:none; margin-top:16px;">
+              <!-- Toolbar: Laden + Speichern + Zurücksetzen -->
+              <div class="admin-toolbar" style="margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                <button id="btnJobSettingsAktualisieren" class="btn btn-secondary" type="button">Aktualisieren</button>
+                <button id="btnJobSettingsSpeichern"     class="btn"               type="button">Speichern</button>
+                <button id="btnJobSettingsZuruecksetzen" class="btn btn-secondary" type="button">Auf Defaults zurücksetzen</button>
+                <span   id="jobSettingsMeta"             class="muted"             style="margin-left:8px;"></span>
+              </div>
+              <!-- Begründung -->
+              <div class="feld" style="margin-bottom:10px;">
+                <div class="label">Begründung (Pflichtfeld)</div>
+                <input id="jobSettingsGrund" type="text" placeholder="Warum wird diese Änderung vorgenommen?" />
+              </div>
+              <!-- Zweispaltiges Layout: Links Jobs + Grades, rechts Permissions -->
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+                <!-- Linke Spalte: Job-Liste + Grade-Liste -->
+                <div style="min-width:200px; max-width:240px; flex-shrink:0;">
+                  <div class="admin-form-section-title" style="margin-bottom:6px;">Jobs</div>
+                  <div id="jobSettingsJobListe" class="admin-crud-list" style="max-height:200px; overflow-y:auto;"></div>
+                  <div class="admin-form-section-title" style="margin:10px 0 6px;">Grades</div>
+                  <div id="jobSettingsGradeListe" class="admin-crud-list" style="max-height:300px; overflow-y:auto;">
+                    <div class="muted" style="padding:8px;">Bitte zuerst einen Job auswählen.</div>
+                  </div>
+                  <!-- Grade hinzufügen / entfernen -->
+                  <div style="margin-top:8px; display:flex; gap:6px; align-items:center;">
+                    <input id="jobSettingsNeuerGrade"     type="number" min="0" placeholder="Grade Nr." style="width:90px;" />
+                    <input id="jobSettingsNeuerGradeName" type="text"   placeholder="Name"              style="flex:1;" />
+                  </div>
+                  <div style="margin-top:6px; display:flex; gap:6px;">
+                    <button id="btnJobSettingsGradeHinzu"   class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em;">+ Grade</button>
+                    <button id="btnJobSettingsGradeEntf"    class="btn btn-secondary" type="button" style="flex:1; font-size:0.85em; color:#eb5757;">− Grade</button>
+                  </div>
+                </div>
+                <!-- Rechte Spalte: Permission-Matrix für ausgewählten Grade -->
+                <div style="flex:1; min-width:280px;">
+                  <div class="admin-form-section-title" style="margin-bottom:6px;" id="jobSettingsPermTitel">Berechtigungen</div>
+                  <div class="muted" style="margin-bottom:6px; font-size:0.85em;">
+                    ✓ = explizit erlaubt (Override) &nbsp;·&nbsp; ✗ = explizit verweigert (Override) &nbsp;·&nbsp; <span style="opacity:0.6;">●</span> = geerbt (globale Defaults)
+                  </div>
+                  <div id="jobSettingsPermGrid" style="max-height:480px; overflow-y:auto;">
+                    <div class="muted" style="padding:8px;">Bitte zuerst einen Grade auswählen.</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Sektion: Audit-Log -->

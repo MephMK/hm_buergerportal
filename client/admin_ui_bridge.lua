@@ -157,3 +157,32 @@ RegisterNUICallback("hm_bp:audit_liste_laden", function(daten, cb)
     "hm_bp:audit:liste_antwort"
   ))
 end)
+
+-- -------------------------------------------------------
+-- PR15: JobSettings – Job-Grade-Berechtigungen verwalten
+-- -------------------------------------------------------
+
+RegisterNUICallback("hm_bp:admin_job_settings_laden", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:job_settings_laden",
+    daten or {},
+    "hm_bp:admin:job_settings_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_job_settings_speichern", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:job_settings_speichern",
+    daten or {},
+    "hm_bp:admin:job_settings_speichern_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_job_settings_zuruecksetzen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:job_settings_zuruecksetzen",
+    daten or {},
+    "hm_bp:admin:job_settings_zuruecksetzen_antwort"
+  ))
+end)
+
