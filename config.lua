@@ -11,6 +11,13 @@ Config.Kern = {
     Justiz = "doj",
   },
 
+  -- Admin-Zugang: welcher Job + ab welchem Mindestgrad gilt als Admin.
+  -- Wer job == Admin.Job UND job.grade >= Admin.MinGrade hat, bekommt Vollzugriff.
+  Admin = {
+    Job      = "admin",  -- Job-Name des Admin-Jobs
+    MinGrade = 0,        -- Mindestgrad (inkl.), 0 = alle Grades des Jobs
+  },
+
   Debugmodus = false,
 
   Interaktion = {

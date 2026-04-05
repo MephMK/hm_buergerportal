@@ -232,20 +232,36 @@ function parseOptionLines(text) {
 // Tabs (Bürger/Justiz)
 // ==========================
 function tabSetzen(bereich) {
+  const tabAdmin = document.getElementById("tabAdmin");
+  const bereichAdminContent = document.getElementById("bereichAdminContent");
+
   if (bereich === "buerger") {
     tabBuerger.classList.add("active");
     tabJustiz.classList.remove("active");
+    if (tabAdmin) tabAdmin.classList.remove("active");
     bereichBuergerSidebar.style.display = "block";
     bereichJustizSidebar.style.display = "none";
     bereichBuergerContent.style.display = "block";
     bereichJustizContent.style.display = "none";
+    if (bereichAdminContent) bereichAdminContent.style.display = "none";
+  } else if (bereich === "admin") {
+    if (tabAdmin) tabAdmin.classList.add("active");
+    tabBuerger.classList.remove("active");
+    tabJustiz.classList.remove("active");
+    bereichBuergerSidebar.style.display = "none";
+    bereichJustizSidebar.style.display = "none";
+    bereichBuergerContent.style.display = "none";
+    bereichJustizContent.style.display = "none";
+    if (bereichAdminContent) bereichAdminContent.style.display = "block";
   } else {
     tabJustiz.classList.add("active");
     tabBuerger.classList.remove("active");
+    if (tabAdmin) tabAdmin.classList.remove("active");
     bereichJustizSidebar.style.display = "block";
     bereichBuergerSidebar.style.display = "none";
     bereichJustizContent.style.display = "block";
     bereichBuergerContent.style.display = "none";
+    if (bereichAdminContent) bereichAdminContent.style.display = "none";
   }
 }
 
@@ -2067,6 +2083,12 @@ window.addEventListener("message", (event) => {
     rolle.textContent = sp.rolle || "-";
     jobGrad.textContent = `${sp.jobLabel || sp.job || "-"} (Grad: ${sp.gradLabel || sp.grad || 0})`;
     standortName.textContent = st?.name || "-";
+
+    // Admin-Tab sichtbar/unsichtbar je nach Rolle
+    const adminTabEl = document.getElementById("tabAdmin");
+    if (adminTabEl) {
+      adminTabEl.style.display = (sp.rolle === "admin") ? "" : "none";
+    }
   }
 
   if (msg.typ === "hm_bp:kategorien:liste_antwort") {
@@ -2261,6 +2283,238 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
 document.addEventListener("keydown", async (e) => {
   if (e.key === "Escape") await nuiAufruf("hm_bp:ui_schliessen", {});
 });
+
+// ==========================
+// Admin Panel
+// ==========================
+
+// State
+let adminAktiveSubsektion = "Standorte"; // Standorte | Kategorien | Formulare | Permissions | Status | Webhooks | Audit
+
+// DOM refs (admin panel)
+const tabAdmin            = document.getElementById("tabAdmin");
+const bereichAdminContent = document.getElementById("bereichAdminContent");
+const adminStatusMeta     = document.getElementById("adminStatusMeta");
+const adminPanelBox       = document.getElementById("adminPanelBox");
+const adminSektionEditor  = document.getElementById("adminSektionEditor");
+const adminAuditPanel     = document.getElementById("adminAuditPanel");
+const adminJsonEditor     = document.getElementById("adminJsonEditor");
+const adminAktionMeta     = document.getElementById("adminAktionMeta");
+const adminAktiveSektionflag = document.getElementById("adminAktiveSektionflag");
+const adminGrund          = document.getElementById("adminGrund");
+const btnAdminLaden       = document.getElementById("btnAdminLaden");
+const btnAdminBasisLaden  = document.getElementById("btnAdminBasisLaden");
+const btnAdminOverrideLaden = document.getElementById("btnAdminOverrideLaden");
+const btnAdminValidieren  = document.getElementById("btnAdminValidieren");
+const btnAdminSpeichern   = document.getElementById("btnAdminSpeichern");
+const btnAdminZuruecksetzen = document.getElementById("btnAdminZuruecksetzen");
+const btnAdminAuditLaden  = document.getElementById("btnAdminAuditLaden");
+const adminAuditListe     = document.getElementById("adminAuditListe");
+
+function adminSubtabSetzen(sektion) {
+  adminAktiveSubsektion = sektion;
+
+  // Tab-Highlighting
+  document.querySelectorAll(".admin-subtab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.subtab === sektion);
+  });
+
+  if (sektion === "Audit") {
+    adminSektionEditor.style.display = "none";
+    adminAuditPanel.style.display = "block";
+  } else {
+    adminSektionEditor.style.display = "block";
+    adminAuditPanel.style.display = "none";
+    if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = sektion;
+    if (adminJsonEditor) adminJsonEditor.value = "";
+    if (adminAktionMeta) adminAktionMeta.textContent = "Klicke 'Effektiv laden', 'Basis laden' oder 'Override laden', um die Konfiguration zu bearbeiten.";
+  }
+}
+
+async function adminPanelLaden() {
+  if (!adminStatusMeta) return;
+  adminStatusMeta.textContent = "Lade Admin-Panel vom Server…";
+
+  const res = await nuiAufruf("hm_bp:admin_panel_laden", {});
+  if (!res || !res.ok) {
+    adminStatusMeta.textContent = res?.fehler?.nachricht || "Kein Zugriff auf den Admin-Bereich.";
+    if (adminPanelBox) adminPanelBox.style.display = "none";
+    return;
+  }
+
+  adminStatusMeta.textContent = "";
+  if (adminPanelBox) adminPanelBox.style.display = "block";
+
+  // Admin-Tab sichtbar machen
+  if (tabAdmin) tabAdmin.style.display = "";
+
+  // Ersten Subtab aktivieren
+  adminSubtabSetzen(adminAktiveSubsektion);
+}
+
+async function adminSektionLaden(modus) {
+  if (!adminSektionEditor) return;
+  const sektion = adminAktiveSubsektion;
+  if (!adminAktionMeta) return;
+  adminAktionMeta.textContent = "Lade Sektion…";
+
+  const res = await nuiAufruf("hm_bp:admin_sektion_laden", { sektion, modus: modus || "effektiv" });
+  if (!res || !res.ok) {
+    adminAktionMeta.textContent = res?.fehler?.nachricht || "Laden fehlgeschlagen.";
+    return;
+  }
+
+  try {
+    adminJsonEditor.value = JSON.stringify(res.daten, null, 2);
+    adminAktionMeta.textContent = `Sektion '${sektion}' geladen (Modus: ${modus || "effektiv"}).`;
+  } catch (e) {
+    adminAktionMeta.textContent = "Fehler beim Anzeigen der Daten.";
+  }
+}
+
+async function adminSektionValidieren() {
+  const sektion = adminAktiveSubsektion;
+  const raw = adminJsonEditor ? adminJsonEditor.value : "";
+  if (!raw.trim()) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "Editor ist leer. Bitte zuerst Daten laden oder eingeben.";
+    return;
+  }
+
+  let daten;
+  try {
+    daten = JSON.parse(raw);
+  } catch (e) {
+    if (adminAktionMeta) adminAktionMeta.textContent = `JSON-Syntaxfehler: ${e.message}`;
+    return;
+  }
+
+  if (adminAktionMeta) adminAktionMeta.textContent = "Validierung läuft…";
+  const res = await nuiAufruf("hm_bp:admin_sektion_validieren", { sektion, daten });
+  if (!res || !res.ok) {
+    if (adminAktionMeta) adminAktionMeta.textContent = `Validierungsfehler: ${res?.fehler?.nachricht || "Unbekannter Fehler"}`;
+    return;
+  }
+  if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Validierung erfolgreich.";
+}
+
+async function adminSektionSpeichern() {
+  const sektion = adminAktiveSubsektion;
+  const grund = adminGrund ? adminGrund.value.trim() : "";
+  if (!grund) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld).";
+    return;
+  }
+
+  const raw = adminJsonEditor ? adminJsonEditor.value : "";
+  if (!raw.trim()) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "Editor ist leer. Bitte zuerst Daten laden oder eingeben.";
+    return;
+  }
+
+  let daten;
+  try {
+    daten = JSON.parse(raw);
+  } catch (e) {
+    if (adminAktionMeta) adminAktionMeta.textContent = `JSON-Syntaxfehler: ${e.message}`;
+    return;
+  }
+
+  if (adminAktionMeta) adminAktionMeta.textContent = "Speichere…";
+  if (btnAdminSpeichern) btnAdminSpeichern.disabled = true;
+
+  const res = await nuiAufruf("hm_bp:admin_sektion_speichern", { sektion, daten, grund });
+
+  if (btnAdminSpeichern) btnAdminSpeichern.disabled = false;
+
+  if (!res || !res.ok) {
+    if (adminAktionMeta) adminAktionMeta.textContent = `Fehler: ${res?.fehler?.nachricht || "Speichern fehlgeschlagen."}`;
+    return;
+  }
+  if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Gespeichert.";
+  if (adminGrund) adminGrund.value = "";
+}
+
+async function adminSektionZuruecksetzen() {
+  const sektion = adminAktiveSubsektion;
+  const grund = adminGrund ? adminGrund.value.trim() : "";
+  if (!grund) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld).";
+    return;
+  }
+
+  if (!confirm(`Override für Sektion '${sektion}' zurücksetzen? Die Basis-Config wird wieder aktiv.`)) return;
+
+  if (adminAktionMeta) adminAktionMeta.textContent = "Setze zurück…";
+  const res = await nuiAufruf("hm_bp:admin_sektion_zuruecksetzen", { sektion, grund });
+
+  if (!res || !res.ok) {
+    if (adminAktionMeta) adminAktionMeta.textContent = `Fehler: ${res?.fehler?.nachricht || "Zurücksetzen fehlgeschlagen."}`;
+    return;
+  }
+  if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Override zurückgesetzt.";
+  if (adminGrund) adminGrund.value = "";
+  adminJsonEditor.value = "";
+}
+
+async function adminAuditLogLaden() {
+  if (!adminAuditListe) return;
+  adminAuditListe.innerHTML = "<div class='muted'>Lade…</div>";
+
+  const res = await nuiAufruf("hm_bp:admin_audit_laden", { limit: 100 });
+  adminAuditListe.innerHTML = "";
+
+  if (!res || !res.ok) {
+    adminAuditListe.innerHTML = `<div class='muted'>${escapeHtml(res?.fehler?.nachricht || "Audit-Log konnte nicht geladen werden.")}</div>`;
+    return;
+  }
+
+  const eintraege = res.eintraege || [];
+  if (eintraege.length === 0) {
+    adminAuditListe.innerHTML = "<div class='muted'>Keine Audit-Einträge vorhanden.</div>";
+    return;
+  }
+
+  for (const e of eintraege) {
+    const div = document.createElement("div");
+    div.className = "admin-audit-entry";
+    div.innerHTML = `
+      <div class="admin-audit-header">
+        <span class="admin-audit-ts">${escapeHtml(e.timestamp || "?")}</span>
+        <span class="admin-audit-action">${escapeHtml(e.aktion || "?")}</span>
+        ${e.sektion ? `<span class="admin-audit-section">${escapeHtml(e.sektion)}</span>` : ""}
+      </div>
+      <div class="admin-audit-actor">
+        ${escapeHtml(e.actor_name || e.actor_identifier || "?")}
+        ${e.actor_job ? `(${escapeHtml(e.actor_job)} Grad ${escapeHtml(String(e.actor_grade ?? "?"))})` : ""}
+      </div>
+      <div class="admin-audit-grund">Grund: ${escapeHtml(e.grund || "-")}</div>
+      <div class="admin-audit-id muted">ID: ${escapeHtml(e.request_id || "?")}</div>
+    `;
+    adminAuditListe.appendChild(div);
+  }
+}
+
+// Admin-Subtab-Buttons binden
+document.querySelectorAll(".admin-subtab").forEach(btn => {
+  btn.addEventListener("click", () => adminSubtabSetzen(btn.dataset.subtab));
+});
+
+// Admin-Aktion-Buttons binden
+if (btnAdminLaden)        btnAdminLaden.addEventListener("click",       () => adminSektionLaden("effektiv"));
+if (btnAdminBasisLaden)   btnAdminBasisLaden.addEventListener("click",  () => adminSektionLaden("basis"));
+if (btnAdminOverrideLaden) btnAdminOverrideLaden.addEventListener("click", () => adminSektionLaden("override"));
+if (btnAdminValidieren)   btnAdminValidieren.addEventListener("click",  () => adminSektionValidieren());
+if (btnAdminSpeichern)    btnAdminSpeichern.addEventListener("click",   () => adminSektionSpeichern());
+if (btnAdminZuruecksetzen) btnAdminZuruecksetzen.addEventListener("click", () => adminSektionZuruecksetzen());
+if (btnAdminAuditLaden)   btnAdminAuditLaden.addEventListener("click",  () => adminAuditLogLaden());
+
+// Admin-Tab-Button binden (nach DOM bereit)
+if (tabAdmin) {
+  tabAdmin.addEventListener("click", () => {
+    tabSetzen("admin");
+    adminPanelLaden();
+  });
+}
 
 // ==========================
 // Startup

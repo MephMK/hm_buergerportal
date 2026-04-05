@@ -104,6 +104,11 @@ HM_BP.Shared.Actions = {
   WEBHOOK_TEST          = "webhook.test",
   ADMIN_SETTINGS        = "admin.settings",
 
+  -- Admin-Konfigurationsbereich öffnen (Lesen)
+  ADMIN_PANEL_OPEN      = "admin.panel.open",
+  -- Admin-Konfiguration schreiben (alle Mutations-Endpunkte)
+  ADMIN_CONFIG_WRITE    = "admin.config.write",
+
   -- -------------------------------------------------------
   -- Formular-Editor
   -- -------------------------------------------------------

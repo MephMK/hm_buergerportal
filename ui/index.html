@@ -38,6 +38,7 @@
           <div class="tabs">
             <button id="tabBuerger" class="tab active">Bürger</button>
             <button id="tabJustiz" class="tab">Justiz</button>
+            <button id="tabAdmin" class="tab" style="display:none;">Admin</button>
           </div>
         </div>
 
@@ -435,6 +436,57 @@ Option B'></textarea>
           </div>
 
         </div>
+
+        <!-- Adminbereich -->
+        <div id="bereichAdminContent" class="box" style="display:none;">
+          <div class="box-title">Admin-Konfiguration</div>
+          <div class="muted" id="adminStatusMeta">Lade Admin-Panel…</div>
+
+          <div id="adminPanelBox" style="display:none;">
+
+            <!-- Admin-Unternavigation -->
+            <div class="tabs" style="margin-top:12px;">
+              <button class="tab admin-subtab active" data-subtab="Standorte">Standorte</button>
+              <button class="tab admin-subtab" data-subtab="Kategorien">Kategorien</button>
+              <button class="tab admin-subtab" data-subtab="Formulare">Formulare</button>
+              <button class="tab admin-subtab" data-subtab="Permissions">Permissions</button>
+              <button class="tab admin-subtab" data-subtab="Status">Status/Workflow</button>
+              <button class="tab admin-subtab" data-subtab="Webhooks">Webhooks</button>
+              <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
+            </div>
+
+            <!-- Sektion: Standorte / Kategorien / Formulare / Permissions / Status / Webhooks -->
+            <div id="adminSektionEditor" style="display:none; margin-top:16px;">
+              <div class="admin-toolbar">
+                <button id="btnAdminLaden" class="btn btn-secondary" type="button">Effektiv laden</button>
+                <button id="btnAdminBasisLaden" class="btn btn-secondary" type="button">Basis laden</button>
+                <button id="btnAdminOverrideLaden" class="btn btn-secondary" type="button">Override laden</button>
+                <button id="btnAdminValidieren" class="btn btn-secondary" type="button">Validieren</button>
+                <button id="btnAdminSpeichern" class="btn" type="button">Speichern</button>
+                <button id="btnAdminZuruecksetzen" class="btn btn-secondary" type="button">Override zurücksetzen</button>
+              </div>
+              <div class="feld" style="margin-top:12px;">
+                <div class="label">Grund (Pflichtfeld)</div>
+                <input id="adminGrund" type="text" placeholder="Warum wird diese Änderung vorgenommen?" />
+              </div>
+              <div class="feld" style="margin-top:12px;">
+                <div class="label">JSON-Editor (<span id="adminAktiveSektionflag">-</span>)</div>
+                <textarea id="adminJsonEditor" class="admin-json-editor" placeholder="JSON der Sektion hier bearbeiten…"></textarea>
+              </div>
+              <div class="muted" id="adminAktionMeta" style="margin-top:8px;"></div>
+            </div>
+
+            <!-- Sektion: Audit-Log -->
+            <div id="adminAuditPanel" style="display:none; margin-top:16px;">
+              <div class="admin-toolbar">
+                <button id="btnAdminAuditLaden" class="btn btn-secondary" type="button">Audit-Log laden</button>
+              </div>
+              <div id="adminAuditListe" class="liste" style="margin-top:12px; max-height:500px; overflow-y:auto;"></div>
+            </div>
+
+          </div>
+        </div>
+
       </section>
     </main>
 

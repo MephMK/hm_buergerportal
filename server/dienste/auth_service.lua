@@ -54,10 +54,16 @@ function AuthService.RolleErmitteln(spieler)
     return "buerger"
   end
 
-  local adminJob = Config.Kern.Jobs.Admin
+  -- Admin-Identifikation: job + mindestGrad aus Config.Kern.Admin (bevorzugt)
+  -- oder Fallback auf das Legacy-Feld Config.Kern.Jobs.Admin (rückwärtskompatibel).
+  local adminCfg  = Config.Kern.Admin
+  local adminJob  = (adminCfg and adminCfg.Job) or Config.Kern.Jobs.Admin
+  local adminMin  = (adminCfg and adminCfg.MinGrade) or 0
   local justizJob = Config.Kern.Jobs.Justiz
 
-  if spieler.job.name == adminJob then return "admin" end
+  if spieler.job.name == adminJob and (tonumber(spieler.job.grade) or 0) >= adminMin then
+    return "admin"
+  end
   if spieler.job.name == justizJob then return "justiz" end
   return "buerger"
 end
