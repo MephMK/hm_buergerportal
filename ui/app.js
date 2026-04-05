@@ -2357,10 +2357,13 @@ window.addEventListener("message", (event) => {
     jobGrad.textContent = `${sp.jobLabel || sp.job || "-"} (Grad: ${sp.gradLabel || sp.grad || 0})`;
     standortName.textContent = st?.name || "-";
 
-    // Admin-Tab sichtbar/unsichtbar je nach Rolle
+    // Admin-Tab sichtbar/unsichtbar je nach Rolle (Admin oder Justiz-Leitung)
     const adminTabEl = document.getElementById("tabAdmin");
     if (adminTabEl) {
-      adminTabEl.style.display = (sp.rolle === "admin") ? "" : "none";
+      const darfAdmin = (sp.rolle === "admin") || (sp.ist_leitung === true);
+      adminTabEl.style.display = darfAdmin ? "" : "none";
+      // Merke ob Spieler nur Leitung ist (kein voller Admin)
+      adminIstNurLeitung = darfAdmin && (sp.rolle !== "admin");
     }
   }
 
@@ -2752,6 +2755,10 @@ let adminAktiveSubsektion = "Standorte";
 let adminModus = "gefuehrt"; // "gefuehrt" | "erweitert"
 let adminCrudBearbeitenId = null;
 let adminPanelDaten = {};
+// PR12: Audit state
+let auditAktuelleSeite = 1;
+let auditGesamt = 0;
+let adminIstNurLeitung = false; // true wenn Spieler nur Leitung ist (kein Admin)
 
 // DOM refs (admin panel)
 const tabAdmin              = document.getElementById("tabAdmin");
@@ -2770,8 +2777,20 @@ const btnAdminOverrideLaden = document.getElementById("btnAdminOverrideLaden");
 const btnAdminValidieren    = document.getElementById("btnAdminValidieren");
 const btnAdminSpeichern     = document.getElementById("btnAdminSpeichern");
 const btnAdminZuruecksetzen = document.getElementById("btnAdminZuruecksetzen");
-const btnAdminAuditLaden    = document.getElementById("btnAdminAuditLaden");
 const adminAuditListe       = document.getElementById("adminAuditListe");
+// PR12: Audit-Filter + Pagination DOM refs
+const auditFilterVon        = document.getElementById("auditFilterVon");
+const auditFilterBis        = document.getElementById("auditFilterBis");
+const auditFilterActorName  = document.getElementById("auditFilterActorName");
+const auditFilterAktion     = document.getElementById("auditFilterAktion");
+const auditFilterPublicId   = document.getElementById("auditFilterPublicId");
+const auditFilterRequestId  = document.getElementById("auditFilterRequestId");
+const btnAuditSuchen        = document.getElementById("btnAuditSuchen");
+const btnAuditZurueck       = document.getElementById("btnAuditZurueck");
+const btnAuditVorige        = document.getElementById("btnAuditVorige");
+const btnAuditNaechste      = document.getElementById("btnAuditNaechste");
+const auditSeitenInfo       = document.getElementById("auditSeitenInfo");
+const auditProSeite         = document.getElementById("auditProSeite");
 const btnAdminModeGefuehrt  = document.getElementById("btnAdminModeGef\u00fchrt");
 const btnAdminModeErweitert = document.getElementById("btnAdminModeErweitert");
 const adminCrudGefuehrt     = document.getElementById("adminCrudGef\u00fchrt");
@@ -2817,6 +2836,7 @@ function adminSubtabSetzen(sektion) {
   if (sektion === "Audit") {
     if (adminCrudPanel)  adminCrudPanel.style.display  = "none";
     if (adminAuditPanel) adminAuditPanel.style.display = "block";
+    auditListeLaden(1);
   } else {
     if (adminCrudPanel)  adminCrudPanel.style.display  = "block";
     if (adminAuditPanel) adminAuditPanel.style.display = "none";
@@ -2831,11 +2851,25 @@ function adminSubtabSetzen(sektion) {
 }
 
 // -------------------------------------------------------
-// Panel laden (beim \u00d6ffnen des Admin-Tabs)
+// Panel laden (beim Öffnen des Admin-Tabs)
 // -------------------------------------------------------
 
 async function adminPanelLaden() {
   if (!adminStatusMeta) return;
+
+  // Justiz-Leitung: nur Audit-Tab laden (kein Admin-Panel)
+  if (adminIstNurLeitung) {
+    if (adminPanelBox) adminPanelBox.style.display = "block";
+    if (adminStatusMeta) adminStatusMeta.textContent = "";
+    // Nicht-Audit-Subtabs für Leitung ausblenden
+    document.querySelectorAll(".admin-subtab").forEach(btn => {
+      btn.style.display = (btn.dataset.subtab === "Audit") ? "" : "none";
+    });
+    adminAktiveSubsektion = "Audit";
+    adminSubtabSetzen("Audit"); // loads audit list
+    return;
+  }
+
   adminStatusMeta.textContent = "Lade Admin-Panel vom Server...";
 
   const res = await nuiAufruf("hm_bp:admin_panel_laden", {});
@@ -3581,40 +3615,89 @@ async function adminSektionZuruecksetzen() {
 }
 
 // -------------------------------------------------------
-// Audit-Log
+// Audit-Log (PR12): Filter + Pagination
 // -------------------------------------------------------
 
-async function adminAuditLogLaden() {
+function auditFilterHolen() {
+  return {
+    von:              (auditFilterVon?.value       || "").trim(),
+    bis:              (auditFilterBis?.value       || "").trim(),
+    actor_name:       (auditFilterActorName?.value || "").trim(),
+    aktion:           (auditFilterAktion?.value    || "").trim(),
+    target_public_id: (auditFilterPublicId?.value  || "").trim(),
+    request_id:       (auditFilterRequestId?.value || "").trim(),
+  };
+}
+
+async function auditListeLaden(seite) {
   if (!adminAuditListe) return;
-  adminAuditListe.innerHTML = "<div class='muted'>Lade...</div>";
-  const res = await nuiAufruf("hm_bp:admin_audit_laden", { limit: 100 });
+  if (seite !== undefined) auditAktuelleSeite = seite;
+
+  adminAuditListe.innerHTML = "<div class='muted'>Lade\u2026</div>";
+  if (auditSeitenInfo) auditSeitenInfo.textContent = "Lade\u2026";
+
+  const proSeiteWert = parseInt(auditProSeite?.value || "50");
+  const filter = auditFilterHolen();
+
+  const res = await nuiAufruf("hm_bp:audit_liste_laden", {
+    filter,
+    seite:     auditAktuelleSeite,
+    pro_seite: proSeiteWert,
+  });
+
   adminAuditListe.innerHTML = "";
+
   if (!res || !res.ok) {
     adminAuditListe.innerHTML = "<div class='muted'>" + escapeHtml(res?.fehler?.nachricht || "Audit-Log konnte nicht geladen werden.") + "</div>";
+    if (auditSeitenInfo) auditSeitenInfo.textContent = "\u2013";
     return;
   }
+
   const eintraege = res.eintraege || [];
+  auditGesamt = res.gesamt || 0;
+  const gesamtSeiten = Math.max(1, Math.ceil(auditGesamt / proSeiteWert));
+
+  if (auditSeitenInfo) {
+    auditSeitenInfo.textContent = `Seite ${auditAktuelleSeite} / ${gesamtSeiten} (${auditGesamt} Eintr\u00e4ge)`;
+  }
+  if (btnAuditVorige)   btnAuditVorige.disabled   = auditAktuelleSeite <= 1;
+  if (btnAuditNaechste) btnAuditNaechste.disabled = auditAktuelleSeite >= gesamtSeiten;
+
   if (eintraege.length === 0) {
-    adminAuditListe.innerHTML = "<div class='muted'>Keine Audit-Eintr\u00e4ge vorhanden.</div>";
+    adminAuditListe.innerHTML = "<div class='muted'>Keine Audit-Eintr\u00e4ge f\u00fcr diese Filter vorhanden.</div>";
     return;
   }
+
+  const istAdmin = res.ist_admin === true;
+
   for (const e of eintraege) {
     const div = document.createElement("div");
     div.className = "admin-audit-entry";
+
+    const actorLine = escapeHtml(e.actor_display_name || e.actor_name || "?")
+      + (e.actor_source ? ` <span class="muted">[${escapeHtml(e.actor_source)}]</span>` : "")
+      + (istAdmin && e.actor_identifier ? ` <span class="muted audit-identifier">(${escapeHtml(e.actor_identifier)})</span>` : "");
+
     div.innerHTML = `
       <div class="admin-audit-header">
-        <span class="admin-audit-ts">${escapeHtml(e.timestamp || "?")}</span>
-        <span class="admin-audit-action">${escapeHtml(e.aktion || "?")}</span>
-        ${e.sektion ? `<span class="admin-audit-section">${escapeHtml(e.sektion)}</span>` : ""}
+        <span class="admin-audit-ts">${escapeHtml(String(e.created_at || "?"))}</span>
+        <span class="admin-audit-action">${escapeHtml(e.action || "?")}</span>
+        ${e.target_public_id ? `<span class="admin-audit-section">AZ: ${escapeHtml(e.target_public_id)}</span>` : ""}
       </div>
-      <div class="admin-audit-actor">
-        ${escapeHtml(e.actor_name || e.actor_identifier || "?")}
-        ${e.actor_job ? "(" + escapeHtml(e.actor_job) + " Grad " + escapeHtml(String(e.actor_grade ?? "?")) + ")" : ""}
-      </div>
-      <div class="admin-audit-grund">Grund: ${escapeHtml(e.grund || "-")}</div>
-      <div class="admin-audit-id muted">ID: ${escapeHtml(e.request_id || "?")}</div>`;
+      <div class="admin-audit-actor">${actorLine}</div>
+      ${e.reason ? `<div class="admin-audit-grund">Begr\u00fcndung: ${escapeHtml(e.reason)}</div>` : ""}
+      <div class="admin-audit-id muted">
+        Request-ID: <strong>${escapeHtml(e.request_id || "?")}</strong>
+        ${e.target_type ? ` &middot; Ziel: ${escapeHtml(e.target_type)}${e.target_id ? "/" + escapeHtml(e.target_id) : ""}` : ""}
+      </div>`;
     adminAuditListe.appendChild(div);
   }
+}
+
+// Legacy-Wrapper (für alte Referenz in Event-Listenern)
+async function adminAuditLogLaden() {
+  auditAktuelleSeite = 1;
+  await auditListeLaden(1);
 }
 
 // -------------------------------------------------------
@@ -3634,7 +3717,26 @@ if (btnAdminOverrideLaden) btnAdminOverrideLaden.addEventListener("click",() => 
 if (btnAdminValidieren)    btnAdminValidieren.addEventListener("click",   () => adminSektionValidieren());
 if (btnAdminSpeichern)     btnAdminSpeichern.addEventListener("click",    () => adminSektionSpeichern());
 if (btnAdminZuruecksetzen) btnAdminZuruecksetzen.addEventListener("click",() => adminSektionZuruecksetzen());
-if (btnAdminAuditLaden)    btnAdminAuditLaden.addEventListener("click",   () => adminAuditLogLaden());
+
+// PR12: Audit-Filter + Pagination
+if (btnAuditSuchen)    btnAuditSuchen.addEventListener("click",    () => auditListeLaden(1));
+if (btnAuditZurueck)   btnAuditZurueck.addEventListener("click",   () => {
+  if (auditFilterVon)       auditFilterVon.value       = "";
+  if (auditFilterBis)       auditFilterBis.value       = "";
+  if (auditFilterActorName) auditFilterActorName.value = "";
+  if (auditFilterAktion)    auditFilterAktion.value    = "";
+  if (auditFilterPublicId)  auditFilterPublicId.value  = "";
+  if (auditFilterRequestId) auditFilterRequestId.value = "";
+  auditListeLaden(1);
+});
+if (btnAuditVorige)    btnAuditVorige.addEventListener("click",    () => {
+  if (auditAktuelleSeite > 1) auditListeLaden(auditAktuelleSeite - 1);
+});
+if (btnAuditNaechste)  btnAuditNaechste.addEventListener("click",  () => {
+  const pp = parseInt(auditProSeite?.value || "50");
+  if (auditAktuelleSeite < Math.ceil(auditGesamt / pp)) auditListeLaden(auditAktuelleSeite + 1);
+});
+if (auditProSeite) auditProSeite.addEventListener("change", () => auditListeLaden(1));
 
 if (btnAdminCrudNeu)            btnAdminCrudNeu.addEventListener("click",            () => { adminCrudBearbeitenId = null; adminFormularAnzeigen(adminAktiveSubsektion, null, {}); });
 if (btnAdminCrudAktualisieren)  btnAdminCrudAktualisieren.addEventListener("click",  () => adminCrudListeAktualisieren());

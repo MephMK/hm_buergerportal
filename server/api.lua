@@ -44,7 +44,10 @@ RegisterNetEvent("hm_bp:portal:daten_anfordern", function(payload)
         job = spieler.job.name,
         grad = spieler.job.grade,
         jobLabel = spieler.job.label,
-        gradLabel = spieler.job.gradeLabel
+        gradLabel = spieler.job.gradeLabel,
+        ist_leitung = (HM_BP.Server.Dienste.WorkflowService
+          and HM_BP.Server.Dienste.WorkflowService.IstLeitung
+          and HM_BP.Server.Dienste.WorkflowService.IstLeitung(spieler)) and true or false,
       },
       standort = standort and { id = standort.id, name = standort.name } or nil
     }

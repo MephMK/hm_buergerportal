@@ -581,10 +581,30 @@ Option B'></textarea>
 
             <!-- Sektion: Audit-Log -->
             <div id="adminAuditPanel" style="display:none; margin-top:16px;">
-              <div class="admin-toolbar">
-                <button id="btnAdminAuditLaden" class="btn btn-secondary" type="button">Audit-Log laden</button>
+              <!-- Filter-Leiste -->
+              <div class="admin-toolbar" style="flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <input id="auditFilterVon"         type="date"   placeholder="Von (Datum)" title="Von Datum" style="width:130px;" />
+                <input id="auditFilterBis"         type="date"   placeholder="Bis (Datum)" title="Bis Datum" style="width:130px;" />
+                <input id="auditFilterActorName"   type="text"   placeholder="Akteur (Name)" style="width:140px;" />
+                <input id="auditFilterAktion"      type="text"   placeholder="Aktion (exakt)" style="width:150px;" />
+                <input id="auditFilterPublicId"    type="text"   placeholder="Aktenzeichen" style="width:130px;" />
+                <input id="auditFilterRequestId"   type="text"   placeholder="Request-ID" style="width:140px;" />
+                <button id="btnAuditSuchen"  class="btn"           type="button">Suchen</button>
+                <button id="btnAuditZurueck" class="btn btn-secondary" type="button">Zurücksetzen</button>
               </div>
-              <div id="adminAuditListe" class="liste" style="margin-top:12px; max-height:500px; overflow-y:auto;"></div>
+              <!-- Pagination + Info -->
+              <div class="admin-toolbar" style="margin-bottom:8px; font-size:0.9em;">
+                <button id="btnAuditVorige"  class="btn btn-secondary" type="button">‹ Vorige</button>
+                <span   id="auditSeitenInfo" style="margin:0 10px;">–</span>
+                <button id="btnAuditNaechste" class="btn btn-secondary" type="button">Nächste ›</button>
+                <select id="auditProSeite" title="Einträge pro Seite" style="margin-left:12px; width:70px;">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                </select>
+                <span class="label" style="margin-left:4px;">pro Seite</span>
+              </div>
+              <div id="adminAuditListe" class="liste" style="margin-top:4px; max-height:540px; overflow-y:auto;"></div>
             </div>
 
           </div>

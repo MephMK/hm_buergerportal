@@ -1413,7 +1413,7 @@ Config.Module = {
   Exporte          = true,
 
   -- Audit-Härtung: Erweiterte Audit-Sicherheit und Unveränderlichkeit der Logs.
-  AuditHaertung    = false,
+  AuditHaertung    = true,
 
   -- Webhooks: Discord-Webhook-Benachrichtigungen.
   Webhooks         = true,
@@ -1482,4 +1482,29 @@ Config.FormularEditor = {
       archivierer = { rolle = "justiz", job = "doj", mindestGrad = 3 }
     }
   }
+}
+-- =============================================================
+-- Config.Audit
+-- Unveränderliche Audit-Logs (PR12): Retention, Cleanup-Job.
+-- =============================================================
+Config.Audit = {
+  -- Aktiviert: Audit-Logs schreiben und Cleanup-Job ausführen.
+  Aktiviert = true,
+
+  -- Retention: Audit-Einträge werden nach TageMax Tagen automatisch gelöscht.
+  -- Cleanup läuft beim Serverstart und dann alle IntervalSekunden Sekunden.
+  Retention = {
+    TageMax = 90,
+  },
+
+  Cleanup = {
+    -- Intervall in Sekunden zwischen zwei Cleanup-Läufen (Standard: 1 Stunde).
+    IntervalSekunden = 3600,
+  },
+
+  -- Leitung-Zugriff auf Audit-Log-Ansicht:
+  -- Admin hat immer Zugriff (via *-Permission).
+  -- Justiz-Leitung (grade >= Config.Workflows.Leitung.MinGrade) bekommt
+  -- Lesezugriff auf den Audit-Log-Viewer (kein actor_identifier sichtbar).
+  LeitungDarfLesen = true,
 }

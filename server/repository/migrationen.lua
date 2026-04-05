@@ -357,4 +357,28 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   migrationAnwenden("v9_idx_eskalation", [[
     ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_eskalation (needs_leitung, escalated_at, sla_due_at);
   ]])
+
+  -- v10: Audit-Log-Härtung (PR12)
+  -- Neue Spalten für vollständige, unveränderliche Audit-Einträge.
+  migrationAnwenden("v10_audit_haertung_spalten", [[
+    ALTER TABLE hm_bp_audit_logs
+      ADD COLUMN IF NOT EXISTS request_id VARCHAR(32) NULL,
+      ADD COLUMN IF NOT EXISTS actor_display_name VARCHAR(256) NULL,
+      ADD COLUMN IF NOT EXISTS actor_source VARCHAR(64) NULL,
+      ADD COLUMN IF NOT EXISTS actor_ip VARCHAR(64) NULL,
+      ADD COLUMN IF NOT EXISTS target_public_id VARCHAR(32) NULL,
+      ADD COLUMN IF NOT EXISTS target_category_id VARCHAR(64) NULL,
+      ADD COLUMN IF NOT EXISTS target_form_id VARCHAR(64) NULL,
+      ADD COLUMN IF NOT EXISTS reason TEXT NULL,
+      ADD COLUMN IF NOT EXISTS metadata JSON NULL;
+  ]])
+  migrationAnwenden("v10_audit_idx_request_id", [[
+    ALTER TABLE hm_bp_audit_logs ADD INDEX idx_audit_request_id (request_id);
+  ]])
+  migrationAnwenden("v10_audit_idx_public_id", [[
+    ALTER TABLE hm_bp_audit_logs ADD INDEX idx_audit_public_id (target_public_id);
+  ]])
+  migrationAnwenden("v10_audit_idx_actor_name", [[
+    ALTER TABLE hm_bp_audit_logs ADD INDEX idx_audit_actor_name (actor_name(64));
+  ]])
 end

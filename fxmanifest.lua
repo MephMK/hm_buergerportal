@@ -92,6 +92,7 @@ server_scripts {
   'server/api_attachments.lua',
   'server/api_admin.lua',
   'server/api_admin_crud.lua',
+  'server/api_audit.lua',
   'server/api_export.lua'
 }
 
