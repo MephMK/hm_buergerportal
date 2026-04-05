@@ -206,16 +206,20 @@ end)
 -- Formular-Editor (Direkte NUI-Callbacks mit Promise/Await)
 -- ==========================
 -- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
+-- Timeout nach 10 Sekunden, damit der Handler in jedem Fall bereinigt wird.
 local function formEditorAufruf(serverEvent, daten, antwortEvent)
   local p = promise.new()
   local h = AddEventHandler(antwortEvent, function(result)
     p:resolve(result)
   end)
+  SetTimeout(10000, function()
+    p:resolve({ ok = false, fehler = { nachricht = "Zeitüberschreitung (Server hat nicht geantwortet)." } })
+  end)
   TriggerServerEvent(serverEvent, daten)
   local ok, result = pcall(Citizen.Await, p)
   RemoveEventHandler(h)
   if ok then return result end
-  return { ok = false, fehler = { nachricht = "Keine Antwort vom Server erhalten." } }
+  return { ok = false, fehler = { nachricht = "Interner Fehler beim Warten auf Serverantwort." } }
 end
 
 RegisterNUICallback("hm_bp:form_editor_rechte_laden", function(daten, cb)

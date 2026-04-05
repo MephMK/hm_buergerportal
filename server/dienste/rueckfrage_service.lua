@@ -29,20 +29,22 @@ local function antragHolen(antragId)
   ]], { antragId })
 end
 
-local function offeneRueckfrageExistiert(antragId)
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT status, category_id FROM hm_bp_submissions WHERE id = ? AND deleted_at IS NULL", { antragId })
-  if not a then return false end
-
-  -- Status-Metadaten als Quelle der Wahrheit für erlaubtBuergerAntwort
-  local statusListe = HM_BP.Server.Dienste.StatusService.StatusListeFuerKategorie(a.category_id)
+-- Status-Metadaten: Prüft, ob Bürgerantwort für den aktuellen Status erlaubt ist.
+-- Nutzt StatusService als Quelle der Wahrheit; Legacy-Fallback auf question_open.
+local function buergerAntwortErlaubt(status, categoryId)
+  local statusListe = HM_BP.Server.Dienste.StatusService.StatusListeFuerKategorie(categoryId)
   for _, s in ipairs(statusListe) do
-    if s.id == a.status then
+    if s.id == status then
       return s.erlaubtBuergerAntwort == true
     end
   end
+  return status == "question_open"
+end
 
-  -- Fallback: Legacy-Verhalten, falls kein Metadatum gefunden
-  return a.status == "question_open"
+local function offeneRueckfrageExistiert(antragId)
+  local a = HM_BP.Server.Datenbank.Einzel("SELECT status, category_id FROM hm_bp_submissions WHERE id = ? AND deleted_at IS NULL", { antragId })
+  if not a then return false end
+  return buergerAntwortErlaubt(a.status, a.category_id)
 end
 
 function RueckfrageService.JustizRueckfrageStellen(spieler, antragId, text)
@@ -160,24 +162,11 @@ function RueckfrageService.BuergerDetailsHolen(spieler, antragId)
   ]], { antragId })
 
   -- rueckfrageOffen: nutzt Status-Metadaten als Quelle der Wahrheit
-  local rueckfrageOffen = false
-  local statusListe = HM_BP.Server.Dienste.StatusService.StatusListeFuerKategorie(a.category_id)
-  for _, s in ipairs(statusListe) do
-    if s.id == a.status then
-      rueckfrageOffen = (s.erlaubtBuergerAntwort == true)
-      break
-    end
-  end
-  if not rueckfrageOffen then
-    -- Fallback: Legacy
-    rueckfrageOffen = (a.status == "question_open")
-  end
-
   return {
     antrag = a,
     payload = payload,
     timeline = timeline,
-    rueckfrageOffen = rueckfrageOffen
+    rueckfrageOffen = buergerAntwortErlaubt(a.status, a.category_id)
   }, nil
 end
 
