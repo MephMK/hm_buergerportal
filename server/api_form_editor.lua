@@ -36,6 +36,18 @@ local function webhookEmit(eventKey, data)
   if ws and ws.Emit then ws.Emit(eventKey, data) end
 end
 
+local function anzeigeNameAuflosen(quelle, fallback)
+  local ss = HM_BP.Server.Dienste.SpielerService
+  if ss and ss.AnzeigeNameAuflosen then
+    return ss.AnzeigeNameAuflosen(quelle, fallback)
+  end
+  if ss and ss.SpielerNameAuflosen then
+    local name = ss.SpielerNameAuflosen(quelle)
+    if name and name ~= "" then return name end
+  end
+  return fallback or "System"
+end
+
 -- ==========================
 -- Rechte laden
 -- ==========================
@@ -116,7 +128,7 @@ RegisterNetEvent("hm_bp:form_editor:formular_erstellen", function(payload)
   webhookEmit("form_editor_form_created", {
     form_id     = result.id,
     category_id = result.category_id,
-    actor_name  = spieler.name,
+    akteur_name = anzeigeNameAuflosen(quelle, spieler.name),
   })
 
   TriggerClientEvent("hm_bp:form_editor:formular_erstellen_antwort", quelle, {
@@ -167,9 +179,9 @@ RegisterNetEvent("hm_bp:form_editor:schema_speichern", function(payload)
   end
 
   webhookEmit("form_editor_schema_saved", {
-    form_id    = payload.formId,
-    version    = result.version,
-    actor_name = spieler.name,
+    form_id     = payload.formId,
+    version     = result.version,
+    akteur_name = anzeigeNameAuflosen(quelle, spieler.name),
   })
 
   TriggerClientEvent("hm_bp:form_editor:schema_speichern_antwort", quelle, {
@@ -198,9 +210,9 @@ RegisterNetEvent("hm_bp:form_editor:veroeffentlichen", function(payload)
   end
 
   webhookEmit("form_editor_published", {
-    form_id    = payload.formId,
-    version    = result.version,
-    actor_name = spieler.name,
+    form_id     = payload.formId,
+    version     = result.version,
+    akteur_name = anzeigeNameAuflosen(quelle, spieler.name),
   })
 
   TriggerClientEvent("hm_bp:form_editor:veroeffentlichen_antwort", quelle, {
@@ -229,8 +241,8 @@ RegisterNetEvent("hm_bp:form_editor:archivieren", function(payload)
   end
 
   webhookEmit("form_editor_archived", {
-    form_id    = payload.formId,
-    actor_name = spieler.name,
+    form_id     = payload.formId,
+    akteur_name = anzeigeNameAuflosen(quelle, spieler.name),
   })
 
   TriggerClientEvent("hm_bp:form_editor:archivieren_antwort", quelle, { ok = true })

@@ -29,6 +29,18 @@ local function cfgSvc()  return HM_BP.Server.Dienste.AdminConfigService  end
 local function audSvc()  return HM_BP.Server.Dienste.AdminAuditService   end
 local function valSvc()  return HM_BP.Server.Dienste.AdminValidierungService end
 
+local function anzeigeNameAuflosen(quelle, fallback)
+  local ss = HM_BP.Server.Dienste.SpielerService
+  if ss and ss.AnzeigeNameAuflosen then
+    return ss.AnzeigeNameAuflosen(quelle, fallback)
+  end
+  if ss and ss.SpielerNameAuflosen then
+    local name = ss.SpielerNameAuflosen(quelle)
+    if name and name ~= "" then return name end
+  end
+  return fallback or "System"
+end
+
 -- Prüft Admin-Berechtigung mit zwei unabhängigen Schichten:
 --   1) Rate-Limit + Permission-Check via Middleware
 --   2) Direkte Job+Grade-Prüfung gegen Config.Kern.Admin (NICHT überschreibbar via Overrides)
@@ -291,9 +303,10 @@ RegisterNetEvent("hm_bp:admin:sektion_speichern", function(payload)
   local ws = HM_BP.Server.Dienste.WebhookService
   if ws and ws.Emit then
     ws.Emit("admin.config.changed", {
-      sektion    = sektion,
-      actor_name = spieler.name,
-      grund      = payload.grund,
+      akteur_name = anzeigeNameAuflosen(quelle, spieler.name),
+      sektion     = sektion,
+      grund       = payload.grund,
+      text        = ("Sektion: %s | Grund: %s"):format(tostring(sektion), tostring(payload.grund)),
     })
   end
 
