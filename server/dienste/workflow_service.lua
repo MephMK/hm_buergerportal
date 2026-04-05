@@ -379,10 +379,10 @@ local function systemSpieler()
   }
 end
 
----Sendet den antrag_escalated-Webhook für einen Antrag (Eskalation oder Reminder).
+---Sendet den antrag_escalation-Webhook für einen Antrag (Eskalation oder Reminder).
 local function eskalationsWebhookSenden(antragInfo, istReminder)
   if not HM_BP.Server.Dienste.WebhookService then return end
-  HM_BP.Server.Dienste.WebhookService.Emit("antrag_escalated", {
+  HM_BP.Server.Dienste.WebhookService.Emit("antrag_escalation", {
     public_id    = antragInfo.public_id,
     aktenzeichen = antragInfo.public_id,
     akteur_name  = "System (SLA)",
@@ -400,14 +400,14 @@ end
 ---löst Eskalation oder Reminder aus.
 ---
 --- Eskalation (einmalig):
----   TIMESTAMPDIFF(HOUR, created_at, UTC_TIMESTAMP()) >= ErsteBearbeitungStunden
+---   created_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL N HOUR)
 ---   AND first_staff_comment_at IS NULL
 ---   AND escalated = 0
 ---
 --- Reminder (periodisch):
 ---   escalated = 1
 ---   AND first_staff_comment_at IS NULL
----   AND TIMESTAMPDIFF(HOUR, last_escalation_reminder_at, UTC_TIMESTAMP()) >= ReminderIntervalStunden
+---   AND last_escalation_reminder_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL N HOUR)
 function WorkflowService.SlaErstBearbeitungTick()
   local slaCfg = Config.SLA
   if not slaCfg or slaCfg.Aktiviert == false then return end
@@ -416,6 +416,7 @@ function WorkflowService.SlaErstBearbeitungTick()
   local reminderStunden = reminderIntervalStunden()
 
   -- 1. Neue Eskalationen: Frist überschritten, noch nicht eskaliert
+  -- Rewritten to use DATE_SUB so the index on (escalated, created_at) can be used.
   local neueEskalationen = HM_BP.Server.Datenbank.Alle([[
     SELECT id, public_id, category_id, citizen_name
     FROM hm_bp_submissions
@@ -423,7 +424,7 @@ function WorkflowService.SlaErstBearbeitungTick()
       AND archived_at IS NULL
       AND first_staff_comment_at IS NULL
       AND escalated = 0
-      AND TIMESTAMPDIFF(HOUR, created_at, UTC_TIMESTAMP()) >= ?
+      AND created_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? HOUR)
     LIMIT 50
   ]], { fristStunden })
 
@@ -483,6 +484,7 @@ function WorkflowService.SlaErstBearbeitungTick()
   end
 
   -- 2. Reminder: bereits eskaliert, aber immer noch keine erste Bearbeitung
+  -- Rewritten to use DATE_SUB so the index on last_escalation_reminder_at can be used.
   local reminders = HM_BP.Server.Datenbank.Alle([[
     SELECT id, public_id, category_id, citizen_name
     FROM hm_bp_submissions
@@ -490,7 +492,7 @@ function WorkflowService.SlaErstBearbeitungTick()
       AND archived_at IS NULL
       AND first_staff_comment_at IS NULL
       AND escalated = 1
-      AND TIMESTAMPDIFF(HOUR, last_escalation_reminder_at, UTC_TIMESTAMP()) >= ?
+      AND last_escalation_reminder_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? HOUR)
     LIMIT 50
   ]], { reminderStunden })
 

@@ -422,4 +422,26 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   migrationAnwenden("v12_idx_zahlung_status", [[
     ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_zahlung_status (zahlung_status, charged_at);
   ]])
+
+  -- v13: Performance-Indexes (PR16 – Release-Candidate Bugfixes)
+  -- idx_sub_erst_reminder: Index für den Reminder-Zweig in SlaErstBearbeitungTick.
+  --   Abfrageform: escalated=1 AND last_escalation_reminder_at <= DATE_SUB(...)
+  --   Der neue Index (escalated, last_escalation_reminder_at) erlaubt einen Index-Range-Scan
+  --   statt eines vollständigen Table-Scans.
+  migrationAnwenden("v13_idx_sla_reminder", [[
+    ALTER TABLE hm_bp_submissions
+      ADD INDEX idx_sub_erst_reminder (escalated, last_escalation_reminder_at);
+  ]])
+  -- idx_sub_sla_tick: Index für den regulären SlaTick (sla_due_at, paused, needs_leitung).
+  --   Ergänzt den bestehenden idx_sub_eskalation um einen dedizierteren Index ohne escalated_at.
+  migrationAnwenden("v13_idx_sla_tick", [[
+    ALTER TABLE hm_bp_submissions
+      ADD INDEX idx_sub_sla_tick (needs_leitung, sla_due_at, sla_paused_at);
+  ]])
+  -- idx_audit_created_action: Composite-Index für Audit-Filter (Datum + Aktion).
+  --   Deckt die häufigste Audit-Viewer-Kombination: von/bis + Aktionsfilter.
+  migrationAnwenden("v13_idx_audit_created_action", [[
+    ALTER TABLE hm_bp_audit_logs
+      ADD INDEX idx_audit_created_action (created_at, action);
+  ]])
 end

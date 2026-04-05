@@ -133,7 +133,7 @@ end
 local function webhookSenden(event, daten)
   if HM_BP.Server.Dienste.WebhookService then
     pcall(function()
-      HM_BP.Server.Dienste.WebhookService.Senden(event, daten)
+      HM_BP.Server.Dienste.WebhookService.Emit(event, daten)
     end)
   end
 end

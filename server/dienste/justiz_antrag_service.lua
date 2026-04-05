@@ -339,7 +339,8 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
   if type(grund) ~= "string" then grund = tostring(grund) end
 
   local a = HM_BP.Server.Datenbank.Einzel([[
-    SELECT id, public_id, category_id, archived_at, deleted_at
+    SELECT id, public_id, category_id, archived_at, deleted_at,
+           fee_eur, zahlung_status, citizen_identifier, citizen_name, form_id
     FROM hm_bp_submissions WHERE id = ?
   ]], { antragId })
   if not a or a.deleted_at ~= nil then
@@ -376,6 +377,90 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
     tostring(antragId),
     json.encode({ grund = grund })
   })
+
+  -- Gebührenabzug bei Archivierung (PR16: "archived" kann terminaler Status sein)
+  if Config.Module and Config.Module.Gebuehren then
+    local feeEur      = tonumber(a.fee_eur) or 0
+    local istUnbezahlt = (a.zahlung_status == "unbezahlt")
+    local terminaleStatus = (Config.Zahlung and Config.Zahlung.TerminaleStatus) or
+      { "approved", "rejected", "closed", "completed", "archived" }
+    local archivTerminal = false
+    for _, ts in ipairs(terminaleStatus) do
+      if ts == "archived" then archivTerminal = true; break end
+    end
+
+    if feeEur > 0 and istUnbezahlt and archivTerminal then
+      -- Bürger-Source ermitteln
+      local buergerSource = nil
+      do
+        local ok2, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
+        if ok2 and esx and esx.GetPlayerFromIdentifier then
+          local xPlayer = esx.GetPlayerFromIdentifier(a.citizen_identifier)
+          if xPlayer then buergerSource = tonumber(xPlayer.source) end
+        end
+      end
+      if not buergerSource and GetPlayerIdentifier then
+        local players = GetPlayers and GetPlayers() or {}
+        for _, pid in ipairs(players) do
+          local pidN = tonumber(pid)
+          if pidN then
+            for i = 0, GetNumPlayerIdentifiers(pidN) - 1 do
+              if GetPlayerIdentifier(pidN, i) == a.citizen_identifier then
+                buergerSource = pidN; break
+              end
+            end
+            if buergerSource then break end
+          end
+        end
+      end
+
+      if not buergerSource then
+        HM_BP.Server.Datenbank.Ausfuehren(
+          "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?", { antragId })
+        if HM_BP.Server.Dienste.WebhookService then
+          pcall(function()
+            HM_BP.Server.Dienste.WebhookService.Emit("antrag_payment_society_fehler", {
+              public_id    = a.public_id,
+              citizen_name = a.citizen_name,
+              betrag_eur   = feeEur,
+              form_id      = a.form_id,
+              fehler       = "Spieler ist offline – manuelle Abbuchung erforderlich.",
+            })
+          end)
+        end
+      else
+        local formTitel = a.form_id
+        if Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[a.form_id] then
+          formTitel = Config.Formulare.Liste[a.form_id].titel or a.form_id
+        else
+          local fRow = HM_BP.Server.Datenbank.Einzel(
+            "SELECT title FROM hm_bp_form_editor_forms WHERE id = ?", { a.form_id })
+          if fRow and fRow.title then formTitel = fRow.title end
+        end
+        local buergerSpieler = {
+          identifier = a.citizen_identifier,
+          name       = a.citizen_name,
+          source     = buergerSource,
+          job        = { name = "", grade = 0 },
+        }
+        if HM_BP.Server.Dienste.PaymentService then
+          local payResult = HM_BP.Server.Dienste.PaymentService.GebuehrAbbuchen(
+            buergerSpieler, feeEur,
+            { antrag_id = antragId, public_id = a.public_id, form_id = a.form_id,
+              formular_titel = formTitel, citizen_name = a.citizen_name, spieler_name = a.citizen_name })
+          if payResult and payResult.ok and payResult.abgezogen then
+            HM_BP.Server.Datenbank.Ausfuehren(
+              "UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt', charged_at = UTC_TIMESTAMP() WHERE id = ?",
+              { antragId })
+          elseif payResult and not payResult.ok then
+            HM_BP.Server.Datenbank.Ausfuehren(
+              "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
+              { antragId })
+          end
+        end
+      end
+    end
+  end
 
   return { ok = true, public_id = a.public_id }, nil
 end
@@ -555,7 +640,7 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
 
         if HM_BP.Server.Dienste.WebhookService then
           pcall(function()
-            HM_BP.Server.Dienste.WebhookService.Senden("antrag_payment_society_fehler", {
+            HM_BP.Server.Dienste.WebhookService.Emit("antrag_payment_society_fehler", {
               public_id      = a.public_id,
               citizen_name   = a.citizen_name,
               betrag_eur     = feeEur,
