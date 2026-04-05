@@ -330,4 +330,31 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       CONSTRAINT fk_attach_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
+
+  -- v9: Performance-Indexes für Suche & Filter (PR9)
+  -- Einzelne ALTER TABLE pro Index – jede Migration läuft exakt einmal (idempotent).
+  migrationAnwenden("v9_idx_citizen_name", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_citizen_name (citizen_name(64));
+  ]])
+  migrationAnwenden("v9_idx_status", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_status (status);
+  ]])
+  migrationAnwenden("v9_idx_kategorie", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_kategorie (category_id);
+  ]])
+  migrationAnwenden("v9_idx_priority", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_priority (priority);
+  ]])
+  migrationAnwenden("v9_idx_created_at", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_created_at (created_at);
+  ]])
+  migrationAnwenden("v9_idx_assigned_to", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_assigned_to (assigned_to_identifier);
+  ]])
+  migrationAnwenden("v9_idx_archived_at", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_archived_at (archived_at);
+  ]])
+  migrationAnwenden("v9_idx_eskalation", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_eskalation (needs_leitung, escalated_at, sla_due_at);
+  ]])
 end

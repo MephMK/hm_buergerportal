@@ -4,6 +4,10 @@ HM_BP.Server.Dienste = HM_BP.Server.Dienste or {}
 
 local JustizSucheService = {}
 
+-- ----------------------------------------------------------------
+-- Hilfsfunktionen
+-- ----------------------------------------------------------------
+
 local function clamp(n, min, max)
   n = tonumber(n)
   if not n then return min end
@@ -21,7 +25,8 @@ local function normalizeLike(s)
   -- LIKE-Wildcards entfernen (Missbrauch/Performance)
   s = s:gsub("%%", ""):gsub("_", "")
   s = s:gsub("^%s+", ""):gsub("%s+$", "")
-  if #s > 64 then s = s:sub(1, 64) end
+  local maxLen = (Config.Suche and Config.Suche.MaxSuchtextLaenge) or 64
+  if #s > maxLen then s = s:sub(1, maxLen) end
   return s
 end
 
@@ -73,7 +78,7 @@ local function statusErlaubtFuerKategorie(kategorieId, status)
   if istLeer(status) then return true end
   local k = Config.Kategorien and Config.Kategorien.Liste and Config.Kategorien.Liste[kategorieId]
   if not k or type(k.erlaubteStatus) ~= "table" or #k.erlaubteStatus == 0 then
-    -- wenn nicht konfiguriert -> Statusliste global; wir lassen es zu
+    -- wenn nicht konfiguriert -> globale Statusliste; zulassen
     return true
   end
   for _, s in ipairs(k.erlaubteStatus) do
@@ -103,8 +108,33 @@ local function queueWhere(queue, spieler)
   return "archived_at IS NULL AND deleted_at IS NULL", {}
 end
 
+-- ----------------------------------------------------------------
+-- JustizSucheService.Suchen
+-- ----------------------------------------------------------------
+-- payload-Felder:
+--   kategorieId  (string, Pflicht)
+--   queue        (string: eingang|zugewiesen|alle|archiv)
+--   query        (string: Bürgername LIKE-Suche, min 2 Zeichen)
+--   status       (string oder table: ein oder mehrere Status-IDs)
+--   prio         (string)
+--   dateFrom     (YYYY-MM-DD)
+--   dateTo       (YYYY-MM-DD)
+--   sortBy       (created_at|updated_at|priority|status)
+--   sortDir      (ASC|DESC)
+--   page         (number, min 1)
+--   perPage      (number, 1–MaxProSeite aus Config.Suche)
+--   bearbeiter   ("" = alle | "unbearbeitet" = kein Bearbeiter |
+--                 "zugewiesen" = hat Bearbeiter | sonstiger Text = Name LIKE)
+--   eskaliert    (boolean/truthy)
+--   ueberfaellig (boolean/truthy)
+-- ----------------------------------------------------------------
 function JustizSucheService.Suchen(spieler, payload)
   payload = payload or {}
+
+  -- Suche global deaktiviert?
+  if Config.Suche and Config.Suche.Aktiviert == false then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Suche ist deaktiviert." }
+  end
 
   local kategorieId = payload.kategorieId
   if istLeer(kategorieId) then
@@ -132,14 +162,33 @@ function JustizSucheService.Suchen(spieler, payload)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf Archiv." }
   end
 
-  local limit = clamp(payload.limit or 50, 1, 100)
-  local offset = clamp(payload.offset or 0, 0, 5000)
+  -- Seitenparameter aus Config.Suche
+  local cfgStd = (Config.Suche and Config.Suche.StandardProSeite) or 25
+  local cfgMax = (Config.Suche and Config.Suche.MaxProSeite) or 100
+
+  local perPage = clamp(payload.perPage or cfgStd, 1, cfgMax)
+  local page    = clamp(payload.page or 1, 1, 10000)
+  local offset  = (page - 1) * perPage
 
   local sortBy, sortDir = validateSort(payload.sortBy, payload.sortDir)
 
-  local status = payload.status
-  if not istLeer(status) and not statusErlaubtFuerKategorie(kategorieId, status) then
-    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültiger Status für diese Kategorie." }
+  -- Status: erlaubt einzeln oder als Tabelle (Mehrfachauswahl)
+  local statusFilter = {}
+  if not istLeer(payload.status) then
+    if type(payload.status) == "table" then
+      for _, s in ipairs(payload.status) do
+        if not istLeer(s) and statusErlaubtFuerKategorie(kategorieId, tostring(s)) then
+          table.insert(statusFilter, tostring(s))
+        end
+      end
+    else
+      local s = tostring(payload.status)
+      if statusErlaubtFuerKategorie(kategorieId, s) then
+        table.insert(statusFilter, s)
+      else
+        return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültiger Status für diese Kategorie." }
+      end
+    end
   end
 
   local prio = payload.prio
@@ -147,7 +196,7 @@ function JustizSucheService.Suchen(spieler, payload)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültige Priorität." }
   end
 
-  -- Suche: NUR Bürgername (citizen_name)
+  -- Suche: NUR Bürgername (citizen_name) via LIKE
   local suchText = nil
   if not istLeer(payload.query) then
     local q = normalizeLike(payload.query)
@@ -157,8 +206,25 @@ function JustizSucheService.Suchen(spieler, payload)
   end
 
   local dateFrom = validateDate(payload.dateFrom)
-  local dateTo = validateDate(payload.dateTo)
+  local dateTo   = validateDate(payload.dateTo)
 
+  -- Bearbeiter-Filter:
+  --   ""              = alle
+  --   "unbearbeitet"  = kein Bearbeiter zugewiesen
+  --   "zugewiesen"    = hat Bearbeiter (egal wer)
+  --   sonstiger Text  = Bearbeitername LIKE-Suche (min. 2 Zeichen)
+  local bearbeiterFilter = nil
+  if not istLeer(payload.bearbeiter) then
+    bearbeiterFilter = tostring(payload.bearbeiter):gsub("^%s+", ""):gsub("%s+$", "")
+  end
+
+  -- Flags
+  local nurEskaliert    = payload.eskaliert == true or payload.eskaliert == "true"
+  local nurUeberfaellig = payload.ueberfaellig == true or payload.ueberfaellig == "true"
+
+  -- ----------------------------------------------------------------
+  -- WHERE-Klausel aufbauen
+  -- ----------------------------------------------------------------
   local whereParts = { "category_id = ?" }
   local params = { kategorieId }
 
@@ -167,18 +233,26 @@ function JustizSucheService.Suchen(spieler, payload)
   table.insert(whereParts, qWhere)
   for _, p in ipairs(qParams) do table.insert(params, p) end
 
-  -- Status/Priorität
-  if not istLeer(status) then
+  -- Status (Mehrfachauswahl mit IN)
+  if #statusFilter == 1 then
     table.insert(whereParts, "status = ?")
-    table.insert(params, status)
+    table.insert(params, statusFilter[1])
+  elseif #statusFilter > 1 then
+    local platzhalter = {}
+    for _, s in ipairs(statusFilter) do
+      table.insert(platzhalter, "?")
+      table.insert(params, s)
+    end
+    table.insert(whereParts, "status IN (" .. table.concat(platzhalter, ",") .. ")")
   end
 
+  -- Priorität
   if not istLeer(prio) then
     table.insert(whereParts, "priority = ?")
     table.insert(params, prio)
   end
 
-  -- Date range (created_at)
+  -- Zeitraum (created_at)
   if dateFrom then
     table.insert(whereParts, "DATE(created_at) >= ?")
     table.insert(params, dateFrom)
@@ -188,47 +262,76 @@ function JustizSucheService.Suchen(spieler, payload)
     table.insert(params, dateTo)
   end
 
-  -- Query: NUR citizen_name
+  -- Suche: NUR citizen_name via LIKE
   if suchText then
-    table.insert(whereParts, "(citizen_name LIKE ?)")
-    local like = "%" .. suchText .. "%"
-    table.insert(params, like)
+    table.insert(whereParts, "citizen_name LIKE ?")
+    table.insert(params, "%" .. suchText .. "%")
   end
 
+  -- Bearbeiter-Filter
+  if bearbeiterFilter == "unbearbeitet" then
+    table.insert(whereParts, "assigned_to_identifier IS NULL")
+  elseif bearbeiterFilter == "zugewiesen" then
+    table.insert(whereParts, "assigned_to_identifier IS NOT NULL")
+  elseif bearbeiterFilter and #bearbeiterFilter >= 2 then
+    local bLike = normalizeLike(bearbeiterFilter)
+    table.insert(whereParts, "assigned_to_name LIKE ?")
+    table.insert(params, "%" .. bLike .. "%")
+  end
+
+  -- Flags
+  if nurEskaliert then
+    table.insert(whereParts, "escalated_at IS NOT NULL")
+  end
+  if nurUeberfaellig then
+    table.insert(whereParts, "sla_due_at IS NOT NULL AND sla_due_at < NOW()")
+  end
+
+  -- ----------------------------------------------------------------
+  -- SQL ausführen
+  -- ----------------------------------------------------------------
   local whereSql = table.concat(whereParts, " AND ")
 
-  -- Sort mapping
   local sortSql = "updated_at"
   if sortBy == "created_at" then sortSql = "created_at" end
   if sortBy == "updated_at" then sortSql = "updated_at" end
-  if sortBy == "priority" then sortSql = "priority" end
-  if sortBy == "status" then sortSql = "status" end
+  if sortBy == "priority"   then sortSql = "priority" end
+  if sortBy == "status"     then sortSql = "status" end
+
+  -- queryParams = params + LIMIT + OFFSET (nur für SELECT benötigt).
+  -- params bleibt unverändert und wird für das COUNT-Query wiederverwendet.
+  local queryParams = {}
+  for _, v in ipairs(params) do table.insert(queryParams, v) end
+  table.insert(queryParams, perPage)
+  table.insert(queryParams, offset)
 
   local rows = HM_BP.Server.Datenbank.Alle(([[
     SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
-           created_at, updated_at, assigned_to_name, assigned_to_identifier, archived_at
+           created_at, updated_at, assigned_to_name, assigned_to_identifier, archived_at,
+           escalated_at, sla_due_at, needs_leitung
     FROM hm_bp_submissions
     WHERE %s
     ORDER BY %s %s
     LIMIT ? OFFSET ?
-  ]]):format(whereSql, sortSql, sortDir), (function()
-    local p = {}
-    for _, v in ipairs(params) do table.insert(p, v) end
-    table.insert(p, limit)
-    table.insert(p, offset)
-    return p
-  end)())
+  ]]):format(whereSql, sortSql, sortDir), queryParams)
 
-  local total = HM_BP.Server.Datenbank.Skalar(("SELECT COUNT(*) FROM hm_bp_submissions WHERE %s"):format(whereSql), params) or 0
+  local total = HM_BP.Server.Datenbank.Skalar(
+    ("SELECT COUNT(*) FROM hm_bp_submissions WHERE %s"):format(whereSql),
+    params
+  ) or 0
+
+  total = tonumber(total) or 0
+  local gesamtSeiten = math.max(1, math.ceil(total / perPage))
 
   return {
-    liste = rows or {},
-    total = tonumber(total) or 0,
-    limit = limit,
-    offset = offset,
-    queue = queue,
-    sortBy = sortBy,
-    sortDir = sortDir
+    liste        = rows or {},
+    total        = total,
+    page         = page,
+    perPage      = perPage,
+    gesamtSeiten = gesamtSeiten,
+    queue        = queue,
+    sortBy       = sortBy,
+    sortDir      = sortDir,
   }, nil
 end
 
