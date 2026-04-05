@@ -80,6 +80,36 @@ CreateThread(function()
 end)
 
 -- =============================================================
+-- SLA Erste-Bearbeitung – Periodischer Check (PR13)
+-- Prüft Anträge, bei denen innerhalb der konfigurierten Frist
+-- (Standard: 24h) kein Justiz/Admin-Kommentar eingegangen ist,
+-- und sendet Eskalation bzw. Reminder-Webhook.
+-- =============================================================
+CreateThread(function()
+  -- Warten bis DB + Services verfügbar sind (nach normalem SlaTick-Start)
+  Wait(8000)
+
+  while true do
+    local interval = tonumber(
+      Config.SLA and Config.SLA.TickIntervalSekunden
+    ) or 60
+
+    Wait(interval * 1000)
+
+    if Config and Config.SLA and Config.SLA.Aktiviert ~= false then
+      if HM_BP.Server.Dienste.WorkflowService then
+        local ok, err = pcall(function()
+          HM_BP.Server.Dienste.WorkflowService.SlaErstBearbeitungTick()
+        end)
+        if not ok then
+          print(("[hm_buergerportal] ERR: SlaErstBearbeitungTick fehlgeschlagen: %s"):format(tostring(err)))
+        end
+      end
+    end
+  end
+end)
+
+-- =============================================================
 -- Audit-Retention-Cleanup: Löscht Einträge älter als N Tage (PR12)
 -- Läuft einmal beim Start und dann periodisch.
 -- Blockiert den Game-Thread NICHT (DB-Aufruf asynchron).

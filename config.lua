@@ -1339,6 +1339,11 @@ Config.Webhooks = {
   --   ["pdf_export"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
   Urls = {
     ["pdf_export"] = nil,
+    -- antrag_escalation: Separater Discord-Webhook-Kanal für SLA-Eskalationen (PR13).
+    -- Eskalations- und Reminder-Embeds enthalten Akteur = "System (SLA)" + Aktenzeichen.
+    -- Beispiel:
+    --   ["antrag_escalation"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+    ["antrag_escalation"] = nil,
   }
 }
 
@@ -1507,4 +1512,40 @@ Config.Audit = {
   -- Justiz-Leitung (grade >= Config.Workflows.Leitung.MinGrade) bekommt
   -- Lesezugriff auf den Audit-Log-Viewer (kein actor_identifier sichtbar).
   LeitungDarfLesen = true,
+}
+
+-- =============================================================
+-- Config.SLA
+-- Fristen/Eskalation (PR13): Erste-Bearbeitungs-SLA.
+--
+-- ErsteBearbeitungStunden:
+--   Frist in Stunden ab Einreichung, nach der ein Antrag als
+--   „nicht bearbeitet" gilt, wenn noch kein Justiz/Admin-
+--   Kommentar oder Rückfrage eingetragen wurde.
+--
+-- ReminderIntervalStunden:
+--   Mindestabstand zwischen wiederholten Reminder-Webhooks
+--   (falls Eskalation noch nicht aufgelöst ist).
+--
+-- TickIntervalSekunden:
+--   Wie oft der SLA-Checker läuft (Sekunden).
+--   Empfohlen: 60–300.
+--
+-- Webhook:
+--   Eskalations- und Reminder-Benachrichtigungen werden über
+--   Config.Webhooks.Urls["antrag_escalation"] gesendet.
+--   Solange dieser Wert nil ist, werden keine Webhooks gesendet.
+-- =============================================================
+Config.SLA = {
+  Aktiviert = true,
+
+  -- Standard-Frist bis zur „ersten Bearbeitung" in Stunden.
+  -- „Erste Bearbeitung" = erster Justiz/Admin-Kommentar oder Rückfrage.
+  ErsteBearbeitungStunden = 24,
+
+  -- Mindestabstand zwischen Reminder-Webhooks in Stunden.
+  ReminderIntervalStunden = 6,
+
+  -- Intervall des SLA-Checkers in Sekunden.
+  TickIntervalSekunden = 60,
 }
