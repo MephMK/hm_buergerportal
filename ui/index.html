@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HM Bürgerportal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="assets/logo_justiz_placeholder.png" alt="Justiz Logo" />
+        <div class="titles">
+          <div class="title">Justizzentrum</div>
+          <div class="subtitle">HM Bürgerportal</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button id="btnReload" class="btn btn-secondary">Neu laden</button>
+        <button id="btnClose" class="btn">Schließen</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-title">Spieler</div>
+          <div class="kv"><div class="k">Name</div><div class="v" id="spielerName">-</div></div>
+          <div class="kv"><div class="k">Rolle</div><div class="v" id="rolle">-</div></div>
+          <div class="kv"><div class="k">Job</div><div class="v" id="jobGrad">-</div></div>
+          <div class="kv"><div class="k">Standort</div><div class="v" id="standortName">-</div></div>
+        </div>
+
+        <div class="box">
+          <div class="box-title">Bereiche</div>
+          <div class="tabs">
+            <button id="tabBuerger" class="tab active">Bürger</button>
+            <button id="tabJustiz" class="tab">Justiz</button>
+          </div>
+        </div>
+
+        <div id="bereichBuergerSidebar">
+          <div class="box">
+            <div class="box-title">Kategorien</div>
+            <div id="kategorienListe" class="liste"></div>
+          </div>
+
+          <div class="box">
+            <div class="box-title">Meine Anträge</div>
+            <div id="meineAntraegeListe" class="liste"></div>
+          </div>
+        </div>
+
+        <div id="bereichJustizSidebar" style="display:none;">
+          <div class="box">
+            <div class="box-title">Justiz-Kategorien</div>
+            <div id="justizKategorienListe" class="liste"></div>
+          </div>
+
+          <div class="box">
+            <div class="box-title">Queue</div>
+            <div class="tabs">
+              <button id="tabEingang" class="tab active">Eingang</button>
+              <button id="tabZugewiesen" class="tab">Zugewiesen</button>
+              <button id="tabAlleKategorie" class="tab">Alle</button>
+              <button id="tabArchiv" class="tab">Archiv</button>
+            </div>
+          </div>
+
+          <div class="box">
+            <div class="box-title">Anträge</div>
+            <div id="justizAntraegeListe" class="liste"></div>
+          </div>
+        </div>
+
+        <div class="box box-small">
+          <button id="btnPublicIdTest" class="btn btn-secondary">Debug: Öffentliche ID testen</button>
+          <div class="muted" id="publicIdAusgabe"></div>
+        </div>
+      </aside>
+
+      <section class="content">
+        <div id="fehlerBox" class="fehler" style="display:none;"></div>
+
+        <!-- Bürgerbereich -->
+        <div id="bereichBuergerContent" class="box">
+          <div class="box-title" id="formularTitel">Bitte Kategorie & Formular auswählen</div>
+          <div class="muted" id="formularBeschreibung"></div>
+
+          <div id="formulareListe" class="formulare"></div>
+
+          <div class="trenner"></div>
+
+          <form id="dynamischesFormular" class="formular" autocomplete="off">
+            <div id="felderContainer"></div>
+
+            <div class="trenner"></div>
+
+            <div class="form-actions">
+              <button type="button" id="btnEinreichen" class="btn">Antrag einreichen</button>
+              <div class="muted" id="einreichenStatus"></div>
+            </div>
+          </form>
+
+          <div class="trenner"></div>
+
+          <div class="box-title">Mein Antrag – Details</div>
+          <div class="muted" id="buergerDetailsHeader">Bitte links einen Antrag auswählen.</div>
+
+          <div class="trenner"></div>
+
+          <div class="grid2">
+            <div class="feld">
+              <div class="label">Öffentlicher Verlauf</div>
+              <div id="buergerVerlauf" class="verlauf"></div>
+            </div>
+
+            <div class="feld">
+              <div class="label">Antwort an die Justiz</div>
+              <textarea id="buergerAntwortText" placeholder="Antwort... (nur wenn Rückfrage offen ist)"></textarea>
+              <button id="btnBuergerAntwortSenden" class="btn" type="button">Antwort senden</button>
+              <div class="muted" id="buergerAntwortMeta"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Justizbereich -->
+        <div id="bereichJustizContent" class="box" style="display:none;">
+          <div class="box-title">Justiz – Verwaltung</div>
+          <div class="muted">Suche / Filter / Sortierung (serverseitig)</div>
+
+          <div class="trenner"></div>
+
+          <div class="grid2">
+            <div class="feld">
+              <div class="label">Suche</div>
+              <input id="justizSearchQuery" type="text" placeholder="Public-ID, Bürgername oder Identifier..." />
+              <div class="hint">Tipp: Mindestlänge 2 Zeichen. Suche läuft nur innerhalb der ausgewählten Kategorie/Queue.</div>
+            </div>
+
+            <div class="feld">
+              <div class="label">Filter</div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Status</div>
+                  <select id="justizFilterStatus"></select>
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Priorität</div>
+                  <select id="justizFilterPrio"></select>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Datum von</div>
+                  <input id="justizFilterDateFrom" type="date" />
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Datum bis</div>
+                  <input id="justizFilterDateTo" type="date" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Sortierung</div>
+                  <select id="justizSortBy">
+                    <option value="updated_at">Letzte Änderung</option>
+                    <option value="created_at">Erstellt</option>
+                    <option value="priority">Priorität</option>
+                    <option value="status">Status</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Richtung</div>
+                  <select id="justizSortDir">
+                    <option value="DESC">Absteigend</option>
+                    <option value="ASC">Aufsteigend</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <button id="btnJustizSuchen" class="btn btn-secondary" type="button" style="flex:1;">Suchen</button>
+                <button id="btnJustizFilterReset" class="btn btn-secondary" type="button" style="flex:1;">Reset</button>
+              </div>
+
+              <div class="muted" id="justizSearchMeta"></div>
+            </div>
+          </div>
+
+          <div class="trenner"></div>
+
+          <div class="box-title">Justiz – Antragdetails</div>
+          <div class="muted" id="justizDetailsHeader">Bitte links einen Antrag auswählen.</div>
+
+          <div id="justizSperreHinweis" class="sperre" style="display:none;"></div>
+
+          <div class="trenner"></div>
+
+          <div class="grid2">
+            <div class="feld">
+              <div class="label">Aktionen</div>
+
+              <button id="btnJustizUebernehmen" class="btn btn-secondary" type="button">Antrag übernehmen (Sperre setzen)</button>
+
+              <div class="trenner"></div>
+
+              <div class="label">Zuweisen an Sachbearbeiter</div>
+              <select id="justizBearbeiterSelect"></select>
+              <div class="muted" id="justizBearbeiterMeta">Liste wird geladen…</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="btnJustizBearbeiterRefresh" class="btn btn-secondary" type="button" style="flex:1;">Liste aktualisieren</button>
+                <button id="btnJustizZuweisen" class="btn btn-secondary" type="button" style="flex:1;">Zuweisen</button>
+              </div>
+
+              <div class="trenner"></div>
+
+              <div class="label">Priorität</div>
+              <select id="justizPrioritaetSelect"></select>
+              <button id="btnJustizPrioritaetSetzen" class="btn btn-secondary" type="button">Priorität setzen</button>
+
+              <div class="trenner"></div>
+
+              <div class="label">Archiv</div>
+              <input id="justizArchivGrund" type="text" placeholder="Archivgrund (optional)" />
+              <button id="btnJustizArchivieren" class="btn btn-secondary" type="button">Archivieren</button>
+
+              <div class="trenner"></div>
+
+              <div class="label">Status ändern</div>
+              <select id="justizStatusSelect"></select>
+              <input id="justizStatusKommentar" type="text" placeholder="Kommentar (optional)" />
+              <button id="btnJustizStatusSetzen" class="btn" type="button">Status setzen</button>
+              <div class="muted" id="justizStatusResult"></div>
+            </div>
+
+            <div class="feld">
+              <div class="label">Kommunikation</div>
+              <textarea id="justizInterneNotizText" placeholder="Interne Notiz..."></textarea>
+              <button id="btnJustizInterneNotiz" class="btn btn-secondary" type="button">Interne Notiz speichern</button>
+
+              <div class="trenner"></div>
+
+              <textarea id="justizOeffentlicheAntwortText" placeholder="Öffentliche Antwort an den Bürger..."></textarea>
+              <button id="btnJustizOeffentlicheAntwort" class="btn" type="button">Öffentliche Antwort senden</button>
+
+              <div class="trenner"></div>
+
+              <textarea id="justizRueckfrageText" placeholder="Rückfrage an den Bürger..."></textarea>
+              <button id="btnJustizRueckfrageStellen" class="btn btn-secondary" type="button">Rückfrage stellen</button>
+              <div class="muted" id="justizRueckfrageMeta"></div>
+            </div>
+          </div>
+
+          <div class="trenner"></div>
+
+          <div class="feld">
+            <div class="label">Verlauf</div>
+            <div id="justizVerlauf" class="verlauf"></div>
+          </div>
+
+          <div class="trenner"></div>
+
+          <!-- NEU: Formular-Editor (Unterbereich im Justiz-Tab) -->
+          <div class="box-title">Formular-Editor (Entwurf / Veröffentlichung)</div>
+          <div class="muted" id="formEditorMeta">Lade Rechte…</div>
+
+          <div id="formEditorBox" class="form-editor" style="display:none;">
+            <div class="grid2">
+              <div class="feld">
+                <div class="label">Editor-Kategorie</div>
+                <select id="formEditorKategorieSelect"></select>
+                <div class="hint">Hinweis: Du kannst nur Kategorien bearbeiten, für die du Editor-Rechte hast.</div>
+
+                <div class="trenner"></div>
+
+                <div class="label">Formulare (DB)</div>
+                <div id="formEditorFormListe" class="liste"></div>
+              </div>
+
+              <div class="feld">
+                <div class="label">Neues Formular erstellen</div>
+
+                <div class="muted" style="margin:0 0 6px 0;">Formular-ID (String)</div>
+                <input id="formEditorNewId" type="text" placeholder="z.B. general_request_v2" />
+
+                <div class="muted" style="margin:10px 0 6px 0;">Titel</div>
+                <input id="formEditorNewTitel" type="text" placeholder="Titel" />
+
+                <div class="muted" style="margin:10px 0 6px 0;">Beschreibung</div>
+                <textarea id="formEditorNewBeschreibung" placeholder="Beschreibung"></textarea>
+
+                <button id="btnFormEditorCreate" class="btn btn-secondary" type="button">Formular als Entwurf erstellen</button>
+                <div class="muted" id="formEditorCreateMeta"></div>
+              </div>
+            </div>
+
+            <div class="trenner"></div>
+
+            <div class="feld">
+              <div class="label">Ausgewähltes Formular</div>
+              <div class="muted" id="formEditorFormHeader">Kein Formular ausgewählt.</div>
+
+              <div class="trenner"></div>
+
+              <div class="grid2">
+                <div class="feld">
+                  <div class="label">Felder (Entwurf)</div>
+                  <div id="formEditorFeldListe" class="liste"></div>
+
+                  <div class="trenner"></div>
+
+                  <div class="label">Feld hinzufügen</div>
+
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Key</div>
+                      <input id="formEditorFieldKey" type="text" placeholder="z.B. phone" />
+                    </div>
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Typ</div>
+                      <select id="formEditorFieldTyp">
+                        <option value="shorttext">Kurztext</option>
+                        <option value="longtext">Langtext</option>
+                        <option value="number">Zahl</option>
+                        <option value="checkbox">Checkbox</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="radio">Radio (als Dropdown)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Label</div>
+                      <input id="formEditorFieldLabel" type="text" placeholder="Label" />
+                    </div>
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Placeholder</div>
+                      <input id="formEditorFieldPlaceholder" type="text" placeholder="Placeholder (optional)" />
+                    </div>
+                  </div>
+
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Pflichtfeld</div>
+                      <select id="formEditorFieldPflicht">
+                        <option value="0">Nein</option>
+                        <option value="1">Ja</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Reihenfolge</div>
+                      <input id="formEditorFieldOrder" type="number" placeholder="z.B. 1" />
+                    </div>
+                  </div>
+
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Min-Länge / Min</div>
+                      <input id="formEditorFieldMin" type="number" placeholder="optional" />
+                    </div>
+                    <div>
+                      <div class="muted" style="margin:0 0 6px 0;">Max-Länge / Max</div>
+                      <input id="formEditorFieldMax" type="number" placeholder="optional" />
+                    </div>
+                  </div>
+
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="margin:0 0 6px 0;">Regex (Lua Pattern)</div>
+                    <input id="formEditorFieldRegex" type="text" placeholder="optional, Lua-Pattern (kein PCRE)" />
+                  </div>
+
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="margin:0 0 6px 0;">Optionen (nur Dropdown/Radio)</div>
+                    <textarea id="formEditorFieldOptionen" placeholder='Eine Option pro Zeile, z.B.:
+Option A
+Option B'></textarea>
+                    <div class="hint">Wenn du “Label|Value” schreibst, wird Value als interner Wert genutzt.</div>
+                  </div>
+
+                  <button id="btnFormEditorFieldAdd" class="btn btn-secondary" type="button">Feld hinzufügen</button>
+                  <div class="muted" id="formEditorFieldAddMeta"></div>
+                </div>
+
+                <div class="feld">
+                  <div class="label">Aktionen</div>
+                  <button id="btnFormEditorSave" class="btn btn-secondary" type="button">Entwurf speichern (neue Version)</button>
+                  <button id="btnFormEditorPublish" class="btn" type="button" style="margin-top:8px;">Veröffentlichen</button>
+                  <button id="btnFormEditorArchive" class="btn btn-secondary" type="button" style="margin-top:8px;">Archivieren</button>
+
+                  <div class="trenner"></div>
+
+                  <div class="label">Vorschau</div>
+                  <div class="muted">So sieht der Entwurf im Bürger-Formular aus:</div>
+                  <div id="formEditorPreview" class="preview"></div>
+
+                  <div class="trenner"></div>
+
+                  <div class="muted" id="formEditorActionMeta"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
