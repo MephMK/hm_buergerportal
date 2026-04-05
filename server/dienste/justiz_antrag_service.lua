@@ -590,9 +590,13 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
 
   -- SLA-Pause/Fortsetzen automatisch je nach pause_sla_in_statuses der Kategorie
   do
-    local k = Config.Kategorien and Config.Kategorien.Liste and Config.Kategorien.Liste[a.category_id]
-    local pauseStatuses = k and k.workflow and type(k.workflow.pause_sla_in_statuses) == "table"
-      and k.workflow.pause_sla_in_statuses or {}
+    local k = Config.Kategorien
+      and Config.Kategorien.Liste
+      and Config.Kategorien.Liste[a.category_id]
+    local pauseStatuses = {}
+    if k and k.workflow and type(k.workflow.pause_sla_in_statuses) == "table" then
+      pauseStatuses = k.workflow.pause_sla_in_statuses
+    end
 
     local neuerStatusPausiert = false
     local alterStatusPausiert = false

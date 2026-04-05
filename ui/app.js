@@ -1105,8 +1105,10 @@ function justizKategorienRendern(liste) {
 // fällt bei unbekannter ID auf eine statische Zuordnung zurück.
 function statusIdZuLabel(statusId) {
   // Dynamisch geladene Liste hat Vorrang
-  const gefunden = statusListeAktuell.find(s => s.id === statusId);
-  if (gefunden && gefunden.label) return gefunden.label;
+  if (Array.isArray(statusListeAktuell)) {
+    const gefunden = statusListeAktuell.find(s => s.id === statusId);
+    if (gefunden && gefunden.label) return gefunden.label;
+  }
 
   // Statische Fallback-Tabelle für alle bekannten Status-IDs
   const bekannt = {

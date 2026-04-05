@@ -554,9 +554,10 @@ end
 -- Overdue-Aktualisierung (Batch)
 -- -------------------------------------------------------
 
----Aktualisiert due_state für alle Anträge ohne Sperre auf Basis von sla_due_at.
----Läuft zusammen mit dem SLA-Tick. Setzt due_state = 'overdue' wenn
----sla_due_at < NOW() und SLA nicht pausiert; setzt 'normal' zurück wenn nicht mehr überfällig.
+---Aktualisiert due_state für alle Anträge auf Basis von sla_due_at.
+---Setzt due_state = 'overdue' wenn sla_due_at überschritten und SLA nicht pausiert;
+---setzt 'normal' zurück wenn SLA nicht mehr überschritten (z.B. nach Verlängerung).
+---Wird zusammen mit SlaTick aufgerufen, unabhängig von Eskalations-Konfiguration.
 function WorkflowService.OverdueAktualisieren()
   -- Überfällige Anträge auf 'overdue' setzen
   HM_BP.Server.Datenbank.Ausfuehren([[
