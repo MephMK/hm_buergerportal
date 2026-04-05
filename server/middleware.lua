@@ -20,7 +20,7 @@ function Middleware.PruefeRecht(quelle, aktion, kontext)
   local okRL, errRL = HM_BP.Server.Dienste.AntiSpamService.PruefeRateLimit(spieler, "api:" .. tostring(aktion))
   if not okRL then return nil, errRL end
 
-  local ok, err2 = HM_BP.Server.Dienste.RechteService.Darf(spieler, aktion, kontext)
+  local ok, err2 = HM_BP.Server.Dienste.PermissionService.Hat(spieler, aktion, kontext)
   if not ok then return nil, err2 end
 
   return spieler, nil
