@@ -770,7 +770,7 @@ function antraegeRendern(antraege) {
   }
 
   for (const a of arr) {
-    const titel = `${a.public_id} (${a.status})`;
+    const titel = `${a.public_id} (${statusIdZuLabel(a.status)})`;
     const desc = `Formular: ${a.form_id} | Priorität: ${a.priority}`;
     meineAntraegeListe.appendChild(itemErstellen({
       name: titel,
@@ -1099,6 +1099,34 @@ function justizKategorienRendern(liste) {
   formEditorInitKategorieSelect();
 }
 
+
+// Übersetzt eine Status-ID in ein lesbares Deutsch-Label.
+// Greift zuerst auf die dynamisch geladene statusListeAktuell zurück;
+// fällt bei unbekannter ID auf eine statische Zuordnung zurück.
+function statusIdZuLabel(statusId) {
+  // Dynamisch geladene Liste hat Vorrang
+  const gefunden = statusListeAktuell.find(s => s.id === statusId);
+  if (gefunden && gefunden.label) return gefunden.label;
+
+  // Statische Fallback-Tabelle für alle bekannten Status-IDs
+  const bekannt = {
+    draft:                "Entwurf",
+    submitted:            "Eingereicht",
+    in_review:            "In Prüfung",
+    question_open:        "Rückfrage offen",
+    waiting_for_documents:"Warten auf Unterlagen",
+    forwarded:            "Weitergeleitet",
+    escalated:            "Eskaliert",
+    partially_approved:   "Teilweise genehmigt",
+    approved:             "Genehmigt",
+    rejected:             "Abgelehnt",
+    withdrawn:            "Zurückgezogen",
+    closed:               "Geschlossen",
+    archived:             "Archiviert",
+  };
+  return bekannt[statusId] || statusId;
+}
+
 function justizAntraegeRendern(liste) {
   listeLeeren(justizAntraegeListe);
   const arr = Array.isArray(liste) ? liste : [];
@@ -1111,21 +1139,25 @@ function justizAntraegeRendern(liste) {
   }
 
   for (const a of arr) {
-    const titel = `${a.public_id} (${a.status})`;
+    const statusLabel = statusIdZuLabel(a.status);
+    const ueberfaellig = a.due_state === "overdue"
+      || (a.sla_due_at && new Date(a.sla_due_at) < new Date());
     const buergerName = normName(a.citizen_name);
     const desc = `Bürger: ${buergerName} | Priorität: ${a.priority} | Bearbeiter: ${a.assigned_to_name || "-"}`;
-    justizAntraegeListe.appendChild(itemErstellen({
-      name: titel,
-      desc,
-      active: ausgewaehlterJustizAntragId === a.id,
-      onclick: () => {
-        ausgewaehlterJustizAntragId = a.id;
-        justizStatusResult.textContent = "";
-        justizRueckfrageMeta.textContent = "";
-        nuiAufruf("hm_bp:justiz_details_laden", { antragId: a.id });
-        justizAntraegeRendern(arr);
-      }
-    }));
+
+    const div = document.createElement("div");
+    div.className = "item" + (ausgewaehlterJustizAntragId === a.id ? " active" : "");
+    const nameHtml = escapeHtml(`${a.public_id} (${statusLabel})`)
+      + (ueberfaellig ? ' <span class="badge badge-danger" title="SLA überschritten">Überfällig</span>' : "");
+    div.innerHTML = `<div class="name">${nameHtml}</div><div class="desc">${escapeHtml(desc)}</div>`;
+    div.addEventListener("click", () => {
+      ausgewaehlterJustizAntragId = a.id;
+      justizStatusResult.textContent = "";
+      justizRueckfrageMeta.textContent = "";
+      nuiAufruf("hm_bp:justiz_details_laden", { antragId: a.id });
+      justizAntraegeRendern(arr);
+    });
+    justizAntraegeListe.appendChild(div);
   }
 }
 
@@ -2528,8 +2560,12 @@ window.addEventListener("message", (event) => {
     gesperrtVonAnderem = !!d.gesperrtVonAnderem;
 
     const buergerName = normName(a.citizen_name);
+    const statusLabel = statusIdZuLabel(a.status);
+    const ueberfaellig = a.due_state === "overdue"
+      || (a.sla_due_at && new Date(a.sla_due_at) < new Date());
+    const ueberfaelligHinweis = ueberfaellig ? " | ⚠ Überfällig" : "";
     justizDetailsHeader.textContent =
-      `Antrag: ${a.public_id} | Status: ${a.status} | Priorität: ${a.priority} | Bürger: ${buergerName}`;
+      `Antrag: ${a.public_id} | Status: ${statusLabel} | Priorität: ${a.priority} | Bürger: ${buergerName}${ueberfaelligHinweis}`;
 
     if (aktuellesJustizRegelObjekt && aktuellesJustizRegelObjekt.sehen) {
       setQueueTabsEnabled(aktuellesJustizRegelObjekt.sehen);
@@ -2559,7 +2595,7 @@ window.addEventListener("message", (event) => {
   if (msg.typ === "hm_bp:justiz:status_setzen_antwort") {
     const payload = msg.payload || {};
     if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Status setzen fehlgeschlagen.");
-    justizStatusResult.textContent = `Status geändert: ${payload.res?.alt} → ${payload.res?.neu}`;
+    justizStatusResult.textContent = `Status geändert: ${statusIdZuLabel(payload.res?.alt)} → ${statusIdZuLabel(payload.res?.neu)}`;
   }
 
   if (msg.typ === "hm_bp:justiz:rueckfrage_stellen_antwort") {
@@ -2583,7 +2619,7 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
     const a = d.antrag || {};
 
     window.__hm_bp_aktuellerStatus = a.status; // PR8: wird für Anhang-Status-Check benötigt
-    buergerDetailsHeader.textContent = `Antrag: ${a.public_id} | Status: ${a.status} | Priorität: ${a.priority}`;
+    buergerDetailsHeader.textContent = `Antrag: ${a.public_id} | Status: ${statusIdZuLabel(a.status)} | Priorität: ${a.priority}`;
     buergerVerlaufRendern(d.timeline || []);
     buergerAntwortUiSetzen(!!d.rueckfrageOffen, null);
     buergerNachreichenUiSetzen(!!d.nachreichungErlaubt, d.payload || null);
@@ -2753,7 +2789,7 @@ function pdfExportGenerierenUndDrucken(daten) {
   <h2>Antragsdaten</h2>
   <table>
     <tr><td class="k">Aktenzeichen:</td><td>${esc(antrag.public_id)}</td></tr>
-    <tr><td class="k">Status:</td><td>${esc(antrag.status)}</td></tr>
+    <tr><td class="k">Status:</td><td>${esc(statusIdZuLabel(antrag.status))}</td></tr>
     <tr><td class="k">Priorität:</td><td>${esc(antrag.priority)}</td></tr>
     <tr><td class="k">Antragsteller:</td><td>${esc(antrag.citizen_name)}</td></tr>
     <tr><td class="k">Zugewiesener Bearbeiter:</td><td>${esc(antrag.assigned_to_name)}</td></tr>

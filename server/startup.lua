@@ -71,6 +71,7 @@ CreateThread(function()
     if HM_BP.Server.Dienste.WorkflowService then
       local ok, err = pcall(function()
         HM_BP.Server.Dienste.WorkflowService.SlaTick()
+        HM_BP.Server.Dienste.WorkflowService.OverdueAktualisieren()
       end)
       if not ok and Config and Config.Kern and Config.Kern.Debugmodus == true then
         print(("[hm_buergerportal] WARN: SlaTick fehlgeschlagen: %s"):format(tostring(err)))

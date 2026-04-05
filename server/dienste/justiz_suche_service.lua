@@ -308,7 +308,7 @@ function JustizSucheService.Suchen(spieler, payload)
   local rows = HM_BP.Server.Datenbank.Alle(([[
     SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
            created_at, updated_at, assigned_to_name, assigned_to_identifier, archived_at,
-           escalated_at, sla_due_at, needs_leitung
+           escalated_at, sla_due_at, needs_leitung, due_state
     FROM hm_bp_submissions
     WHERE %s
     ORDER BY %s %s

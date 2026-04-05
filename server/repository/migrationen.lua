@@ -444,4 +444,17 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ALTER TABLE hm_bp_audit_logs
       ADD INDEX idx_audit_created_action (created_at, action);
   ]])
+
+  -- v14: PR1 – Statusystem-Erweiterung (neue Status + Overdue-Optimierung)
+  -- idx_sub_due_state: Index für die OverdueAktualisieren-Batch-Query.
+  --   Deckt: due_state != 'overdue' WHERE sla_due_at < NOW() AND sla_paused_at IS NULL
+  migrationAnwenden("v14_idx_due_state", [[
+    ALTER TABLE hm_bp_submissions
+      ADD INDEX idx_sub_due_state (due_state, sla_due_at, sla_paused_at, deleted_at, archived_at);
+  ]])
+  -- idx_sub_status_history: Index für Statusverlauf-Abfragen
+  migrationAnwenden("v14_idx_status_history", [[
+    ALTER TABLE hm_bp_submission_status_history
+      ADD INDEX IF NOT EXISTS idx_ssh_sub_created (submission_id, created_at);
+  ]])
 end
