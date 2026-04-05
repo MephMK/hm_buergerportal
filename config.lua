@@ -1333,8 +1333,10 @@ Config.Webhooks = {
   -- pdf_export: Discord-Webhook-URL für PDF-Export-Benachrichtigungen.
   -- Jedes erzeugte PDF wird mit Akteur (Spielername + Charname) und
   -- Aktenzeichen als Embed in diesen Discord-Kanal gepostet.
-  -- Trage hier die vollständige Discord-Webhook-URL ein:
-  --   Config.Webhooks.Urls["pdf_export"] = "https://discord.com/api/webhooks/..."
+  -- PFLICHT für Discord-Export: Trage hier die vollständige Discord-Webhook-URL ein.
+  -- Solange dieser Wert nil ist, werden keine Benachrichtigungen gesendet.
+  -- Beispiel:
+  --   ["pdf_export"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
   Urls = {
     ["pdf_export"] = nil,
   }

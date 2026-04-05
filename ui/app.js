@@ -2647,7 +2647,8 @@ function pdfExportGenerierenUndDrucken(daten) {
   const jetzt    = new Date().toLocaleString("de-DE");
 
   const esc = (v) => String(v == null ? "–" : v)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
   // Timeline-Einträge (alle Sichtbarkeitsstufen – Justiz/Admin sieht alles)
   let verlaufHtml = "";
@@ -2728,7 +2729,12 @@ function pdfExportGenerierenUndDrucken(daten) {
   iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
   document.body.appendChild(iframe);
   iframe.onload = () => {
-    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (_) {}
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      if (typeof console !== "undefined") console.warn("[hm_bp] PDF-Druckdialog konnte nicht geöffnet werden:", e);
+    }
     setTimeout(() => {
       document.body.removeChild(iframe);
       URL.revokeObjectURL(url);
