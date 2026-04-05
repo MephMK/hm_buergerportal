@@ -203,6 +203,25 @@ RegisterNUICallback("hm_bp:justiz_rueckfrage_stellen", function(daten, cb)
   cb({ ok = true })
 end)
 
+-- Entwurf speichern / laden / löschen
+RegisterNUICallback("hm_bp:entwurf_speichern", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:entwurf:speichern", { antragId = daten.antragId, typ = daten.typ, text = daten.text })
+  cb({ ok = true })
+end)
+
+RegisterNUICallback("hm_bp:entwurf_laden", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:entwurf:laden", { antragId = daten.antragId, typ = daten.typ })
+  cb({ ok = true })
+end)
+
+RegisterNUICallback("hm_bp:entwurf_loeschen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:entwurf:loeschen", { antragId = daten.antragId, typ = daten.typ })
+  cb({ ok = true })
+end)
+
 -- Debug
 RegisterNUICallback("hm_bp:debug_oeffentliche_id_test", function(_, cb)
   TriggerServerEvent("hm_bp:debug:oeffentliche_id_test")
@@ -328,6 +347,11 @@ RegisterNetEvent("hm_bp:justiz:suchen_antwort", function(payload) sende("hm_bp:j
 
 -- NEU: Rückfrage Ack
 RegisterNetEvent("hm_bp:justiz:rueckfrage_stellen_antwort", function(payload) sende("hm_bp:justiz:rueckfrage_stellen_antwort", payload) end)
+
+-- Entwurf: Antworten weiterleiten
+RegisterNetEvent("hm_bp:entwurf:speichern_antwort", function(payload) sende("hm_bp:entwurf:speichern_antwort", payload) end)
+RegisterNetEvent("hm_bp:entwurf:laden_antwort", function(payload) sende("hm_bp:entwurf:laden_antwort", payload) end)
+RegisterNetEvent("hm_bp:entwurf:loeschen_antwort", function(payload) sende("hm_bp:entwurf:loeschen_antwort", payload) end)
 
 RegisterNetEvent("hm_bp:debug:oeffentliche_id_test_antwort", function(payload) sende("hm_bp:debug:oeffentliche_id_test_antwort", payload) end)
 

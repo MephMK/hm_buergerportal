@@ -457,4 +457,28 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ALTER TABLE hm_bp_submission_status_history
       ADD INDEX IF NOT EXISTS idx_ssh_sub_created (submission_id, created_at);
   ]])
+
+  -- v15: PR2 – Mitarbeiter-Entwürfe (interne Notizen + Rückfragen als Entwurf speichern)
+  -- Tabelle hm_bp_staff_drafts: Ein Datensatz je (submission_id, actor_identifier, draft_type).
+  -- Speichern überschreibt; Laden und Löschen über dieselbe Unique-Kombination.
+  migrationAnwenden("v15_staff_drafts", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_staff_drafts (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      submission_id BIGINT NOT NULL,
+      actor_identifier VARCHAR(128) NOT NULL,
+      draft_type VARCHAR(32) NOT NULL,
+      draft_text TEXT NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uq_draft (submission_id, actor_identifier, draft_type),
+      INDEX idx_draft_sub (submission_id),
+      INDEX idx_draft_actor (actor_identifier),
+      CONSTRAINT fk_draft_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
+  -- v15: author_identifier-Spalte in Timeline ergänzen (war bisher nur in einigen Einträgen gesetzt)
+  migrationAnwenden("v15_timeline_author_role", [[
+    ALTER TABLE hm_bp_submission_timeline
+      ADD COLUMN IF NOT EXISTS author_role VARCHAR(16) NULL;
+  ]])
 end
