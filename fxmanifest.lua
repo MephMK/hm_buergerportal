@@ -79,6 +79,7 @@ server_scripts {
 
   'server/dienste/admin_config_service.lua',
   'server/dienste/admin_audit_service.lua',
+  'server/dienste/admin_validierung_service.lua',
 
   'server/middleware.lua',
 
@@ -88,7 +89,8 @@ server_scripts {
   'server/api_form_editor.lua',
   'server/api_locations.lua',
   'server/api_attachments.lua',
-  'server/api_admin.lua'
+  'server/api_admin.lua',
+  'server/api_admin_crud.lua'
 }
 
 dependencies {

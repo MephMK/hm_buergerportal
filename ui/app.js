@@ -2501,51 +2501,95 @@ document.addEventListener("keydown", async (e) => {
 // ==========================
 
 // State
-let adminAktiveSubsektion = "Standorte"; // Standorte | Kategorien | Formulare | Permissions | Status | Webhooks | Audit
+let adminAktiveSubsektion = "Standorte";
+let adminModus = "gefuehrt"; // "gefuehrt" | "erweitert"
+let adminCrudBearbeitenId = null;
+let adminPanelDaten = {};
 
 // DOM refs (admin panel)
-const tabAdmin            = document.getElementById("tabAdmin");
-const bereichAdminContent = document.getElementById("bereichAdminContent");
-const adminStatusMeta     = document.getElementById("adminStatusMeta");
-const adminPanelBox       = document.getElementById("adminPanelBox");
-const adminSektionEditor  = document.getElementById("adminSektionEditor");
-const adminAuditPanel     = document.getElementById("adminAuditPanel");
-const adminJsonEditor     = document.getElementById("adminJsonEditor");
-const adminAktionMeta     = document.getElementById("adminAktionMeta");
+const tabAdmin              = document.getElementById("tabAdmin");
+const bereichAdminContent   = document.getElementById("bereichAdminContent");
+const adminStatusMeta       = document.getElementById("adminStatusMeta");
+const adminPanelBox         = document.getElementById("adminPanelBox");
+const adminCrudPanel        = document.getElementById("adminCrudPanel");
+const adminAuditPanel       = document.getElementById("adminAuditPanel");
+const adminJsonEditor       = document.getElementById("adminJsonEditor");
+const adminAktionMeta       = document.getElementById("adminAktionMeta");
 const adminAktiveSektionflag = document.getElementById("adminAktiveSektionflag");
-const adminGrund          = document.getElementById("adminGrund");
-const btnAdminLaden       = document.getElementById("btnAdminLaden");
-const btnAdminBasisLaden  = document.getElementById("btnAdminBasisLaden");
+const adminGrund            = document.getElementById("adminGrund");
+const btnAdminLaden         = document.getElementById("btnAdminLaden");
+const btnAdminBasisLaden    = document.getElementById("btnAdminBasisLaden");
 const btnAdminOverrideLaden = document.getElementById("btnAdminOverrideLaden");
-const btnAdminValidieren  = document.getElementById("btnAdminValidieren");
-const btnAdminSpeichern   = document.getElementById("btnAdminSpeichern");
+const btnAdminValidieren    = document.getElementById("btnAdminValidieren");
+const btnAdminSpeichern     = document.getElementById("btnAdminSpeichern");
 const btnAdminZuruecksetzen = document.getElementById("btnAdminZuruecksetzen");
-const btnAdminAuditLaden  = document.getElementById("btnAdminAuditLaden");
-const adminAuditListe     = document.getElementById("adminAuditListe");
+const btnAdminAuditLaden    = document.getElementById("btnAdminAuditLaden");
+const adminAuditListe       = document.getElementById("adminAuditListe");
+const btnAdminModeGefuehrt  = document.getElementById("btnAdminModeGef\u00fchrt");
+const btnAdminModeErweitert = document.getElementById("btnAdminModeErweitert");
+const adminCrudGefuehrt     = document.getElementById("adminCrudGef\u00fchrt");
+const adminCrudErweitert    = document.getElementById("adminCrudErweitert");
+const adminCrudListe        = document.getElementById("adminCrudListe");
+const adminCrudFormular     = document.getElementById("adminCrudFormular");
+const adminCrudFormTitel    = document.getElementById("adminCrudFormTitel");
+const adminCrudFormFelder   = document.getElementById("adminCrudFormFelder");
+const adminCrudGrund        = document.getElementById("adminCrudGrund");
+const adminCrudFormMeta     = document.getElementById("adminCrudFormMeta");
+const adminCrudTitel        = document.getElementById("adminCrudTitel");
+const btnAdminCrudNeu       = document.getElementById("btnAdminCrudNeu");
+const btnAdminCrudAktualisieren = document.getElementById("btnAdminCrudAktualisieren");
+const btnAdminCrudSpeichern = document.getElementById("btnAdminCrudSpeichern");
+const btnAdminCrudAbbrechen = document.getElementById("btnAdminCrudAbbrechen");
+
+// -------------------------------------------------------
+// Modus-Umschalter: Gef\u00fchrt <-> Erweitert (JSON)
+// -------------------------------------------------------
+
+function adminModusSetzen(modus) {
+  adminModus = modus;
+  if (btnAdminModeGefuehrt)  btnAdminModeGefuehrt.classList.toggle("active-mode",  modus === "gefuehrt");
+  if (btnAdminModeErweitert) btnAdminModeErweitert.classList.toggle("active-mode", modus === "erweitert");
+  if (adminCrudGefuehrt)     adminCrudGefuehrt.style.display  = (modus === "gefuehrt")   ? "" : "none";
+  if (adminCrudErweitert)    adminCrudErweitert.style.display = (modus === "erweitert") ? "" : "none";
+  if (modus === "erweitert") {
+    if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = adminAktiveSubsektion;
+    if (adminAktionMeta) adminAktionMeta.textContent = "Klicke 'Effektiv laden', 'Basis laden' oder 'Override laden', um die Konfiguration zu bearbeiten.";
+  }
+}
+
+// -------------------------------------------------------
+// Sub-Tab setzen
+// -------------------------------------------------------
 
 function adminSubtabSetzen(sektion) {
   adminAktiveSubsektion = sektion;
-
-  // Tab-Highlighting
   document.querySelectorAll(".admin-subtab").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.subtab === sektion);
   });
 
   if (sektion === "Audit") {
-    adminSektionEditor.style.display = "none";
-    adminAuditPanel.style.display = "block";
+    if (adminCrudPanel)  adminCrudPanel.style.display  = "none";
+    if (adminAuditPanel) adminAuditPanel.style.display = "block";
   } else {
-    adminSektionEditor.style.display = "block";
-    adminAuditPanel.style.display = "none";
+    if (adminCrudPanel)  adminCrudPanel.style.display  = "block";
+    if (adminAuditPanel) adminAuditPanel.style.display = "none";
+    adminFormularAusblenden();
+    adminModusSetzen(adminModus);
     if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = sektion;
-    if (adminJsonEditor) adminJsonEditor.value = "";
-    if (adminAktionMeta) adminAktionMeta.textContent = "Klicke 'Effektiv laden', 'Basis laden' oder 'Override laden', um die Konfiguration zu bearbeiten.";
+    // Zeige/verstecke "Neu anlegen"-Button nur f\u00fcr geeignete Sektionen
+    const neuErlaubt = ["Standorte", "Kategorien", "Formulare"].includes(sektion);
+    if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = neuErlaubt ? "" : "none";
+    adminCrudListeAktualisieren();
   }
 }
 
+// -------------------------------------------------------
+// Panel laden (beim \u00d6ffnen des Admin-Tabs)
+// -------------------------------------------------------
+
 async function adminPanelLaden() {
   if (!adminStatusMeta) return;
-  adminStatusMeta.textContent = "Lade Admin-Panel vom Server…";
+  adminStatusMeta.textContent = "Lade Admin-Panel vom Server...";
 
   const res = await nuiAufruf("hm_bp:admin_panel_laden", {});
   if (!res || !res.ok) {
@@ -2555,31 +2599,667 @@ async function adminPanelLaden() {
   }
 
   adminStatusMeta.textContent = "";
+  adminPanelDaten = res.sektionen || {};
   if (adminPanelBox) adminPanelBox.style.display = "block";
-
-  // Admin-Tab sichtbar machen
   if (tabAdmin) tabAdmin.style.display = "";
 
-  // Ersten Subtab aktivieren
   adminSubtabSetzen(adminAktiveSubsektion);
 }
 
+// -------------------------------------------------------
+// CRUD: Liste aktualisieren
+// -------------------------------------------------------
+
+async function adminCrudListeAktualisieren() {
+  if (!adminCrudListe) return;
+  const sektion = adminAktiveSubsektion;
+
+  const res = await nuiAufruf("hm_bp:admin_sektion_laden", { sektion, modus: "effektiv" });
+  if (!res || !res.ok) {
+    adminCrudListe.innerHTML = "<div class='muted'>" + escapeHtml(res?.fehler?.nachricht || "Laden fehlgeschlagen.") + "</div>";
+    return;
+  }
+
+  const daten = res.daten || {};
+  adminPanelDaten[sektion] = daten;
+
+  if (adminCrudTitel) adminCrudTitel.textContent = sektion;
+
+  if (sektion === "Module")      { adminModulAnzeigen(daten);      return; }
+  if (sektion === "Webhooks")    { adminWebhooksAnzeigen(daten);   return; }
+  if (sektion === "Permissions") { adminPermissionsAnzeigen(daten); return; }
+  if (sektion === "Status")      { adminStatusAnzeigen(daten);     return; }
+
+  // Generische Listen-Ansicht f\u00fcr Standorte, Kategorien, Formulare
+  const liste = daten.Liste || {};
+  adminCrudListe.innerHTML = "";
+
+  const eintraege = Object.entries(liste);
+  if (eintraege.length === 0) {
+    adminCrudListe.innerHTML = "<div class='muted'>Keine Eintr\u00e4ge vorhanden. Klicke '+ Neu anlegen'.</div>";
+    return;
+  }
+
+  eintraege.sort((a, b) => {
+    const sa = a[1].sortierung ?? 9999;
+    const sb = b[1].sortierung ?? 9999;
+    if (sa !== sb) return sa - sb;
+    return (a[1].name || a[0]).localeCompare(b[1].name || b[0]);
+  });
+
+  for (const [id, entity] of eintraege) {
+    const div = document.createElement("div");
+    div.className = "admin-crud-item";
+
+    const statusBadge = adminEntityBadge(sektion, entity);
+    const metaText    = adminEntityMeta(sektion, entity);
+
+    div.innerHTML = `
+      <div class="admin-crud-item-info">
+        <div class="admin-crud-item-name">${escapeHtml(entity.name || id)}</div>
+        <div class="admin-crud-item-id">${escapeHtml(id)}</div>
+        ${metaText ? `<div class="admin-crud-item-meta">${escapeHtml(metaText)}</div>` : ""}
+      </div>
+      ${statusBadge}
+      <div class="admin-crud-item-actions">
+        ${adminEntityAktionen(sektion, id, entity)}
+      </div>
+    `;
+
+    div.querySelectorAll("[data-aktion]").forEach(btn => {
+      btn.addEventListener("click", () => adminCrudAktionAusfuehren(btn.dataset.aktion, id, entity));
+    });
+
+    adminCrudListe.appendChild(div);
+  }
+}
+
+function adminEntityBadge(sektion, entity) {
+  if (sektion === "Formulare") {
+    const status = entity.status || "entwurf";
+    const cls   = { entwurf: "badge-entwurf", veroeffentlicht: "badge-veroeffentlicht", archiviert: "badge-archiviert" }[status] || "badge-inaktiv";
+    const label = { entwurf: "Entwurf", veroeffentlicht: "Ver\u00f6ffentlicht", archiviert: "Archiviert" }[status] || status;
+    return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+  }
+  if (entity.archiviert) return '<span class="badge badge-archiviert">Archiviert</span>';
+  if (entity.aktiv === false) return '<span class="badge badge-inaktiv">Inaktiv</span>';
+  return '<span class="badge badge-aktiv">Aktiv</span>';
+}
+
+function adminEntityMeta(sektion, entity) {
+  if (sektion === "Kategorien") {
+    const parts = [];
+    if (entity.farbe)                      parts.push("Farbe: " + entity.farbe);
+    if (entity.sortierung !== undefined)   parts.push("Sortierung: " + entity.sortierung);
+    return parts.join(" \u00b7 ");
+  }
+  if (sektion === "Formulare" && entity.kategorie_id) {
+    return "Kategorie: " + entity.kategorie_id;
+  }
+  if (sektion === "Standorte" && entity.koordinaten) {
+    const k = entity.koordinaten;
+    return "X:" + Math.round(k.x||0) + " Y:" + Math.round(k.y||0) + " Z:" + Math.round(k.z||0);
+  }
+  return "";
+}
+
+function adminEntityAktionen(sektion, id, entity) {
+  let html = `<button class="btn btn-secondary" data-aktion="bearbeiten">Bearbeiten</button>`;
+
+  if (sektion === "Kategorien") {
+    if (entity.aktiv !== false && !entity.archiviert) {
+      html += `<button class="btn btn-secondary" data-aktion="deaktivieren">Deaktivieren</button>`;
+    } else if (!entity.archiviert) {
+      html += `<button class="btn btn-secondary" data-aktion="aktivieren">Aktivieren</button>`;
+    }
+    if (!entity.archiviert) {
+      html += `<button class="btn btn-secondary" data-aktion="archivieren" style="color:#eb5757;">Archivieren</button>`;
+    }
+  }
+
+  if (sektion === "Formulare") {
+    const status = entity.status || "entwurf";
+    if (status === "entwurf") {
+      html += `<button class="btn" data-aktion="veroeffentlichen">Ver\u00f6ffentlichen</button>`;
+    } else if (status === "veroeffentlicht") {
+      html += `<button class="btn btn-secondary" data-aktion="archivieren" style="color:#eb5757;">Archivieren</button>`;
+    } else if (status === "archiviert") {
+      html += `<button class="btn btn-secondary" data-aktion="wiederherstellen">Wiederherstellen</button>`;
+    }
+  }
+
+  html += `<button class="btn btn-secondary" data-aktion="loeschen" style="color:#eb5757;">L\u00f6schen</button>`;
+  return html;
+}
+
+async function adminCrudAktionAusfuehren(aktion, id, entity) {
+  const sektion = adminAktiveSubsektion;
+
+  if (aktion === "bearbeiten") {
+    adminCrudBearbeitenId = id;
+    adminFormularAnzeigen(sektion, id, entity);
+    return;
+  }
+
+  if (aktion === "loeschen") {
+    const grund = prompt("L\u00f6schen von '" + id + "' in '" + sektion + "' best\u00e4tigen.\nBitte Begr\u00fcndung eingeben:");
+    if (!grund || !grund.trim()) return;
+    const res = await nuiAufruf("hm_bp:admin_entity_loeschen", { sektion, entity_id: id, grund: grund.trim() });
+    adminCrudFeedback(res, "Eintrag gel\u00f6scht.");
+    if (res && res.ok) adminCrudListeAktualisieren();
+    return;
+  }
+
+  if (sektion === "Kategorien" && ["aktivieren","deaktivieren","archivieren"].includes(aktion)) {
+    const grund = prompt("Aktion '" + aktion + "' f\u00fcr Kategorie '" + id + "'.\nBitte Begr\u00fcndung eingeben:");
+    if (!grund || !grund.trim()) return;
+    const res = await nuiAufruf("hm_bp:admin_kategorie_status", { kategorie_id: id, aktion, grund: grund.trim() });
+    adminCrudFeedback(res, "Kategorie " + aktion + ".");
+    if (res && res.ok) adminCrudListeAktualisieren();
+    return;
+  }
+
+  if (sektion === "Formulare" && ["veroeffentlichen","archivieren","wiederherstellen"].includes(aktion)) {
+    const aktionLabel = { veroeffentlichen: "ver\u00f6ffentlichen", archivieren: "archivieren", wiederherstellen: "als Entwurf wiederherstellen" }[aktion] || aktion;
+    const grund = prompt("Formular '" + id + "' " + aktionLabel + "?\nBitte Begr\u00fcndung eingeben:");
+    if (!grund || !grund.trim()) return;
+    const res = await nuiAufruf("hm_bp:admin_formular_status", { formular_id: id, aktion, grund: grund.trim() });
+    adminCrudFeedback(res, "Formular " + aktion + ".");
+    if (res && res.ok) adminCrudListeAktualisieren();
+    return;
+  }
+}
+
+function adminCrudFeedback(res, successMsg) {
+  if (adminCrudFormMeta) {
+    adminCrudFormMeta.textContent = (res && res.ok)
+      ? (res.nachricht || successMsg)
+      : ("Fehler: " + (res?.fehler?.nachricht || "Unbekannter Fehler"));
+    adminCrudFormMeta.style.color = (res && res.ok) ? "#27ae60" : "#eb5757";
+  }
+}
+
+// -------------------------------------------------------
+// CRUD Formular anzeigen (Anlegen / Bearbeiten)
+// -------------------------------------------------------
+
+function adminFormularAnzeigen(sektion, id, entity) {
+  if (!adminCrudFormular || !adminCrudFormFelder) return;
+
+  adminCrudFormTitel.textContent = id ? "Eintrag bearbeiten: " + id : "Neuen Eintrag anlegen";
+  adminCrudFormFelder.innerHTML = "";
+  adminCrudFormMeta.textContent = "";
+  if (adminCrudGrund) adminCrudGrund.value = "";
+
+  adminCrudFormFelder.appendChild(adminFormFelderErstellen(sektion, id, entity || {}));
+
+  adminCrudFormular.style.display = "block";
+  adminCrudFormular.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function adminFormularAusblenden() {
+  if (adminCrudFormular) adminCrudFormular.style.display = "none";
+  adminCrudBearbeitenId = null;
+}
+
+function adminFormFelderErstellen(sektion, id, entity) {
+  const container = document.createElement("div");
+
+  if (sektion === "Standorte") {
+    const k = entity.koordinaten || {};
+    const z = entity.zugriff || {};
+    container.innerHTML = `
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">ID (eindeutig) *</div>
+          <input type="text" name="id" value="${escapeHtml(entity.id || id || "")}" placeholder="z.B. doj_frontdesk_1" ${id ? "readonly" : ""} /></div>
+        <div class="feld"><div class="label">Name *</div>
+          <input type="text" name="name" value="${escapeHtml(entity.name || "")}" placeholder="Anzeigename" /></div>
+      </div>
+      <div class="feld"><div class="label">Aktiv</div>
+        <select name="aktiv"><option value="true" ${entity.aktiv !== false?"selected":""}>Ja</option><option value="false" ${entity.aktiv===false?"selected":""}>Nein</option></select></div>
+      <div class="admin-form-section"><div class="admin-form-section-title">Koordinaten</div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">X</div><input type="number" step="0.01" name="kx" value="${k.x ?? ""}" placeholder="0.0" /></div>
+          <div class="feld"><div class="label">Y</div><input type="number" step="0.01" name="ky" value="${k.y ?? ""}" placeholder="0.0" /></div>
+          <div class="feld"><div class="label">Z</div><input type="number" step="0.01" name="kz" value="${k.z ?? ""}" placeholder="0.0" /></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">Interaktionsradius (m)</div><input type="number" step="0.1" name="interaktionsRadius" value="${entity.interaktionsRadius ?? 2.0}" /></div>
+          <div class="feld"><div class="label">Sichtbarkeitsradius (m)</div><input type="number" step="0.1" name="sichtbarRadius" value="${entity.sichtbarRadius ?? 30.0}" /></div>
+        </div>
+      </div>
+      <div class="admin-form-section"><div class="admin-form-section-title">Zugriffsregeln</div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">Nur B\u00fcrger</div><select name="nurBuerger"><option value="false" ${!z.nurBuerger?"selected":""}>Nein</option><option value="true" ${z.nurBuerger?"selected":""}>Ja</option></select></div>
+          <div class="feld"><div class="label">Nur Justiz</div><select name="nurJustiz"><option value="false" ${!z.nurJustiz?"selected":""}>Nein</option><option value="true" ${z.nurJustiz?"selected":""}>Ja</option></select></div>
+          <div class="feld"><div class="label">Nur Admin</div><select name="nurAdmin"><option value="false" ${!z.nurAdmin?"selected":""}>Nein</option><option value="true" ${z.nurAdmin?"selected":""}>Ja</option></select></div>
+        </div>
+      </div>
+      <div class="admin-form-section"><div class="admin-form-section-title">PED / Marker / Blip</div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">PED aktiv</div><select name="pedAktiv"><option value="true" ${entity.ped?.aktiv!==false?"selected":""}>Ja</option><option value="false" ${entity.ped?.aktiv===false?"selected":""}>Nein</option></select></div>
+          <div class="feld"><div class="label">PED Modell</div><input type="text" name="pedModell" value="${escapeHtml(entity.ped?.modell||"s_m_y_cop_01")}" /></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">Marker aktiv</div><select name="markerAktiv"><option value="true" ${entity.marker?.aktiv!==false?"selected":""}>Ja</option><option value="false" ${entity.marker?.aktiv===false?"selected":""}>Nein</option></select></div>
+          <div class="feld"><div class="label">Blip aktiv</div><select name="blipAktiv"><option value="true" ${entity.blip?.aktiv!==false?"selected":""}>Ja</option><option value="false" ${entity.blip?.aktiv===false?"selected":""}>Nein</option></select></div>
+        </div>
+      </div>`;
+  } else if (sektion === "Kategorien") {
+    container.innerHTML = `
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">ID (eindeutig) *</div>
+          <input type="text" name="id" value="${escapeHtml(entity.id||id||"")}" placeholder="z.B. general" ${id?"readonly":""} /></div>
+        <div class="feld"><div class="label">Name *</div>
+          <input type="text" name="name" value="${escapeHtml(entity.name||"")}" placeholder="Anzeigename" /></div>
+      </div>
+      <div class="feld"><div class="label">Beschreibung</div>
+        <input type="text" name="beschreibung" value="${escapeHtml(entity.beschreibung||"")}" placeholder="Kurze Beschreibung" /></div>
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">Farbe (Hex, z.B. #2f80ed)</div>
+          <input type="text" name="farbe" value="${escapeHtml(entity.farbe||"#2f80ed")}" placeholder="#2f80ed" /></div>
+        <div class="feld"><div class="label">Icon (Emoji)</div>
+          <input type="text" name="icon" value="${escapeHtml(entity.icon||"")}" placeholder="\uD83D\uDCCB" /></div>
+        <div class="feld"><div class="label">Sortierung</div>
+          <input type="number" name="sortierung" value="${entity.sortierung??10}" /></div>
+      </div>
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">Aktiv</div>
+          <select name="aktiv"><option value="true" ${entity.aktiv!==false?"selected":""}>Ja</option><option value="false" ${entity.aktiv===false?"selected":""}>Nein</option></select></div>
+        <div class="feld"><div class="label">Sichtbar f\u00fcr B\u00fcrger</div>
+          <select name="sichtBuerger"><option value="true" ${entity.sichtbarkeit?.buerger!==false?"selected":""}>Ja</option><option value="false" ${entity.sichtbarkeit?.buerger===false?"selected":""}>Nein</option></select></div>
+      </div>
+      <div class="feld"><div class="label">Webhook-URL (Discord, optional)</div>
+        <input type="text" name="webhookUrl" value="${escapeHtml(entity.webhookUrl||"")}" placeholder="https://discord.com/api/webhooks/..." /></div>`;
+  } else if (sektion === "Formulare") {
+    const katDaten = adminPanelDaten["Kategorien"] || {};
+    const katListe = katDaten.Liste || {};
+    let katOptionen = '<option value="">- keine Kategorie -</option>';
+    for (const [katId, kat] of Object.entries(katListe)) {
+      katOptionen += `<option value="${escapeHtml(katId)}" ${entity.kategorie_id===katId?"selected":""}>${escapeHtml(kat.name||katId)}</option>`;
+    }
+    container.innerHTML = `
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">ID (eindeutig) *</div>
+          <input type="text" name="id" value="${escapeHtml(entity.id||id||"")}" placeholder="z.B. general_request" ${id?"readonly":""} /></div>
+        <div class="feld"><div class="label">Name *</div>
+          <input type="text" name="name" value="${escapeHtml(entity.name||"")}" placeholder="Anzeigename" /></div>
+      </div>
+      <div class="admin-form-row">
+        <div class="feld"><div class="label">Kategorie</div>
+          <select name="kategorie_id">${katOptionen}</select></div>
+        <div class="feld"><div class="label">Status</div>
+          <select name="status">
+            <option value="entwurf" ${(entity.status||"entwurf")==="entwurf"?"selected":""}>Entwurf</option>
+            <option value="veroeffentlicht" ${entity.status==="veroeffentlicht"?"selected":""}>Ver\u00f6ffentlicht</option>
+            <option value="archiviert" ${entity.status==="archiviert"?"selected":""}>Archiviert</option>
+          </select></div>
+      </div>
+      <div class="feld"><div class="label">Beschreibung</div>
+        <input type="text" name="beschreibung" value="${escapeHtml(entity.beschreibung||"")}" placeholder="Kurze Beschreibung" /></div>
+      <div class="admin-form-section"><div class="admin-form-section-title">Einschr\u00e4nkungen</div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">Cooldown (Sek.)</div><input type="number" name="cooldownSekunden" value="${entity.cooldownSekunden??0}" /></div>
+          <div class="feld"><div class="label">Max. offene Antr\u00e4ge</div><input type="number" name="maxOffen" value="${entity.maxOffen??0}" /></div>
+        </div>
+        <div class="feld"><div class="label">Duplikat-Pr\u00fcfung</div>
+          <select name="duplikatPruefung"><option value="true" ${entity.duplikatPruefung!==false?"selected":""}>Ja</option><option value="false" ${entity.duplikatPruefung===false?"selected":""}>Nein</option></select></div>
+      </div>
+      <div class="admin-form-section"><div class="admin-form-section-title">Geb\u00fchren (Konfiguration f\u00fcr zuk\u00fcnftige Implementierung)</div>
+        <div class="admin-form-row">
+          <div class="feld"><div class="label">Geb\u00fchren aktiv</div><select name="gebuehrenAktiviert"><option value="false" ${!entity.gebuehren?.aktiv?"selected":""}>Nein</option><option value="true" ${entity.gebuehren?.aktiv?"selected":""}>Ja</option></select></div>
+          <div class="feld"><div class="label">Betrag ($)</div><input type="number" step="0.01" name="gebuehrenBetrag" value="${entity.gebuehren?.betrag??0}" /></div>
+        </div>
+      </div>`;
+  } else {
+    container.innerHTML = `
+      <div class="feld"><div class="label">JSON (direkte Bearbeitung)</div>
+        <textarea name="json_raw" style="width:100%;min-height:200px;font-family:monospace;font-size:12px;">${escapeHtml(JSON.stringify(entity, null, 2))}</textarea></div>`;
+  }
+
+  return container;
+}
+
+// -------------------------------------------------------
+// Formular-Daten sammeln und senden
+// -------------------------------------------------------
+
+async function adminCrudFormularSpeichern() {
+  if (!adminCrudFormular || !adminCrudFormFelder) return;
+  const sektion = adminAktiveSubsektion;
+  const grund   = adminCrudGrund ? adminCrudGrund.value.trim() : "";
+
+  if (!grund) {
+    if (adminCrudFormMeta) { adminCrudFormMeta.textContent = "Begr\u00fcndung ist Pflichtfeld."; adminCrudFormMeta.style.color = "#eb5757"; }
+    return;
+  }
+
+  let entityDaten = {};
+  let entityId    = adminCrudBearbeitenId;
+  const f         = adminCrudFormFelder;
+
+  if (sektion === "Standorte") {
+    entityId = entityId || f.querySelector("[name=id]")?.value?.trim();
+    if (!entityId) { adminCrudFormMeta.textContent = "ID ist Pflichtfeld."; adminCrudFormMeta.style.color = "#eb5757"; return; }
+    entityDaten = {
+      id:    entityId,
+      name:  f.querySelector("[name=name]")?.value?.trim() || entityId,
+      aktiv: f.querySelector("[name=aktiv]")?.value !== "false",
+      koordinaten: {
+        x: parseFloat(f.querySelector("[name=kx]")?.value) || 0,
+        y: parseFloat(f.querySelector("[name=ky]")?.value) || 0,
+        z: parseFloat(f.querySelector("[name=kz]")?.value) || 0,
+      },
+      interaktionsRadius: parseFloat(f.querySelector("[name=interaktionsRadius]")?.value) || 2.0,
+      sichtbarRadius:     parseFloat(f.querySelector("[name=sichtbarRadius]")?.value)     || 30.0,
+      interaktion: {},
+      zugriff: {
+        nurBuerger: f.querySelector("[name=nurBuerger]")?.value === "true",
+        nurJustiz:  f.querySelector("[name=nurJustiz]")?.value  === "true",
+        nurAdmin:   f.querySelector("[name=nurAdmin]")?.value   === "true",
+        erlaubteRollen: [], erlaubteJobs: [], erlaubteKategorien: [], erlaubteFormulare: [],
+      },
+      ped:    { aktiv: f.querySelector("[name=pedAktiv]")?.value !== "false",    modell: f.querySelector("[name=pedModell]")?.value?.trim() || "s_m_y_cop_01" },
+      marker: { aktiv: f.querySelector("[name=markerAktiv]")?.value !== "false" },
+      blip:   { aktiv: f.querySelector("[name=blipAktiv]")?.value  !== "false"  },
+    };
+  } else if (sektion === "Kategorien") {
+    entityId = entityId || f.querySelector("[name=id]")?.value?.trim();
+    if (!entityId) { adminCrudFormMeta.textContent = "ID ist Pflichtfeld."; adminCrudFormMeta.style.color = "#eb5757"; return; }
+    entityDaten = {
+      id:           entityId,
+      name:         f.querySelector("[name=name]")?.value?.trim()        || entityId,
+      beschreibung: f.querySelector("[name=beschreibung]")?.value?.trim() || "",
+      farbe:        f.querySelector("[name=farbe]")?.value?.trim()        || "#2f80ed",
+      icon:         f.querySelector("[name=icon]")?.value?.trim()         || "",
+      sortierung:   parseInt(f.querySelector("[name=sortierung]")?.value) || 10,
+      aktiv:        f.querySelector("[name=aktiv]")?.value !== "false",
+      sichtbarkeit: { buerger: f.querySelector("[name=sichtBuerger]")?.value !== "false" },
+    };
+    const wh = f.querySelector("[name=webhookUrl]")?.value?.trim();
+    if (wh) entityDaten.webhookUrl = wh;
+  } else if (sektion === "Formulare") {
+    entityId = entityId || f.querySelector("[name=id]")?.value?.trim();
+    if (!entityId) { adminCrudFormMeta.textContent = "ID ist Pflichtfeld."; adminCrudFormMeta.style.color = "#eb5757"; return; }
+    entityDaten = {
+      id:              entityId,
+      name:            f.querySelector("[name=name]")?.value?.trim()         || entityId,
+      beschreibung:    f.querySelector("[name=beschreibung]")?.value?.trim() || "",
+      status:          f.querySelector("[name=status]")?.value               || "entwurf",
+      cooldownSekunden: parseInt(f.querySelector("[name=cooldownSekunden]")?.value) || 0,
+      maxOffen:        parseInt(f.querySelector("[name=maxOffen]")?.value)          || 0,
+      duplikatPruefung: f.querySelector("[name=duplikatPruefung]")?.value !== "false",
+      gebuehren: {
+        aktiv:  f.querySelector("[name=gebuehrenAktiviert]")?.value === "true",
+        betrag: parseFloat(f.querySelector("[name=gebuehrenBetrag]")?.value)  || 0,
+      },
+    };
+    const katId = f.querySelector("[name=kategorie_id]")?.value;
+    if (katId) entityDaten.kategorie_id = katId;
+  } else {
+    try {
+      const rawJson = f.querySelector("[name=json_raw]")?.value || "{}";
+      entityDaten = JSON.parse(rawJson);
+      entityId = entityId || entityDaten.id;
+    } catch(e) {
+      if (adminCrudFormMeta) { adminCrudFormMeta.textContent = "JSON-Syntaxfehler: " + e.message; adminCrudFormMeta.style.color = "#eb5757"; }
+      return;
+    }
+  }
+
+  if (!entityId) {
+    if (adminCrudFormMeta) { adminCrudFormMeta.textContent = "Entity-ID konnte nicht ermittelt werden."; adminCrudFormMeta.style.color = "#eb5757"; }
+    return;
+  }
+
+  if (adminCrudFormMeta) adminCrudFormMeta.textContent = "Speichere...";
+  if (btnAdminCrudSpeichern) btnAdminCrudSpeichern.disabled = true;
+
+  const res = await nuiAufruf("hm_bp:admin_entity_speichern", { sektion, entity_id: entityId, daten: entityDaten, grund });
+
+  if (btnAdminCrudSpeichern) btnAdminCrudSpeichern.disabled = false;
+  adminCrudFeedback(res, "Eintrag erfolgreich gespeichert.");
+
+  if (res && res.ok) {
+    if (adminCrudGrund) adminCrudGrund.value = "";
+    adminFormularAusblenden();
+    adminCrudListeAktualisieren();
+  }
+}
+
+// -------------------------------------------------------
+// Modul-Toggles
+// -------------------------------------------------------
+
+function adminModulAnzeigen(daten) {
+  if (!adminCrudListe) return;
+  adminCrudListe.innerHTML = "";
+  if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = "none";
+
+  const MODUL_BESCHREIBUNGEN = {
+    AdminUI:           "Adminbereich in der NUI anzeigen",
+    Anhaenge:          "Bild-Anh\u00e4nge als Links (PR8)",
+    Gebuehren:         "Geb\u00fchren an Formularen (Implementierung folgt)",
+    Delegation:        "Antr\u00e4ge weiterdelegieren (Implementierung folgt)",
+    Entwuerfe:         "B\u00fcrger kann Entw\u00fcrfe speichern",
+    Exporte:           "CSV/PDF-Export (Implementierung folgt)",
+    AuditHaertung:     "Erweiterte Audit-H\u00e4rtung",
+    Webhooks:          "Discord-Webhook-Benachrichtigungen",
+    Benachrichtigungen: "Ingame-Benachrichtigungen",
+  };
+
+  const grid = document.createElement("div");
+  grid.className = "admin-module-grid";
+
+  for (const [modul, aktiviert] of Object.entries(daten)) {
+    const card = document.createElement("div");
+    card.className = "admin-module-card" + (aktiviert ? " module-aktiv" : "");
+
+    const toggle = document.createElement("button");
+    toggle.className = "admin-module-toggle" + (aktiviert ? " on" : "");
+    toggle.title = aktiviert ? "Deaktivieren" : "Aktivieren";
+    toggle.addEventListener("click", () => adminModulUmschalten(modul, !aktiviert));
+
+    const info = document.createElement("div");
+    info.className = "admin-module-info";
+    info.innerHTML = `<div class="admin-module-name">${escapeHtml(modul)}</div>
+      <div class="admin-module-status">${escapeHtml(MODUL_BESCHREIBUNGEN[modul] || "")}</div>`;
+
+    card.appendChild(toggle);
+    card.appendChild(info);
+    grid.appendChild(card);
+  }
+
+  adminCrudListe.appendChild(grid);
+}
+
+async function adminModulUmschalten(modul, aktiviert) {
+  const grund = prompt("Modul '" + modul + "' " + (aktiviert ? "aktivieren" : "deaktivieren") + "?\nBitte Begr\u00fcndung eingeben:");
+  if (!grund || !grund.trim()) return;
+  const res = await nuiAufruf("hm_bp:admin_modul_toggle", { modul, aktiviert, grund: grund.trim() });
+  if (res && res.ok) {
+    adminCrudListeAktualisieren();
+  } else {
+    alert(res?.fehler?.nachricht || "Fehler beim Umschalten.");
+  }
+}
+
+// -------------------------------------------------------
+// Berechtigungen (Permissions)
+// -------------------------------------------------------
+
+function adminPermissionsAnzeigen(daten) {
+  if (!adminCrudListe) return;
+  adminCrudListe.innerHTML = "";
+  if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = "none";
+
+  const defaults = daten.Defaults || {};
+  const rollen   = Object.keys(defaults);
+
+  if (rollen.length === 0) {
+    adminCrudListe.innerHTML = "<div class='muted'>Keine Berechtigungen konfiguriert. Verwende den Erweitert-Modus (JSON) zum Bearbeiten.</div>";
+    return;
+  }
+
+  for (const rolle of rollen) {
+    const rolleDaten = defaults[rolle] || {};
+    const card = document.createElement("div");
+    card.className = "admin-crud-item";
+    card.style.cssText = "flex-direction:column; align-items:flex-start;";
+
+    const rolleTitle = document.createElement("div");
+    rolleTitle.className = "admin-crud-item-name";
+    rolleTitle.textContent = "Rolle: " + rolle;
+    card.appendChild(rolleTitle);
+
+    const aktionen = Object.entries(rolleDaten);
+    if (aktionen.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "Keine Aktionen konfiguriert.";
+      card.appendChild(empty);
+    } else {
+      const grid2 = document.createElement("div");
+      grid2.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;";
+      for (const [aktion, erlaubt] of aktionen) {
+        const badge = document.createElement("span");
+        badge.className = "badge " + (erlaubt ? "badge-aktiv" : "badge-inaktiv");
+        badge.textContent = aktion;
+        grid2.appendChild(badge);
+      }
+      card.appendChild(grid2);
+    }
+    adminCrudListe.appendChild(card);
+  }
+
+  const hinweis = document.createElement("div");
+  hinweis.className = "muted";
+  hinweis.style.marginTop = "10px";
+  hinweis.textContent = "F\u00fcr detaillierte Bearbeitung bitte den Erweitert-Modus (JSON-Editor) verwenden.";
+  adminCrudListe.appendChild(hinweis);
+}
+
+// -------------------------------------------------------
+// Status/Workflow
+// -------------------------------------------------------
+
+function adminStatusAnzeigen(daten) {
+  if (!adminCrudListe) return;
+  adminCrudListe.innerHTML = "";
+  if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = "none";
+
+  const liste = daten.Liste || {};
+
+  if (Object.keys(liste).length === 0) {
+    adminCrudListe.innerHTML = "<div class='muted'>Keine Status konfiguriert.</div>";
+    return;
+  }
+
+  for (const [id, status] of Object.entries(liste)) {
+    const div = document.createElement("div");
+    div.className = "admin-crud-item";
+    const farbDot = status.farbe ? `<span style="width:12px;height:12px;border-radius:50%;background:${escapeHtml(status.farbe)};display:inline-block;margin-right:6px;"></span>` : "";
+    div.innerHTML = `
+      <div class="admin-crud-item-info">
+        <div class="admin-crud-item-name">${farbDot}${escapeHtml(status.label || id)}</div>
+        <div class="admin-crud-item-id">${escapeHtml(id)}</div>
+        ${status.beschreibung ? `<div class="admin-crud-item-meta">${escapeHtml(status.beschreibung)}</div>` : ""}
+      </div>`;
+    adminCrudListe.appendChild(div);
+  }
+
+  const hinweis = document.createElement("div");
+  hinweis.className = "muted";
+  hinweis.style.marginTop = "10px";
+  hinweis.textContent = "Status-Metadaten bitte \u00fcber den Erweitert-Modus (JSON-Editor) bearbeiten.";
+  adminCrudListe.appendChild(hinweis);
+}
+
+// -------------------------------------------------------
+// Webhooks
+// -------------------------------------------------------
+
+function adminWebhooksAnzeigen(daten) {
+  if (!adminCrudListe) return;
+  adminCrudListe.innerHTML = "";
+  if (btnAdminCrudNeu) btnAdminCrudNeu.style.display = "none";
+
+  const routing   = daten.Routing || {};
+  const nachEvent = routing.NachEvent || {};
+
+  // Test-URL Eingabe
+  const testCard = document.createElement("div");
+  testCard.className = "admin-webhook-card";
+  testCard.innerHTML = `
+    <div class="admin-form-section-title" style="margin-bottom:8px;">Webhook testen</div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input type="text" id="adminWebhookTestUrl" placeholder="https://discord.com/api/webhooks/..." style="flex:1;" />
+      <button id="btnAdminWebhookTest" class="btn" type="button">Testen</button>
+    </div>
+    <div class="muted" id="adminWebhookTestMeta" style="margin-top:6px;"></div>`;
+  adminCrudListe.appendChild(testCard);
+
+  testCard.querySelector("#btnAdminWebhookTest")?.addEventListener("click", async () => {
+    const url  = testCard.querySelector("#adminWebhookTestUrl")?.value?.trim();
+    const meta = testCard.querySelector("#adminWebhookTestMeta");
+    if (!url) { if(meta) meta.textContent = "Bitte eine URL eingeben."; return; }
+    if(meta) meta.textContent = "Sende...";
+    const res = await nuiAufruf("hm_bp:admin_webhook_test", { url });
+    if(meta) {
+      meta.textContent  = (res && res.ok) ? (res.nachricht || "Gesendet.") : (res?.fehler?.nachricht || "Fehler.");
+      meta.style.color = (res && res.ok) ? "#27ae60" : "#eb5757";
+    }
+  });
+
+  const fallbackCard = document.createElement("div");
+  fallbackCard.className = "admin-webhook-card";
+  fallbackCard.innerHTML = `
+    <div class="admin-webhook-event">Fallback-URL</div>
+    <div class="admin-webhook-url">${escapeHtml(routing.Fallback || "- nicht konfiguriert -")}</div>`;
+  adminCrudListe.appendChild(fallbackCard);
+
+  const events = Object.entries(nachEvent);
+  if (events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.marginTop = "8px";
+    empty.textContent = "Keine Event-Webhooks konfiguriert. Verwende den Erweitert-Modus (JSON) zum Hinzuf\u00fcgen.";
+    adminCrudListe.appendChild(empty);
+  } else {
+    for (const [event, url] of events) {
+      const card = document.createElement("div");
+      card.className = "admin-webhook-card";
+      card.innerHTML = `<div class="admin-webhook-event">${escapeHtml(event)}</div>
+        <div class="admin-webhook-url">${escapeHtml(url)}</div>`;
+      adminCrudListe.appendChild(card);
+    }
+  }
+
+  const hinweis = document.createElement("div");
+  hinweis.className = "muted";
+  hinweis.style.marginTop = "10px";
+  hinweis.textContent = "Webhook-URLs bitte \u00fcber den Erweitert-Modus (JSON-Editor) bearbeiten.";
+  adminCrudListe.appendChild(hinweis);
+}
+
+// -------------------------------------------------------
+// Erweitert (JSON-Modus)
+// -------------------------------------------------------
+
 async function adminSektionLaden(modus) {
-  if (!adminSektionEditor) return;
+  if (!adminCrudErweitert) return;
   const sektion = adminAktiveSubsektion;
   if (!adminAktionMeta) return;
-  adminAktionMeta.textContent = "Lade Sektion…";
-
+  adminAktionMeta.textContent = "Lade Sektion...";
   const res = await nuiAufruf("hm_bp:admin_sektion_laden", { sektion, modus: modus || "effektiv" });
   if (!res || !res.ok) {
     adminAktionMeta.textContent = res?.fehler?.nachricht || "Laden fehlgeschlagen.";
     return;
   }
-
   try {
-    adminJsonEditor.value = JSON.stringify(res.daten, null, 2);
-    adminAktionMeta.textContent = `Sektion '${sektion}' geladen (Modus: ${modus || "effektiv"}).`;
-  } catch (e) {
+    if (adminJsonEditor) adminJsonEditor.value = JSON.stringify(res.daten, null, 2);
+    adminAktionMeta.textContent = "Sektion '" + sektion + "' geladen (Modus: " + (modus || "effektiv") + ").";
+  } catch(e) {
     adminAktionMeta.textContent = "Fehler beim Anzeigen der Daten.";
   }
 }
@@ -2591,19 +3271,15 @@ async function adminSektionValidieren() {
     if (adminAktionMeta) adminAktionMeta.textContent = "Editor ist leer. Bitte zuerst Daten laden oder eingeben.";
     return;
   }
-
   let daten;
-  try {
-    daten = JSON.parse(raw);
-  } catch (e) {
-    if (adminAktionMeta) adminAktionMeta.textContent = `JSON-Syntaxfehler: ${e.message}`;
+  try { daten = JSON.parse(raw); } catch(e) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "JSON-Syntaxfehler: " + e.message;
     return;
   }
-
-  if (adminAktionMeta) adminAktionMeta.textContent = "Validierung läuft…";
+  if (adminAktionMeta) adminAktionMeta.textContent = "Validierung l\u00e4uft...";
   const res = await nuiAufruf("hm_bp:admin_sektion_validieren", { sektion, daten });
   if (!res || !res.ok) {
-    if (adminAktionMeta) adminAktionMeta.textContent = `Validierungsfehler: ${res?.fehler?.nachricht || "Unbekannter Fehler"}`;
+    if (adminAktionMeta) adminAktionMeta.textContent = "Validierungsfehler: " + (res?.fehler?.nachricht || "Unbekannter Fehler");
     return;
   }
   if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Validierung erfolgreich.";
@@ -2616,30 +3292,22 @@ async function adminSektionSpeichern() {
     if (adminAktionMeta) adminAktionMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld).";
     return;
   }
-
   const raw = adminJsonEditor ? adminJsonEditor.value : "";
   if (!raw.trim()) {
     if (adminAktionMeta) adminAktionMeta.textContent = "Editor ist leer. Bitte zuerst Daten laden oder eingeben.";
     return;
   }
-
   let daten;
-  try {
-    daten = JSON.parse(raw);
-  } catch (e) {
-    if (adminAktionMeta) adminAktionMeta.textContent = `JSON-Syntaxfehler: ${e.message}`;
+  try { daten = JSON.parse(raw); } catch(e) {
+    if (adminAktionMeta) adminAktionMeta.textContent = "JSON-Syntaxfehler: " + e.message;
     return;
   }
-
-  if (adminAktionMeta) adminAktionMeta.textContent = "Speichere…";
+  if (adminAktionMeta) adminAktionMeta.textContent = "Speichere...";
   if (btnAdminSpeichern) btnAdminSpeichern.disabled = true;
-
   const res = await nuiAufruf("hm_bp:admin_sektion_speichern", { sektion, daten, grund });
-
   if (btnAdminSpeichern) btnAdminSpeichern.disabled = false;
-
   if (!res || !res.ok) {
-    if (adminAktionMeta) adminAktionMeta.textContent = `Fehler: ${res?.fehler?.nachricht || "Speichern fehlgeschlagen."}`;
+    if (adminAktionMeta) adminAktionMeta.textContent = "Fehler: " + (res?.fehler?.nachricht || "Speichern fehlgeschlagen.");
     return;
   }
   if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Gespeichert.";
@@ -2653,39 +3321,36 @@ async function adminSektionZuruecksetzen() {
     if (adminAktionMeta) adminAktionMeta.textContent = "Bitte einen Grund eingeben (Pflichtfeld).";
     return;
   }
-
-  if (!confirm(`Override für Sektion '${sektion}' zurücksetzen? Die Basis-Config wird wieder aktiv.`)) return;
-
-  if (adminAktionMeta) adminAktionMeta.textContent = "Setze zurück…";
+  if (!confirm("Override f\u00fcr Sektion '" + sektion + "' zur\u00fccksetzen? Die Basis-Config wird wieder aktiv.")) return;
+  if (adminAktionMeta) adminAktionMeta.textContent = "Setze zur\u00fcck...";
   const res = await nuiAufruf("hm_bp:admin_sektion_zuruecksetzen", { sektion, grund });
-
   if (!res || !res.ok) {
-    if (adminAktionMeta) adminAktionMeta.textContent = `Fehler: ${res?.fehler?.nachricht || "Zurücksetzen fehlgeschlagen."}`;
+    if (adminAktionMeta) adminAktionMeta.textContent = "Fehler: " + (res?.fehler?.nachricht || "Zur\u00fccksetzen fehlgeschlagen.");
     return;
   }
-  if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Override zurückgesetzt.";
+  if (adminAktionMeta) adminAktionMeta.textContent = res.nachricht || "Override zur\u00fcckgesetzt.";
   if (adminGrund) adminGrund.value = "";
-  adminJsonEditor.value = "";
+  if (adminJsonEditor) adminJsonEditor.value = "";
 }
+
+// -------------------------------------------------------
+// Audit-Log
+// -------------------------------------------------------
 
 async function adminAuditLogLaden() {
   if (!adminAuditListe) return;
-  adminAuditListe.innerHTML = "<div class='muted'>Lade…</div>";
-
+  adminAuditListe.innerHTML = "<div class='muted'>Lade...</div>";
   const res = await nuiAufruf("hm_bp:admin_audit_laden", { limit: 100 });
   adminAuditListe.innerHTML = "";
-
   if (!res || !res.ok) {
-    adminAuditListe.innerHTML = `<div class='muted'>${escapeHtml(res?.fehler?.nachricht || "Audit-Log konnte nicht geladen werden.")}</div>`;
+    adminAuditListe.innerHTML = "<div class='muted'>" + escapeHtml(res?.fehler?.nachricht || "Audit-Log konnte nicht geladen werden.") + "</div>";
     return;
   }
-
   const eintraege = res.eintraege || [];
   if (eintraege.length === 0) {
-    adminAuditListe.innerHTML = "<div class='muted'>Keine Audit-Einträge vorhanden.</div>";
+    adminAuditListe.innerHTML = "<div class='muted'>Keine Audit-Eintr\u00e4ge vorhanden.</div>";
     return;
   }
-
   for (const e of eintraege) {
     const div = document.createElement("div");
     div.className = "admin-audit-entry";
@@ -2697,30 +3362,38 @@ async function adminAuditLogLaden() {
       </div>
       <div class="admin-audit-actor">
         ${escapeHtml(e.actor_name || e.actor_identifier || "?")}
-        ${e.actor_job ? `(${escapeHtml(e.actor_job)} Grad ${escapeHtml(String(e.actor_grade ?? "?"))})` : ""}
+        ${e.actor_job ? "(" + escapeHtml(e.actor_job) + " Grad " + escapeHtml(String(e.actor_grade ?? "?")) + ")" : ""}
       </div>
       <div class="admin-audit-grund">Grund: ${escapeHtml(e.grund || "-")}</div>
-      <div class="admin-audit-id muted">ID: ${escapeHtml(e.request_id || "?")}</div>
-    `;
+      <div class="admin-audit-id muted">ID: ${escapeHtml(e.request_id || "?")}</div>`;
     adminAuditListe.appendChild(div);
   }
 }
 
-// Admin-Subtab-Buttons binden
+// -------------------------------------------------------
+// Event-Listener binden
+// -------------------------------------------------------
+
 document.querySelectorAll(".admin-subtab").forEach(btn => {
   btn.addEventListener("click", () => adminSubtabSetzen(btn.dataset.subtab));
 });
 
-// Admin-Aktion-Buttons binden
-if (btnAdminLaden)        btnAdminLaden.addEventListener("click",       () => adminSektionLaden("effektiv"));
-if (btnAdminBasisLaden)   btnAdminBasisLaden.addEventListener("click",  () => adminSektionLaden("basis"));
-if (btnAdminOverrideLaden) btnAdminOverrideLaden.addEventListener("click", () => adminSektionLaden("override"));
-if (btnAdminValidieren)   btnAdminValidieren.addEventListener("click",  () => adminSektionValidieren());
-if (btnAdminSpeichern)    btnAdminSpeichern.addEventListener("click",   () => adminSektionSpeichern());
-if (btnAdminZuruecksetzen) btnAdminZuruecksetzen.addEventListener("click", () => adminSektionZuruecksetzen());
-if (btnAdminAuditLaden)   btnAdminAuditLaden.addEventListener("click",  () => adminAuditLogLaden());
+if (btnAdminModeGefuehrt)  btnAdminModeGefuehrt.addEventListener("click",   () => adminModusSetzen("gefuehrt"));
+if (btnAdminModeErweitert) btnAdminModeErweitert.addEventListener("click",  () => adminModusSetzen("erweitert"));
 
-// Admin-Tab-Button binden (nach DOM bereit)
+if (btnAdminLaden)         btnAdminLaden.addEventListener("click",        () => adminSektionLaden("effektiv"));
+if (btnAdminBasisLaden)    btnAdminBasisLaden.addEventListener("click",   () => adminSektionLaden("basis"));
+if (btnAdminOverrideLaden) btnAdminOverrideLaden.addEventListener("click",() => adminSektionLaden("override"));
+if (btnAdminValidieren)    btnAdminValidieren.addEventListener("click",   () => adminSektionValidieren());
+if (btnAdminSpeichern)     btnAdminSpeichern.addEventListener("click",    () => adminSektionSpeichern());
+if (btnAdminZuruecksetzen) btnAdminZuruecksetzen.addEventListener("click",() => adminSektionZuruecksetzen());
+if (btnAdminAuditLaden)    btnAdminAuditLaden.addEventListener("click",   () => adminAuditLogLaden());
+
+if (btnAdminCrudNeu)            btnAdminCrudNeu.addEventListener("click",            () => { adminCrudBearbeitenId = null; adminFormularAnzeigen(adminAktiveSubsektion, null, {}); });
+if (btnAdminCrudAktualisieren)  btnAdminCrudAktualisieren.addEventListener("click",  () => adminCrudListeAktualisieren());
+if (btnAdminCrudSpeichern)      btnAdminCrudSpeichern.addEventListener("click",      () => adminCrudFormularSpeichern());
+if (btnAdminCrudAbbrechen)      btnAdminCrudAbbrechen.addEventListener("click",      () => adminFormularAusblenden());
+
 if (tabAdmin) {
   tabAdmin.addEventListener("click", () => {
     tabSetzen("admin");

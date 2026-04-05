@@ -25,6 +25,7 @@ local RESOURCE_NAME   = GetCurrentResourceName()
 
 -- Verwaltete Config-Sektionen (werden gemergt)
 local MANAGED_SECTIONS = {
+  "Kern", "Module",
   "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks", "Workflows", "Anhaenge"
 }
 

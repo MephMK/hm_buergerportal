@@ -86,3 +86,63 @@ RegisterNUICallback("hm_bp:admin_neuladen", function(daten, cb)
     "hm_bp:admin:neuladen_antwort"
   ))
 end)
+
+-- -------------------------------------------------------
+-- CRUD-Callbacks
+-- -------------------------------------------------------
+
+RegisterNUICallback("hm_bp:admin_entity_speichern", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:entity_speichern",
+    daten or {},
+    "hm_bp:admin:entity_speichern_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_entity_loeschen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:entity_loeschen",
+    daten or {},
+    "hm_bp:admin:entity_loeschen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_kategorie_status", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:kategorie_status",
+    daten or {},
+    "hm_bp:admin:kategorie_status_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_formular_status", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:formular_status",
+    daten or {},
+    "hm_bp:admin:formular_status_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_modul_toggle", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:modul_toggle",
+    daten or {},
+    "hm_bp:admin:modul_toggle_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_webhook_test", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:webhook_test",
+    daten or {},
+    "hm_bp:admin:webhook_test_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_sektion_validieren_v2", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin:sektion_validieren_v2",
+    daten or {},
+    "hm_bp:admin:sektion_validieren_v2_antwort"
+  ))
+end)

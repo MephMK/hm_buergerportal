@@ -272,3 +272,220 @@ html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent
   font-size: 11px;
   margin-top: 4px;
 }
+
+/* ==========================================
+   Admin CRUD UI
+   ========================================== */
+
+.active-mode {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.admin-crud-list {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.admin-crud-item {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-crud-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-crud-item-id {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.admin-crud-item-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-crud-item-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.admin-crud-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-crud-item-actions .btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-aktiv    { background: rgba(39,174,96,0.2);  border: 1px solid rgba(39,174,96,0.5);  color: #27ae60; }
+.badge-inaktiv  { background: rgba(235,87,87,0.2);  border: 1px solid rgba(235,87,87,0.5);  color: #eb5757; }
+.badge-archiviert { background: rgba(130,130,130,0.2); border: 1px solid rgba(130,130,130,0.4); color: #888; }
+.badge-entwurf  { background: rgba(242,153,74,0.2); border: 1px solid rgba(242,153,74,0.5);  color: #f2994a; }
+.badge-veroeffentlicht { background: rgba(39,174,96,0.2); border: 1px solid rgba(39,174,96,0.5); color: #27ae60; }
+
+.admin-crud-form {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.admin-crud-form-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.admin-crud-form .feld {
+  margin-bottom: 10px;
+}
+
+.admin-crud-form .feld input,
+.admin-crud-form .feld select,
+.admin-crud-form .feld textarea {
+  width: 100%;
+}
+
+.admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.admin-form-section {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.admin-form-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+/* Module-Toggles */
+.admin-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.admin-module-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-module-card.module-aktiv {
+  border-color: rgba(39,174,96,0.4);
+  background: rgba(39,174,96,0.05);
+}
+
+.admin-module-toggle {
+  cursor: pointer;
+  width: 38px;
+  height: 20px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.2s;
+  border: none;
+  flex-shrink: 0;
+}
+
+.admin-module-toggle.on {
+  background: var(--accent);
+}
+
+.admin-module-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.2s;
+}
+
+.admin-module-toggle.on::after {
+  left: 21px;
+}
+
+.admin-module-info {
+  flex: 1;
+}
+
+.admin-module-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.admin-module-status {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Webhook URL Karte */
+.admin-webhook-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.admin-webhook-event {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.admin-webhook-url {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-top: 4px;
+}

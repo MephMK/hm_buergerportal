@@ -18,6 +18,13 @@ Config.Kern = {
     MinGrade = 0,        -- Mindestgrad (inkl.), 0 = alle Grades des Jobs
   },
 
+  -- Justiz-Job-Konfiguration: maßgeblich für alle Dienste.
+  -- Ändere hier den Job-Namen wenn dein Justiz-Job nicht "doj" heißt.
+  -- Config.Kern.Jobs.Justiz bleibt als Fallback für Rückwärtskompatibilität erhalten.
+  Justiz = {
+    Job = "doj",  -- Job-Name des Justiz-Jobs (anpassbar an den Job-Namen deines Servers)
+  },
+
   Debugmodus = false,
 
   Interaktion = {
@@ -1324,6 +1331,41 @@ Config.Archiv = {
 Config.Entwuerfe = {
   Aktiviert = false,
   AutoLoeschenNachTagen = 14
+}
+
+-- =============================================================
+-- Config.Module
+-- Feature-Flags: Aktiviere/Deaktiviere Hauptsysteme.
+-- Alle Flags sind über config.lua (Basis) und/oder
+-- data/admin_overrides.json (Live-Override) änderbar.
+-- =============================================================
+Config.Module = {
+  -- Admin-UI: Adminbereich in der NUI anzeigen und bedienbar machen.
+  AdminUI          = true,
+
+  -- Anhänge: Bild-Links an Anträge anhängen (PR8).
+  Anhaenge         = true,
+
+  -- Gebühren: Gebührenkonfiguration an Formularen (Implementierung folgt).
+  Gebuehren        = false,
+
+  -- Delegation: Anträge an andere Bearbeiter weiterdelegieren (Implementierung folgt).
+  Delegation       = false,
+
+  -- Entwürfe: Bürger kann Anträge als Entwurf speichern.
+  Entwuerfe        = false,
+
+  -- Exporte: Anträge/Berichte als CSV/PDF exportieren (Implementierung folgt).
+  Exporte          = false,
+
+  -- Audit-Härtung: Erweiterte Audit-Sicherheit und Unveränderlichkeit der Logs.
+  AuditHaertung    = false,
+
+  -- Webhooks: Discord-Webhook-Benachrichtigungen.
+  Webhooks         = true,
+
+  -- Benachrichtigungen: Ingame-Benachrichtigungen an Spieler.
+  Benachrichtigungen = true,
 }
 
 -- =============================================================

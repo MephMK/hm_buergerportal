@@ -27,6 +27,7 @@ HM_BP.Server = HM_BP.Server or {}
 
 local function cfgSvc()  return HM_BP.Server.Dienste.AdminConfigService  end
 local function audSvc()  return HM_BP.Server.Dienste.AdminAuditService   end
+local function valSvc()  return HM_BP.Server.Dienste.AdminValidierungService end
 
 -- Prüft Admin-Berechtigung mit zwei unabhängigen Schichten:
 --   1) Rate-Limit + Permission-Check via Middleware
@@ -80,9 +81,17 @@ local function sektionValidieren(sektion, daten)
   if type(daten) ~= "table" then
     return false, "Die Sektions-Daten müssen eine JSON-Tabelle sein."
   end
-  -- Sektion-spezifische Basisprüfungen
+
+  -- Erweitertes Schema-Validierung via AdminValidierungService (falls verfügbar)
+  local vs = valSvc()
+  if vs then
+    local valOk, valErr = vs.ValidiereSektion(sektion, daten)
+    if not valOk then return false, valErr end
+    return true, nil
+  end
+
+  -- Fallback: Sektion-spezifische Basisprüfungen
   if sektion == "Standorte" or sektion == "Kategorien" or sektion == "Formulare" or sektion == "Status" then
-    -- Erwarte ein Objekt mit optionalem "Liste"-Schlüssel
     if daten.Liste ~= nil and type(daten.Liste) ~= "table" then
       return false, "Feld 'Liste' muss eine Tabelle sein."
     end
