@@ -35,6 +35,7 @@ client_scripts {
   'client/esx.lua',
   'client/benachrichtigung.lua',
   'client/ui_bruecke.lua',
+  'client/admin_ui_bridge.lua',
   'client/target_adapter.lua',
   'client/standorte.lua'
 }
@@ -73,12 +74,16 @@ server_scripts {
   'server/dienste/formular_editor_service.lua',
   'server/dienste/location_service.lua',
 
+  'server/dienste/admin_config_service.lua',
+  'server/dienste/admin_audit_service.lua',
+
   'server/middleware.lua',
 
   'server/api.lua',
   'server/api_justiz.lua',
   'server/api_form_editor.lua',
-  'server/api_locations.lua'
+  'server/api_locations.lua',
+  'server/api_admin.lua'
 }
 
 dependencies {

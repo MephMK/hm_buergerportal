@@ -8,6 +8,27 @@ CreateThread(function()
     print(("[hm_buergerportal] Startup: Ressource '%s' startet..."):format(tostring(Config.Kern.RessourcenName or "hm_buergerportal")))
   end
 
+  -- Admin-Konfigurationsservice: Overrides laden und mit Basis-Config mergen.
+  -- MUSS VOR den Migrationen laufen, damit alle Dienste die effektive Config sehen.
+  if HM_BP.Server and HM_BP.Server.Dienste and HM_BP.Server.Dienste.AdminConfigService then
+    local ok, err = pcall(function()
+      HM_BP.Server.Dienste.AdminConfigService.Init()
+    end)
+    if not ok then
+      print(("[hm_buergerportal] WARN: AdminConfigService.Init fehlgeschlagen: %s"):format(tostring(err)))
+    end
+  end
+
+  -- Admin-Audit-Service initialisieren (lädt bestehende Log-Einträge)
+  if HM_BP.Server and HM_BP.Server.Dienste and HM_BP.Server.Dienste.AdminAuditService then
+    local ok, err = pcall(function()
+      HM_BP.Server.Dienste.AdminAuditService.Init()
+    end)
+    if not ok then
+      print(("[hm_buergerportal] WARN: AdminAuditService.Init fehlgeschlagen: %s"):format(tostring(err)))
+    end
+  end
+
   -- Migrationen
   if Config
     and Config.Datenbank

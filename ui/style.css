@@ -204,3 +204,71 @@ html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent
 .feld select[multiple] {
   min-height: 80px;
 }
+
+/* ===== Admin-Panel ===== */
+.admin-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.admin-json-editor {
+  width: 100%;
+  min-height: 380px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  background: rgba(0,0,0,0.35);
+  color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 12px;
+  resize: vertical;
+  box-sizing: border-box;
+  tab-size: 2;
+}
+.admin-json-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.admin-audit-entry {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.admin-audit-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.admin-audit-ts {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-audit-action {
+  font-weight: 600;
+  color: var(--accent);
+}
+.admin-audit-section {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(47,128,237,0.15);
+  border: 1px solid rgba(47,128,237,0.3);
+  font-size: 12px;
+}
+.admin-audit-actor {
+  color: rgba(255,255,255,0.75);
+}
+.admin-audit-grund {
+  color: rgba(255,255,255,0.6);
+  font-style: italic;
+  margin-top: 2px;
+}
+.admin-audit-id {
+  font-size: 11px;
+  margin-top: 4px;
+}
