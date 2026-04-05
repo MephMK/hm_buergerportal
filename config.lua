@@ -103,6 +103,8 @@ Config.JobSettings = {
           },
           deny = {},
         },
+        -- Grade 3 (Abteilungsleiter): gleiche Basis wie Grade 2.
+        -- Im Admin-Panel (JobSettings-Tab) können diese Berechtigungen pro Grade individuell angepasst werden.
         [3] = {
           allow = {
             "workflow.lock.override",

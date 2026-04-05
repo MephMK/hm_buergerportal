@@ -3822,6 +3822,7 @@ function jobSettingsJobListeAnzeigen() {
     const btn = document.createElement("button");
     btn.className = "admin-crud-item";
     btn.style.cssText = "cursor:pointer; width:100%; text-align:left; background:none; border:none; padding:6px 8px;";
+    btn.setAttribute("aria-label", `Job: ${jobDef.anzeigeName || key} (${key})`);
     btn.innerHTML = `<strong>${escapeHtml(jobDef.anzeigeName || key)}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(key)}</span>`;
     btn.addEventListener("click", () => jobSettingsJobAuswaehlen(key));
     jobSettingsJobListe.appendChild(btn);
@@ -3859,6 +3860,7 @@ function jobSettingsGradeListeAnzeigen(jobName) {
     btn.className = "admin-crud-item";
     btn.style.cssText = "cursor:pointer; width:100%; text-align:left; background:none; border:none; padding:6px 8px;";
     btn.dataset.grade = String(g.grade);
+    btn.setAttribute("aria-label", `Grade ${g.grade}${g.name ? ", " + g.name : ""}`);
     btn.innerHTML = `<strong>Grade ${escapeHtml(String(g.grade))}</strong><br><span class="muted" style="font-size:0.82em;">${escapeHtml(g.name || "")}</span>`;
     btn.addEventListener("click", () => jobSettingsGradeAuswaehlen(jobName, g.grade));
     jobSettingsGradeListe.appendChild(btn);
