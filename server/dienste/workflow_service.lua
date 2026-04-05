@@ -550,4 +550,41 @@ function WorkflowService.SlaErstBearbeitungTick()
   end
 end
 
+-- -------------------------------------------------------
+-- Overdue-Aktualisierung (Batch)
+-- -------------------------------------------------------
+
+---Aktualisiert due_state für alle Anträge auf Basis von sla_due_at.
+---Setzt due_state = 'overdue' wenn sla_due_at überschritten und SLA nicht pausiert;
+---setzt 'normal' zurück wenn SLA nicht mehr überschritten (z.B. nach Verlängerung).
+---Wird zusammen mit SlaTick aufgerufen, unabhängig von Eskalations-Konfiguration.
+function WorkflowService.OverdueAktualisieren()
+  -- Überfällige Anträge auf 'overdue' setzen
+  HM_BP.Server.Datenbank.Ausfuehren([[
+    UPDATE hm_bp_submissions
+    SET due_state = 'overdue'
+    WHERE deleted_at IS NULL
+      AND archived_at IS NULL
+      AND sla_due_at IS NOT NULL
+      AND sla_due_at < UTC_TIMESTAMP()
+      AND sla_paused_at IS NULL
+      AND due_state != 'overdue'
+  ]], {})
+
+  -- Nicht mehr überfällige Anträge auf 'normal' zurücksetzen
+  -- (z.B. nach SLA-Verlängerung oder manueller Korrektur)
+  HM_BP.Server.Datenbank.Ausfuehren([[
+    UPDATE hm_bp_submissions
+    SET due_state = 'normal'
+    WHERE deleted_at IS NULL
+      AND archived_at IS NULL
+      AND due_state = 'overdue'
+      AND (
+        sla_due_at IS NULL
+        OR sla_due_at >= UTC_TIMESTAMP()
+        OR sla_paused_at IS NOT NULL
+      )
+  ]], {})
+end
+
 HM_BP.Server.Dienste.WorkflowService = WorkflowService

@@ -59,7 +59,7 @@ Config.Zahlung = {
 
   -- Terminale Status: Bei diesen Statusübergängen wird die Gebühr erhoben.
   -- Erweiterbar je nach Workflow-Konfiguration des Servers.
-  TerminaleStatus = { "approved", "rejected", "closed", "completed", "archived" },
+  TerminaleStatus = { "approved", "rejected", "withdrawn", "closed", "completed", "archived" },
 }
 
 -- =============================================================
@@ -507,7 +507,7 @@ Config.Kategorien = {
       standardPrioritaet = "normal",
       standardFristStunden = 72,
 
-      erlaubteStatus = { "draft", "submitted", "in_review", "question_open", "approved", "rejected", "archived" },
+      erlaubteStatus = { "draft", "submitted", "in_review", "question_open", "waiting_for_documents", "forwarded", "escalated", "partially_approved", "approved", "rejected", "withdrawn", "closed", "archived" },
 
       ui = { farbe = "#2f80ed" },
 
@@ -568,17 +568,23 @@ Config.Kategorien = {
         sla_hours = 48,
 
         -- Statuses, in denen der SLA-Countdown pausiert
-        pause_sla_in_statuses = { "question_open" },
+        pause_sla_in_statuses = { "question_open", "waiting_for_documents" },
 
         -- Erlaubte Folge-Statuses pro Ausgangs-Status.
         -- Wenn definiert, werden Übergänge serverseitig strikt erzwungen.
         erlaubteFolgeStatus = {
-          ["draft"]         = { "submitted" },
-          ["submitted"]     = { "in_review", "rejected" },
-          ["in_review"]     = { "question_open", "approved", "rejected" },
-          ["question_open"] = { "in_review", "rejected" },
-          ["approved"]      = { "archived" },
-          ["rejected"]      = { "archived" },
+          ["draft"]                   = { "submitted" },
+          ["submitted"]               = { "in_review", "waiting_for_documents", "rejected", "withdrawn" },
+          ["in_review"]               = { "question_open", "waiting_for_documents", "forwarded", "escalated", "partially_approved", "approved", "rejected", "withdrawn", "closed" },
+          ["question_open"]           = { "in_review", "waiting_for_documents", "approved", "rejected", "withdrawn" },
+          ["waiting_for_documents"]   = { "in_review", "rejected", "withdrawn", "closed" },
+          ["forwarded"]               = { "in_review", "escalated", "approved", "rejected", "closed" },
+          ["escalated"]               = { "in_review", "waiting_for_documents", "approved", "rejected", "closed" },
+          ["partially_approved"]      = { "in_review", "waiting_for_documents", "approved", "rejected", "closed" },
+          ["approved"]                = { "archived", "closed" },
+          ["rejected"]                = { "archived", "closed" },
+          ["withdrawn"]               = { "archived" },
+          ["closed"]                  = { "archived" },
         },
       },
 
@@ -602,7 +608,7 @@ Config.Kategorien = {
       standardPrioritaet = "normal",
       standardFristStunden = 96,
 
-      erlaubteStatus = { "draft", "submitted", "in_review", "question_open", "approved", "rejected", "archived" },
+      erlaubteStatus = { "draft", "submitted", "in_review", "question_open", "waiting_for_documents", "forwarded", "escalated", "partially_approved", "approved", "rejected", "withdrawn", "closed", "archived" },
 
       ui = { farbe = "#27ae60" },
 
@@ -679,13 +685,19 @@ Config.Kategorien = {
       -- Workflow-Regeln für "gewerbe": kürzere SLA, keine Rückfragen
       workflow = {
         sla_hours = 96,
-        pause_sla_in_statuses = {},
+        pause_sla_in_statuses = { "waiting_for_documents" },
         erlaubteFolgeStatus = {
-          ["draft"]     = { "submitted" },
-          ["submitted"] = { "in_review", "rejected" },
-          ["in_review"] = { "approved", "rejected" },
-          ["approved"]  = { "archived" },
-          ["rejected"]  = { "archived" },
+          ["draft"]                 = { "submitted" },
+          ["submitted"]             = { "in_review", "waiting_for_documents", "rejected", "withdrawn" },
+          ["in_review"]             = { "waiting_for_documents", "forwarded", "escalated", "partially_approved", "approved", "rejected", "withdrawn", "closed" },
+          ["waiting_for_documents"] = { "in_review", "rejected", "withdrawn", "closed" },
+          ["forwarded"]             = { "in_review", "approved", "rejected", "closed" },
+          ["escalated"]             = { "in_review", "approved", "rejected", "closed" },
+          ["partially_approved"]    = { "in_review", "approved", "rejected", "closed" },
+          ["approved"]              = { "archived", "closed" },
+          ["rejected"]              = { "archived", "closed" },
+          ["withdrawn"]             = { "archived" },
+          ["closed"]                = { "archived" },
         },
       },
 
@@ -1225,7 +1237,7 @@ Config.Status = {
       erlaubtBuergerAntwort = false,
       erlaubtNachreichung   = false,
       erlaubtInterneNotiz   = true,
-      erlaubteFolgeStatus   = { "in_review", "question_open", "approved", "rejected", "archived" },
+      erlaubteFolgeStatus   = { "in_review", "question_open", "waiting_for_documents", "forwarded", "approved", "rejected", "withdrawn", "closed", "archived" },
     },
     ["in_review"] = {
       id = "in_review", label = "In Prüfung", farbe = "#f2c94c", sortierung = 3,
@@ -1235,7 +1247,7 @@ Config.Status = {
       erlaubtBuergerAntwort = false,
       erlaubtNachreichung   = true,   -- Bürger darf Dokumente nachreichen
       erlaubtInterneNotiz   = true,
-      erlaubteFolgeStatus   = { "question_open", "approved", "rejected", "archived" },
+      erlaubteFolgeStatus   = { "question_open", "waiting_for_documents", "forwarded", "escalated", "partially_approved", "approved", "rejected", "withdrawn", "closed", "archived" },
     },
     ["question_open"] = {
       id = "question_open", label = "Rückfrage offen", farbe = "#bb6bd9", sortierung = 4,
@@ -1245,7 +1257,47 @@ Config.Status = {
       erlaubtBuergerAntwort = true,   -- Bürger darf auf Rückfrage antworten
       erlaubtNachreichung   = true,
       erlaubtInterneNotiz   = true,
-      erlaubteFolgeStatus   = { "in_review", "approved", "rejected", "archived" },
+      erlaubteFolgeStatus   = { "in_review", "waiting_for_documents", "approved", "rejected", "withdrawn", "closed", "archived" },
+    },
+    ["waiting_for_documents"] = {
+      id = "waiting_for_documents", label = "Warten auf Unterlagen", farbe = "#f2994a", sortierung = 5,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = true,   -- Bürger darf auf Unterlagen-Anfrage antworten
+      erlaubtNachreichung   = true,   -- Bürger darf Dokumente nachreichen
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "rejected", "withdrawn", "closed", "archived" },
+    },
+    ["forwarded"] = {
+      id = "forwarded", label = "Weitergeleitet", farbe = "#56ccf2", sortierung = 6,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "escalated", "approved", "rejected", "closed", "archived" },
+    },
+    ["escalated"] = {
+      id = "escalated", label = "Eskaliert", farbe = "#ff5c5c", sortierung = 7,
+      sichtbarFuerBuerger   = false,  -- Interne Eskalation ist für Bürger nicht sichtbar
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "waiting_for_documents", "approved", "rejected", "closed", "archived" },
+    },
+    ["partially_approved"] = {
+      id = "partially_approved", label = "Teilweise genehmigt", farbe = "#6fcf97", sortierung = 8,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = true,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "waiting_for_documents", "approved", "rejected", "closed", "archived" },
     },
     ["approved"] = {
       id = "approved", label = "Genehmigt", farbe = "#27ae60", sortierung = 10,
@@ -1255,7 +1307,7 @@ Config.Status = {
       erlaubtBuergerAntwort = false,
       erlaubtNachreichung   = false,
       erlaubtInterneNotiz   = true,
-      erlaubteFolgeStatus   = { "archived" },
+      erlaubteFolgeStatus   = { "archived", "closed" },
     },
     ["rejected"] = {
       id = "rejected", label = "Abgelehnt", farbe = "#eb5757", sortierung = 11,
@@ -1265,6 +1317,26 @@ Config.Status = {
       erlaubtBuergerAntwort = false,
       erlaubtNachreichung   = false,
       erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "archived", "closed" },
+    },
+    ["withdrawn"] = {
+      id = "withdrawn", label = "Zurückgezogen", farbe = "#828282", sortierung = 12,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "archived" },
+    },
+    ["closed"] = {
+      id = "closed", label = "Geschlossen", farbe = "#333333", sortierung = 13,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = false,
       erlaubteFolgeStatus   = { "archived" },
     },
     ["archived"] = {

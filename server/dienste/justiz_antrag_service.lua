@@ -80,7 +80,8 @@ function JustizAntragService.EingangListe(spieler, kategorieId, limit)
 
   local rows = HM_BP.Server.Datenbank.Alle([[
     SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
-           created_at, updated_at, assigned_to_name
+           created_at, updated_at, assigned_to_name,
+           due_state, sla_due_at, needs_leitung, escalated_at
     FROM hm_bp_submissions
     WHERE category_id = ?
       AND deleted_at IS NULL
@@ -103,7 +104,8 @@ function JustizAntragService.ZugewiesenListe(spieler, kategorieId, limit)
 
   local rows = HM_BP.Server.Datenbank.Alle([[
     SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
-           created_at, updated_at, assigned_to_name
+           created_at, updated_at, assigned_to_name,
+           due_state, sla_due_at, needs_leitung, escalated_at
     FROM hm_bp_submissions
     WHERE category_id = ?
       AND assigned_to_identifier = ?
@@ -127,7 +129,8 @@ function JustizAntragService.AlleKategorieListe(spieler, kategorieId, limit)
 
   local rows = HM_BP.Server.Datenbank.Alle([[
     SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
-           created_at, updated_at, assigned_to_name, archived_at
+           created_at, updated_at, assigned_to_name, archived_at,
+           due_state, sla_due_at, needs_leitung, escalated_at
     FROM hm_bp_submissions
     WHERE category_id = ?
       AND deleted_at IS NULL
@@ -584,6 +587,71 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     INSERT INTO hm_bp_submission_status_history (submission_id, old_status, new_status, changed_by_identifier, changed_by_name, comment)
     VALUES (?, ?, ?, ?, ?, ?)
   ]], { antragId, a.status, neuerStatus, spieler.identifier, spieler.name, kommentar or "" })
+
+  -- SLA-Pause/Fortsetzen automatisch je nach pause_sla_in_statuses der Kategorie
+  do
+    local k = Config.Kategorien
+      and Config.Kategorien.Liste
+      and Config.Kategorien.Liste[a.category_id]
+    local pauseStatuses = {}
+    if k and k.workflow and type(k.workflow.pause_sla_in_statuses) == "table" then
+      pauseStatuses = k.workflow.pause_sla_in_statuses
+    end
+
+    local neuerStatusPausiert = false
+    local alterStatusPausiert = false
+    for _, ps in ipairs(pauseStatuses) do
+      if ps == neuerStatus then neuerStatusPausiert = true end
+      if ps == a.status    then alterStatusPausiert = true end
+    end
+
+    if neuerStatusPausiert and not alterStatusPausiert then
+      -- Eintreten in Pause-Status → SLA pausieren (nur wenn noch nicht pausiert)
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        UPDATE hm_bp_submissions
+        SET sla_paused_at = UTC_TIMESTAMP(), sla_paused_by = 'system'
+        WHERE id = ? AND sla_paused_at IS NULL
+      ]], { antragId })
+    elseif alterStatusPausiert and not neuerStatusPausiert then
+      -- Verlassen eines Pause-Status → SLA fortsetzen und Frist verlängern
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        UPDATE hm_bp_submissions
+        SET sla_due_at   = DATE_ADD(sla_due_at,
+                             INTERVAL TIMESTAMPDIFF(SECOND, sla_paused_at, UTC_TIMESTAMP()) SECOND),
+            sla_paused_at = NULL,
+            sla_paused_by = NULL
+        WHERE id = ? AND sla_paused_at IS NOT NULL
+      ]], { antragId })
+    end
+  end
+
+  -- Audit-Log: Statuswechsel
+  HM_BP.Server.Dienste.AuditService.Log(
+    "submission.status_geaendert", spieler, "submission", tostring(antragId),
+    {
+      alt        = a.status,
+      neu        = neuerStatus,
+      kommentar  = kommentar or "",
+      public_id  = a.public_id,
+    }
+  )
+
+  -- Webhook: antrag_status_changed
+  if HM_BP.Server.Dienste.WebhookService then
+    pcall(function()
+      HM_BP.Server.Dienste.WebhookService.Emit("antrag_status_changed", {
+        public_id    = a.public_id,
+        aktenzeichen = a.public_id,
+        akteur_name  = spieler.name,
+        category_id  = a.category_id,
+        form_id      = a.form_id,
+        citizen_name = a.citizen_name,
+        alt          = a.status,
+        neu          = neuerStatus,
+        kommentar    = kommentar or "",
+      })
+    end)
+  end
 
   -- Gebührenabzug bei terminalem Status (PR14)
   -- Läuft nur wenn: Gebühren-Modul aktiv, Betrag > 0, noch nicht bezahlt, neuer Status ist terminal
