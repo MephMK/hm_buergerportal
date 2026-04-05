@@ -23,7 +23,8 @@ shared_scripts {
   'shared/konstanten.lua',
   'shared/hilfsfunktionen.lua',
   'shared/fehlercodes.lua',
-  'shared/texte.lua'
+  'shared/texte.lua',
+  'shared/location_schema.lua'
 }
 
 client_scripts {
@@ -31,6 +32,7 @@ client_scripts {
   'client/esx.lua',
   'client/benachrichtigung.lua',
   'client/ui_bruecke.lua',
+  'client/target_adapter.lua',
   'client/standorte.lua'
 }
 
@@ -65,12 +67,14 @@ server_scripts {
 
   'server/dienste/webhook_service.lua',
   'server/dienste/formular_editor_service.lua',
+  'server/dienste/location_service.lua',
 
   'server/middleware.lua',
 
   'server/api.lua',
   'server/api_justiz.lua',
-  'server/api_form_editor.lua'
+  'server/api_form_editor.lua',
+  'server/api_locations.lua'
 }
 
 dependencies {
