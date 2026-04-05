@@ -138,6 +138,21 @@
               <div class="muted" id="buergerNachreichenMeta"></div>
             </div>
           </div>
+
+          <div class="trenner"></div>
+
+          <!-- Anhänge: Bürger kann Links hinzufügen (nur in question_open/submitted) -->
+          <div id="buergerAnhaengeSection" style="display:none;">
+            <div class="box-title">Anhänge (Bild-Links)</div>
+            <div class="muted" id="buergerAnhaengeMeta">Erlaubte Hosts: Imgur, Discord CDN. Nur https-Links.</div>
+            <div id="buergerAnhaengeListe" class="verlauf"></div>
+            <div class="feld" style="margin-top:8px;">
+              <input id="buergerAnhangUrl" type="text" placeholder="https://i.imgur.com/... oder https://cdn.discordapp.com/..." />
+              <input id="buergerAnhangTitel" type="text" placeholder="Titel (optional)" style="margin-top:4px;" />
+              <button id="btnBuergerAnhangHinzufuegen" class="btn" type="button" style="margin-top:6px;">Anhang hinzufügen</button>
+              <div class="muted" id="buergerAnhangHinzufuegenMeta"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Justizbereich -->
@@ -276,6 +291,15 @@
           <div class="feld">
             <div class="label">Verlauf</div>
             <div id="justizVerlauf" class="verlauf"></div>
+          </div>
+
+          <div class="trenner"></div>
+
+          <!-- Anhänge (Justiz): Ansicht + Entfernen -->
+          <div id="justizAnhaengeSection" style="display:none;">
+            <div class="box-title">Anhänge</div>
+            <div class="muted" id="justizAnhaengeMeta"></div>
+            <div id="justizAnhaengeListe" class="verlauf"></div>
           </div>
 
           <div class="trenner"></div>

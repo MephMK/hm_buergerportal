@@ -132,4 +132,14 @@ HM_BP.Shared.Actions = {
   WORKFLOW_SLA_PAUSE     = "workflow.sla.pause",
   -- Pausierte SLA fortsetzen (nur Leitung ≥ Grade 29)
   WORKFLOW_SLA_RESUME    = "workflow.sla.resume",
+
+  -- -------------------------------------------------------
+  -- Anhänge / Attachments (PR8)
+  -- -------------------------------------------------------
+  -- Anhang hinzufügen (Bürger: nur in erlaubten Status; Justiz/Admin: immer)
+  ATTACHMENT_ADD    = "attachment.add",
+  -- Anhang entfernen (nur Justiz/Admin)
+  ATTACHMENT_REMOVE = "attachment.remove",
+  -- Anhänge ansehen (Justiz/Admin: immer; Bürger: nur eigene)
+  ATTACHMENT_VIEW   = "attachment.view",
 }
