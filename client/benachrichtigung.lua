@@ -24,3 +24,14 @@ function Benachrichtigung.Anzeigen(nachricht, typ, dauer)
 end
 
 HM_BP.Client.Benachrichtigung = Benachrichtigung
+-- ---------------------------------------------------------------
+-- Server-seitig ausgelöste Ingame-Benachrichtigungen empfangen
+-- ---------------------------------------------------------------
+
+RegisterNetEvent("hm_bp:benachrichtigung:ingame", function(payload)
+  payload = payload or {}
+  local nachricht = payload.nachricht
+  local typ       = payload.typ or "info"
+  if not nachricht or nachricht == "" then return end
+  Benachrichtigung.Anzeigen(tostring(nachricht), typ)
+end)

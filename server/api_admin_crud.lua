@@ -613,39 +613,44 @@ RegisterNetEvent("hm_bp:admin:webhook_test", function(payload)
     return
   end
 
-  -- Test-Nachricht senden
-  local testPayload = {
-    username  = "HM Bürgerportal (Test)",
-    embeds = {
-      {
-        title       = "🔔 Webhook-Test",
-        description = ("Webhook-Test von Administrator **%s** – die Verbindung funktioniert."):format(
-          tostring(spieler.name or "Admin")
-        ),
-        color = 3447003,
-        footer = { text = "HM Bürgerportal Admin-Panel" },
+  -- Deutschen Embed-Test senden (via WebhookService.SendDirektTest)
+  if ws.SendDirektTest then
+    ws.SendDirektTest(url, spieler.name, function(statusCode, responseText)
+      if Config and Config.Kern and Config.Kern.Debugmodus then
+        print(("[AdminCRUD] Webhook-Test Antwort: HTTP %d"):format(tonumber(statusCode) or 0))
+      end
+    end)
+  else
+    -- Fallback: direkter HTTP-Call mit deutschem Embed
+    local PerformHttpRequest = PerformHttpRequest
+    if not PerformHttpRequest then
+      TriggerClientEvent("hm_bp:admin:webhook_test_antwort", quelle,
+        { ok = false, fehler = { nachricht = "HTTP-Funktionalität nicht verfügbar." } })
+      return
+    end
+    local testPayload = {
+      username = "HM Bürgerportal (Test)",
+      embeds = {
+        {
+          title       = "🔔 Webhook-Test",
+          description = ("Webhook-Test von Administrator **%s** – die Verbindung funktioniert."):format(
+            tostring(spieler.name or "Admin")
+          ),
+          color  = 3427803,
+          fields = {
+            { name = "Spielername", value = tostring(spieler.name or "Admin"), inline = true },
+          },
+          footer = { text = "HM Bürgerportal Admin-Panel" },
+        }
       }
     }
-  }
-
-  -- Direkt per HTTP senden (FiveM: PerformHttpRequest ist callback-basiert und nicht-blockierend.
-  -- Die Antwort kann nicht synchron abgewartet werden. Die Anfrage wird abgeschickt und
-  -- der Client wird sofort informiert, dass die Nachricht gesendet wurde.
-  local PerformHttpRequest = PerformHttpRequest
-  if not PerformHttpRequest then
-    TriggerClientEvent("hm_bp:admin:webhook_test_antwort", quelle,
-      { ok = false, fehler = { nachricht = "HTTP-Funktionalität nicht verfügbar." } })
-    return
+    local body = json.encode(testPayload)
+    PerformHttpRequest(url, function(statusCode, responseText, responseHeaders)
+      if Config and Config.Kern and Config.Kern.Debugmodus then
+        print(("[AdminCRUD] Webhook-Test Antwort: HTTP %d"):format(tonumber(statusCode) or 0))
+      end
+    end, "POST", body, { ["Content-Type"] = "application/json" })
   end
-
-  local body = json.encode(testPayload)
-  PerformHttpRequest(url, function(statusCode, responseText, responseHeaders)
-    -- Asynchroner Callback: wird nach Rückmeldung von Discord ausgeführt.
-    -- Ergebnis kann hier nur geloggt werden (Client wurde bereits informiert).
-    if Config and Config.Kern and Config.Kern.Debugmodus then
-      print(("[AdminCRUD] Webhook-Test Antwort: HTTP %d"):format(tonumber(statusCode) or 0))
-    end
-  end, "POST", body, { ["Content-Type"] = "application/json" })
 
   local aud = audSvc()
   if aud then

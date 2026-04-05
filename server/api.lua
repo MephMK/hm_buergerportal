@@ -1,6 +1,16 @@
 HM_BP = HM_BP or {}
 HM_BP.Server = HM_BP.Server or {}
 
+-- Lokale Hilfsfunktion: FiveM-Spielernamen für eine Quell-ID auflösen.
+local function spielerNameAuflosen(quelle, fallback)
+  local ss = HM_BP.Server.Dienste.SpielerService
+  if ss and ss.SpielerNameAuflosen then
+    local name = ss.SpielerNameAuflosen(quelle)
+    if name and name ~= "" then return name end
+  end
+  return fallback or "Unbekannt"
+end
+
 -- =========================
 -- Portal-Grunddaten
 -- =========================
@@ -180,19 +190,24 @@ RegisterNetEvent("hm_bp:antrag:einreichen", function(payload)
     return
   end
 
-  -- optional: webhook + notify (nur falls aktiviert/konfiguriert)
+  -- Webhook + Ingame-Benachrichtigung (nur falls aktiviert/konfiguriert)
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
     HM_BP.Server.Dienste.WebhookService.Emit("antrag_created", {
       submission_id = res.id,
-      public_id = res.public_id,
-      category_id = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].kategorieId) or nil,
-      form_id = formularId,
-      citizen_name = (antworten and antworten.citizen_name) or nil,
-      citizen_identifier = spieler.identifier,
-      priority = res.prioritaet,
-      status = res.status,
-      standort_id = standortId
+      public_id     = res.public_id,
+      aktenzeichen  = res.public_id,
+      category_id   = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].kategorieId) or nil,
+      form_id       = formularId,
+      spieler_name  = spielerNameAuflosen(quelle, spieler.name),
+      -- citizen_identifier wird NICHT an Discord übermittelt
+      priority      = res.prioritaet,
+      status        = res.status,
     })
+  end
+
+  if HM_BP.Server.Dienste.BenachrichtigungService then
+    local formularName = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].name) or formularId
+    HM_BP.Server.Dienste.BenachrichtigungService.AntragEingereicht(quelle, res.public_id, formularName)
   end
 
   TriggerClientEvent("hm_bp:antrag:einreichen_antwort", quelle, { ok = true, antrag = res })
@@ -262,11 +277,9 @@ RegisterNetEvent("hm_bp:antrag:buerger_antwort", function(payload)
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
     HM_BP.Server.Dienste.WebhookService.Emit("antrag_citizen_replied", {
       submission_id = antragId,
-      citizen_identifier = spieler.identifier,
-      citizen_name = spieler.name,
-      text = text,
-      status_changed = res.statusGeaendert == true,
-      new_status = res.statusNeu
+      spieler_name  = spielerNameAuflosen(quelle, spieler.name),
+      text          = text,
+      neuer_status  = res.statusNeu,
     })
   end
 
@@ -303,13 +316,11 @@ RegisterNetEvent("hm_bp:antrag:nachreichen", function(payload)
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
     HM_BP.Server.Dienste.WebhookService.Emit("antrag_nachgereicht", {
       submission_id = antragId,
-      public_id = res.public_id,
-      citizen = spieler.identifier,
-      citizen_name = spieler.name,
-      category_id = res.category_id,
-      form_id = res.form_id,
-      fields_count = res.felderCount,
-      timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+      public_id     = res.public_id,
+      aktenzeichen  = res.public_id,
+      spieler_name  = spielerNameAuflosen(quelle, spieler.name),
+      category_id   = res.category_id,
+      form_id       = res.form_id,
     })
   end
 

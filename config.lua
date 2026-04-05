@@ -1250,11 +1250,25 @@ Config.Benachrichtigungen = {
     Aktiviert = true,
     Anbieter = "esx",
     StandardDauerMs = 5500,
+  },
+  -- Konfigurierbare Nachrichtentexte für Ingame-Benachrichtigungen.
+  -- Platzhalter: {id} = Aktenzeichen, {status} = neuer Status,
+  --              {alt} = alter Status, {formular} = Formularname
+  Texte = {
+    antrag_eingereicht  = "Dein Antrag wurde unter Aktenzeichen {id} erfolgreich eingereicht.",
+    status_geaendert    = "Dein Antrag {id} wurde auf Status '{status}' gesetzt.",
+    rueckfrage_gestellt = "Zum Antrag {id} wurde eine Rückfrage gestellt. Bitte beantworte diese im Bürgerportal.",
+    oeffentliche_antwort = "Zu deinem Antrag {id} gibt es eine neue Nachricht der Behörde.",
+    antrag_genehmigt    = "Dein Antrag {id} wurde genehmigt.",
+    antrag_abgelehnt    = "Dein Antrag {id} wurde abgelehnt.",
   }
 }
 
 Config.Webhooks = {
   Aktiviert = true,
+  -- Webhook-Logs in der Datenbank speichern (Tabelle hm_bp_webhook_logs).
+  -- Nur aktivieren, wenn die Tabelle per Migration angelegt wurde.
+  LogsInDB = false,
   Identitaet = {
     Benutzername = "HM Bürgerportal",
     AvatarUrl = nil,

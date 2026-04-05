@@ -120,7 +120,9 @@ function RueckfrageService.JustizRueckfrageStellen(spieler, antragId, text)
     json.encode({ text = text, status_to = neuerStatus })
   })
 
-  return { ok = true, statusGeaendert = true, neuerStatus = neuerStatus }, nil
+  return { ok = true, statusGeaendert = true, neuerStatus = neuerStatus,
+           public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
+           citizen_identifier = a.citizen_identifier, citizen_name = a.citizen_name }, nil
 end
 
 function RueckfrageService.BuergerDetailsHolen(spieler, antragId)

@@ -277,12 +277,11 @@ function AttachmentService.Hinzufuegen(spieler, antragId, url, titel)
   -- Webhook
   if HM_BP.Server.Dienste.WebhookService then
     HM_BP.Server.Dienste.WebhookService.Emit("anhang_hinzugefuegt", {
-      submission_id = antragId,
-      citizen_identifier = a.citizen_identifier,
-      category_id = a.category_id or nil,
-      url = url,
-      titel = titelSauber,
-      hinzugefuegt_von = spieler.name,
+      submission_id          = antragId,
+      category_id            = a.category_id or nil,
+      url                    = url,
+      titel                  = titelSauber,
+      bearbeiter_name        = spieler.name,
       hinzugefuegt_von_rolle = spieler.rolle,
     })
   end
@@ -346,12 +345,11 @@ function AttachmentService.Entfernen(spieler, anhangId, grund)
   -- Webhook
   if HM_BP.Server.Dienste.WebhookService then
     HM_BP.Server.Dienste.WebhookService.Emit("anhang_entfernt", {
-      submission_id = anhang.submission_id,
-      citizen_identifier = anhang.citizen_identifier,
-      category_id = anhang.category_id or nil,
-      url = anhang.url,
-      entfernt_von = spieler.name,
-      grund = grundSauber,
+      submission_id   = anhang.submission_id,
+      category_id     = anhang.category_id or nil,
+      url             = anhang.url,
+      bearbeiter_name = spieler.name,
+      text            = grundSauber,
     })
   end
 
