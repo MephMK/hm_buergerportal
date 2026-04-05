@@ -238,7 +238,9 @@ local function validateSchema(schema)
     return false, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Schema.felder fehlt." }
   end
 
-  -- Basic checks: keys unique, key not empty
+  local FT = HM_BP.Shared.FieldTypes
+
+  -- Checks: keys unique, key not empty, valid field type
   local keys = {}
   for _, f in ipairs(schema.felder) do
     local key = f and f.key or nil
@@ -250,6 +252,40 @@ local function validateSchema(schema)
       return false, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = ("Doppelter Feld-key: %s"):format(key) }
     end
     keys[key] = true
+
+    -- Feldtyp prüfen (unbekannte Typen werden gewarnt, nicht blockiert, für Backwards-Kompatibilität)
+    if FT and f.typ then
+      if not FT.Bekannt(f.typ) then
+        -- Warnung im Server-Log; kein harter Fehler für Backwards-Compat
+        if Config and Config.Kern and Config.Kern.Debugmodus then
+          print(("[hm_buergerportal] WARNUNG: Feld '%s' hat unbekannten Typ '%s'. Wird als text_short behandelt."):format(key, tostring(f.typ)))
+        end
+      end
+    end
+  end
+
+  return true, nil
+end
+
+-- Strenge Schema-Validierung vor dem Veröffentlichen
+local function validateSchemaFuerVeroeffentlichung(schema)
+  local ok, err = validateSchema(schema)
+  if not ok then return false, err end
+
+  local FT = HM_BP.Shared.FieldTypes
+
+  for _, f in ipairs(schema.felder) do
+    if FT and f.typ then
+      local meta = FT.Meta(f.typ)
+      if meta and meta.hatOptionen and meta.isInput then
+        if type(f.optionen) ~= "table" or #f.optionen == 0 then
+          return false, {
+            code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+            nachricht = ("Feld '%s' (%s) benötigt mindestens eine Option."):format(tostring(f.key), tostring(f.typ))
+          }
+        end
+      end
+    end
   end
 
   return true, nil
@@ -479,6 +515,17 @@ function FormularEditorService.Veroeffentlichen(spieler, formId)
   local version = tonumber(latest.version or 0) or 0
   if version < 1 then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültige Version." }
+  end
+
+  -- Strenge Schema-Validierung vor Veröffentlichung
+  local schemaRaw = latest.schema_json
+  if type(schemaRaw) == "string" then
+    local ok, parsed = pcall(json.decode, schemaRaw)
+    if ok then schemaRaw = parsed end
+  end
+  if type(schemaRaw) == "table" then
+    local okS, errS = validateSchemaFuerVeroeffentlichung(schemaRaw)
+    if not okS then return nil, errS end
   end
 
   HM_BP.Server.Datenbank.Ausfuehren([[

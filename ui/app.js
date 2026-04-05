@@ -252,64 +252,181 @@ function tabSetzen(bereich) {
 // ==========================
 // Bürger: dynamische Formulare
 // ==========================
+
+// Kanonische Typ-Aliase (Client-Seite, spiegelt shared/field_types.lua)
+const FELD_TYP_ALIAS = {
+  shorttext: "text_short",
+  longtext: "text_long",
+  dropdown: "select",
+  kennzeichen: "license_plate",
+  spieler: "player_reference",
+  firma: "company_reference",
+  aktenzeichen: "case_number",
+  betrag: "amount",
+  datum: "date",
+  uhrzeit: "time",
+  datumzeit: "datetime",
+  mehrfachauswahl: "multiselect",
+};
+
+// Dekorative Typen (kein Eingabefeld)
+const FELD_TYP_DEKORATIV = new Set(["divider", "heading", "info"]);
+
+// Typen mit Optionsliste
+const FELD_TYP_MIT_OPTIONEN = new Set(["select", "multiselect", "radio"]);
+
+function normalisiereFeldTyp(typ) {
+  if (!typ) return "text_short";
+  const t = String(typ).toLowerCase();
+  return FELD_TYP_ALIAS[t] || t;
+}
+
+function baueOptionenSelect(feld, mehrfach) {
+  const sel = document.createElement("select");
+  if (mehrfach) {
+    sel.multiple = true;
+    sel.size = Math.min(Math.max((feld.optionen || []).length, 2), 8);
+  } else {
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "Bitte auswählen...";
+    sel.appendChild(opt0);
+  }
+  const opts = Array.isArray(feld.optionen) ? feld.optionen : [];
+  for (const o of opts) {
+    const opt = document.createElement("option");
+    const val = typeof o === "string" ? o : (o.value ?? o);
+    const lbl = typeof o === "string" ? o : (o.label || o.value || o);
+    opt.value = String(val);
+    opt.textContent = String(lbl);
+    sel.appendChild(opt);
+  }
+  return sel;
+}
+
 function feldElementErstellen(feld) {
   const wrapper = document.createElement("div");
+  const typ = normalisiereFeldTyp(feld.typ);
+
+  // --- Dekorative Elemente ---
+  if (typ === "divider") {
+    wrapper.className = "feld feld-divider";
+    const hr = document.createElement("hr");
+    wrapper.appendChild(hr);
+    return wrapper;
+  }
+  if (typ === "heading") {
+    wrapper.className = "feld feld-heading";
+    const h = document.createElement("div");
+    h.className = "feld-heading-text";
+    h.textContent = feld.label || "";
+    wrapper.appendChild(h);
+    if (feld.beschreibung) {
+      const sub = document.createElement("div");
+      sub.className = "hint";
+      sub.textContent = feld.beschreibung;
+      wrapper.appendChild(sub);
+    }
+    return wrapper;
+  }
+  if (typ === "info") {
+    wrapper.className = "feld feld-info";
+    const p = document.createElement("div");
+    p.className = "feld-info-text";
+    p.textContent = feld.label || feld.beschreibung || "";
+    wrapper.appendChild(p);
+    return wrapper;
+  }
+
+  // --- Eingabefelder ---
   wrapper.className = "feld";
   wrapper.dataset.key = feld.key;
 
   const label = document.createElement("div");
   label.className = "label";
-  label.textContent = feld.label + (feld.pflicht ? " *" : "");
+  label.textContent = (feld.label || feld.key) + (feld.pflicht ? " *" : "");
   wrapper.appendChild(label);
 
   let input = null;
 
-  if (feld.typ === "shorttext") {
+  if (typ === "text_short") {
     input = document.createElement("input");
     input.type = "text";
     input.placeholder = feld.placeholder || "";
     if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
 
-  } else if (feld.typ === "longtext") {
+  } else if (typ === "text_long") {
     input = document.createElement("textarea");
     input.placeholder = feld.placeholder || "";
     if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
 
-  } else if (feld.typ === "number") {
+  } else if (typ === "number") {
     input = document.createElement("input");
     input.type = "number";
+    input.step = "any";
     if (feld.min !== undefined && feld.min !== null) input.min = feld.min;
     if (feld.max !== undefined && feld.max !== null) input.max = feld.max;
 
-  } else if (feld.typ === "checkbox") {
+  } else if (typ === "amount") {
+    input = document.createElement("input");
+    input.type = "number";
+    input.step = "0.01";
+    input.min = feld.min !== undefined && feld.min !== null ? feld.min : "0";
+    if (feld.max !== undefined && feld.max !== null) input.max = feld.max;
+    input.placeholder = "0.00";
+
+  } else if (typ === "date") {
+    input = document.createElement("input");
+    input.type = "date";
+
+  } else if (typ === "time") {
+    input = document.createElement("input");
+    input.type = "time";
+
+  } else if (typ === "datetime") {
+    input = document.createElement("input");
+    input.type = "datetime-local";
+
+  } else if (typ === "checkbox") {
     input = document.createElement("input");
     input.type = "checkbox";
 
-  } else if (feld.typ === "dropdown" || feld.typ === "radio") {
-    input = document.createElement("select");
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "Bitte auswählen...";
-    input.appendChild(opt0);
+  } else if (typ === "select" || typ === "radio") {
+    input = baueOptionenSelect(feld, false);
 
-    const opts = Array.isArray(feld.optionen) ? feld.optionen : [];
-    for (const o of opts) {
-      const opt = document.createElement("option");
-      if (typeof o === "string") {
-        opt.value = o;
-        opt.textContent = o;
-      } else {
-        opt.value = o.value;
-        opt.textContent = o.label || o.value;
-      }
-      input.appendChild(opt);
-    }
+  } else if (typ === "multiselect") {
+    input = baueOptionenSelect(feld, true);
 
-  } else {
+  } else if (typ === "url") {
+    input = document.createElement("input");
+    input.type = "url";
+    input.placeholder = feld.placeholder || "https://...";
+    if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
+
+  } else if (typ === "license_plate") {
     input = document.createElement("input");
     input.type = "text";
-    input.placeholder = "Nicht unterstützter Feldtyp: " + feld.typ;
-    input.disabled = true;
+    input.placeholder = feld.placeholder || "z.B. AB 1234";
+    input.style.textTransform = "uppercase";
+    if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
+
+  } else if (typ === "player_reference" || typ === "company_reference") {
+    input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = feld.placeholder || "";
+    if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
+
+  } else if (typ === "case_number") {
+    input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = feld.placeholder || "z.B. DOJ-2024-000123";
+    if (feld.maxLaenge) input.maxLength = feld.maxLaenge;
+
+  } else {
+    // Unbekannter Typ: Fallback Kurztext (backwards-compat)
+    input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = feld.placeholder || "";
   }
 
   input.dataset.key = feld.key;
@@ -327,9 +444,21 @@ function feldElementErstellen(feld) {
     wrapper.appendChild(hint);
   }
 
+  // Standardwert
   if (feld.standardwert !== undefined && feld.standardwert !== null) {
-    if (feld.typ === "checkbox") input.checked = !!feld.standardwert;
-    else input.value = String(feld.standardwert);
+    if (typ === "checkbox") {
+      input.checked = !!feld.standardwert;
+    } else if (typ === "multiselect" && Array.isArray(feld.standardwert)) {
+      const vals = new Set(feld.standardwert.map(String));
+      for (const opt of input.options) {
+        if (vals.has(opt.value)) opt.selected = true;
+      }
+    } else if (typ === "datetime") {
+      // datetime-local format: YYYY-MM-DDTHH:MM
+      input.value = String(feld.standardwert).replace(" ", "T").substring(0, 16);
+    } else {
+      input.value = String(feld.standardwert);
+    }
   }
 
   return wrapper;
@@ -344,7 +473,9 @@ function schemaRendern(schema) {
   formularBeschreibung.textContent = formular.beschreibung || "";
 
   const felder = Array.isArray(schema.felder) ? schema.felder : [];
-  for (const feld of felder) felderContainer.appendChild(feldElementErstellen(feld));
+  // Nach reihenfolge sortieren falls vorhanden
+  const sortiert = [...felder].sort((a, b) => (a.reihenfolge || 999) - (b.reihenfolge || 999));
+  for (const feld of sortiert) felderContainer.appendChild(feldElementErstellen(feld));
 }
 
 function antwortenEinsammeln() {
@@ -352,17 +483,103 @@ function antwortenEinsammeln() {
   if (!aktuellesSchema || !Array.isArray(aktuellesSchema.felder)) return daten;
 
   for (const feld of aktuellesSchema.felder) {
+    const typ = normalisiereFeldTyp(feld.typ);
+    // Dekorative Felder überspringen
+    if (FELD_TYP_DEKORATIV.has(typ)) continue;
+
     const el = felderContainer.querySelector(`.feld[data-key="${CSS.escape(feld.key)}"]`);
     if (!el) continue;
     const input = el.querySelector(`[data-key="${CSS.escape(feld.key)}"]`);
     if (!input) continue;
 
-    if (feld.typ === "checkbox") daten[feld.key] = !!input.checked;
-    else if (feld.typ === "number") daten[feld.key] = input.value === "" ? null : Number(input.value);
-    else daten[feld.key] = input.value === "" ? null : input.value;
+    if (typ === "checkbox") {
+      daten[feld.key] = !!input.checked;
+    } else if (typ === "number" || typ === "amount") {
+      daten[feld.key] = input.value === "" ? null : Number(input.value);
+    } else if (typ === "multiselect") {
+      const ausgewaehlt = [];
+      for (const opt of input.selectedOptions) ausgewaehlt.push(opt.value);
+      daten[feld.key] = ausgewaehlt.length > 0 ? ausgewaehlt : null;
+    } else if (typ === "datetime") {
+      // Konvertiere datetime-local (YYYY-MM-DDTHH:MM) zu ISO-ähnlichem Format
+      daten[feld.key] = input.value === "" ? null : input.value;
+    } else {
+      daten[feld.key] = input.value === "" ? null : input.value;
+    }
   }
 
   return daten;
+}
+
+// ==========================
+// Client-seitige UI-Helper-Validierung
+// Spiegelt die Serverlogik (shared/validation.lua) für sofortiges Feedback.
+// SERVER bleibt Source of Truth – diese Funktion ist nur UX-Unterstützung.
+// ==========================
+function clientFeldValidieren(feld, wert) {
+  const typ = normalisiereFeldTyp(feld.typ);
+  if (FELD_TYP_DEKORATIV.has(typ)) return null;
+
+  const istLeer = (v) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
+
+  // Pflicht-Check
+  if (feld.pflicht && istLeer(wert)) {
+    return "Pflichtfeld";
+  }
+
+  // Kein weiterer Check wenn leer und nicht Pflicht
+  if (istLeer(wert) && typ !== "checkbox") return null;
+
+  if (typ === "text_short" || typ === "text_long" || typ === "player_reference" || typ === "company_reference") {
+    const s = String(wert || "").trim();
+    const minL = feld.minLaenge ?? feld.min;
+    const maxL = feld.maxLaenge ?? feld.max;
+    if (minL && s.length < Number(minL)) return `Mindestens ${minL} Zeichen erforderlich`;
+    if (maxL && s.length > Number(maxL)) return `Maximal ${maxL} Zeichen erlaubt`;
+    if (feld.regex) {
+      try {
+        if (!new RegExp(feld.regex).test(s)) return "Ungültiges Format";
+      } catch (_) { /* ungültiger Regex – ignorieren */ }
+    }
+  } else if (typ === "number" || typ === "amount") {
+    const n = Number(wert);
+    if (isNaN(n)) return "Muss eine Zahl sein";
+    if (feld.min !== undefined && feld.min !== null && n < Number(feld.min)) return `Mindestens ${feld.min}`;
+    if (feld.max !== undefined && feld.max !== null && n > Number(feld.max)) return `Maximal ${feld.max}`;
+  } else if (typ === "checkbox") {
+    if (feld.pflicht && !wert) return "Muss bestätigt werden";
+  } else if (typ === "select" || typ === "radio") {
+    if (feld.pflicht && (!wert || wert === "")) return "Bitte auswählen";
+  } else if (typ === "multiselect") {
+    if (feld.pflicht && Array.isArray(wert) && wert.length === 0) return "Mindestens eine Auswahl erforderlich";
+  } else if (typ === "date") {
+    if (wert && !/^\d{4}-\d{2}-\d{2}$/.test(String(wert))) return "Ungültiges Datum (JJJJ-MM-TT)";
+  } else if (typ === "time") {
+    if (wert && !/^\d{2}:\d{2}$/.test(String(wert))) return "Ungültige Uhrzeit (HH:MM)";
+  } else if (typ === "datetime") {
+    if (wert && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(wert))) return "Ungültiges Datum/Uhrzeit";
+  } else if (typ === "url") {
+    if (wert && !/^https?:\/\//.test(String(wert))) return "Muss mit http:// oder https:// beginnen";
+  } else if (typ === "license_plate") {
+    if (wert && !/^[A-Za-z]+[-]?[A-Za-z]* ?\d+$/.test(String(wert).trim())) return "Ungültiges Kennzeichen";
+  } else if (typ === "case_number") {
+    if (wert && !/^[A-Za-z0-9\-_]+$/.test(String(wert).trim())) return "Ungültiges Aktenzeichen";
+  }
+
+  return null;
+}
+
+function clientSchemaValidieren(schema, antworten) {
+  const fehler = {};
+  if (!schema || !Array.isArray(schema.felder)) return fehler;
+
+  for (const feld of schema.felder) {
+    if (!feld.key) continue;
+    const wert = antworten[feld.key];
+    const msg = clientFeldValidieren(feld, wert);
+    if (msg) fehler[feld.key] = msg;
+  }
+  return fehler;
 }
 
 function feldFehlerSetzen(feldFehler) {
@@ -554,11 +771,15 @@ function buergerNachreichenUiSetzen(erlaubt, payload) {
 
   for (const feld of felderSnapshot) {
     if (!feld.key) continue;
+    // Dekorative Felder überspringen
+    const feldTyp = normalisiereFeldTyp(feld.typ);
+    if (FELD_TYP_DEKORATIV.has(feldTyp)) continue;
     // Nur Felder anzeigen, die sichtbar für Bürger sind (falls Metadatum gesetzt)
     if (feld.sichtbarFuerBuerger === false) continue;
 
     const vorhanden = bestehendeAntworten[feld.key];
-    const istAusgefuellt = vorhanden !== undefined && vorhanden !== null && String(vorhanden).trim() !== "";
+    const istAusgefuellt = vorhanden !== undefined && vorhanden !== null &&
+      (Array.isArray(vorhanden) ? vorhanden.length > 0 : String(vorhanden).trim() !== "");
     const wrapper = feldElementErstellen({ ...feld, pflicht: false });
 
     // Bereits ausgefüllte Felder deaktivieren
@@ -568,8 +789,11 @@ function buergerNachreichenUiSetzen(erlaubt, payload) {
         el.disabled = true;
         if (el.type === "checkbox") {
           el.checked = !!vorhanden;
+        } else if (el.multiple && Array.isArray(vorhanden)) {
+          const vals = new Set(vorhanden.map(String));
+          for (const opt of el.options) opt.selected = vals.has(opt.value);
         } else {
-          el.value = vorhanden;
+          el.value = String(vorhanden);
         }
       });
       const hinweis = document.createElement("div");
@@ -586,8 +810,12 @@ function buergerNachreichenUiSetzen(erlaubt, payload) {
 
   const hatLeereFelder = felderSnapshot.some(f => {
     if (!f.key || f.sichtbarFuerBuerger === false) return false;
+    const feldTyp = normalisiereFeldTyp(f.typ);
+    if (FELD_TYP_DEKORATIV.has(feldTyp)) return false;
     const v = bestehendeAntworten[f.key];
-    return v === undefined || v === null || String(v).trim() === "";
+    if (v === undefined || v === null) return true;
+    if (Array.isArray(v)) return v.length === 0;
+    return String(v).trim() === "";
   });
 
   if (!hatLeereFelder) {
@@ -1339,7 +1567,7 @@ async function formEditorLoadDraftSchema() {
 
 function buildFieldFromInputs() {
   const key = String(formEditorFieldKey.value || "").trim();
-  const typ = String(formEditorFieldTyp.value || "shorttext").trim();
+  const typ = normalisiereFeldTyp(String(formEditorFieldTyp.value || "text_short").trim());
 
   const label = String(formEditorFieldLabel.value || "").trim();
   const placeholder = String(formEditorFieldPlaceholder.value || "").trim();
@@ -1353,31 +1581,38 @@ function buildFieldFromInputs() {
   const regex = String(formEditorFieldRegex.value || "").trim();
   const optionen = parseOptionLines(formEditorFieldOptionen.value || "");
 
+  // Dekorative Felder benötigen kein Label
+  const istDekorativ = FELD_TYP_DEKORATIV.has(typ);
   if (!key) return { ok: false, msg: "Key fehlt." };
-  if (!label) return { ok: false, msg: "Label fehlt." };
+  if (!label && !istDekorativ) return { ok: false, msg: "Label fehlt." };
 
   const feld = {
     id: key,
     key,
-    label,
+    label: label || "",
     beschreibung: "",
     typ,
     placeholder: placeholder || undefined,
-    pflicht: pflicht === true,
+    pflicht: istDekorativ ? false : pflicht,
     reihenfolge: order > 0 ? order : undefined,
     sichtbarkeit: { buerger: true, justiz: true, nurIntern: false }
   };
 
   // Typ-spezifische Regeln
-  if (typ === "shorttext" || typ === "longtext") {
+  if (typ === "text_short" || typ === "text_long" || typ === "url" ||
+      typ === "license_plate" || typ === "player_reference" ||
+      typ === "company_reference" || typ === "case_number") {
     if (min !== null && !Number.isNaN(min)) feld.minLaenge = min;
     if (max !== null && !Number.isNaN(max)) feld.maxLaenge = max;
     if (regex) feld.regex = regex;
-  } else if (typ === "number") {
+  } else if (typ === "number" || typ === "amount") {
     if (min !== null && !Number.isNaN(min)) feld.min = min;
     if (max !== null && !Number.isNaN(max)) feld.max = max;
-  } else if (typ === "dropdown" || typ === "radio") {
+  } else if (FELD_TYP_MIT_OPTIONEN.has(typ)) {
     feld.optionen = optionen;
+    if (optionen.length === 0) {
+      return { ok: false, msg: `Typ '${typ}' benötigt mindestens eine Option (eine pro Zeile im Optionen-Feld).` };
+    }
   }
 
   return { ok: true, feld };
@@ -1453,6 +1688,17 @@ btnEinreichen.addEventListener("click", async () => {
   if (!ausgewaehltesFormularId) return fehlerAnzeigen("Bitte wähle zuerst ein Formular aus.");
 
   const antworten = antwortenEinsammeln();
+
+  // UI-Helper-Validierung (Client) – sofortiges Feedback
+  if (aktuellesSchema) {
+    const clientFehler = clientSchemaValidieren(aktuellesSchema, antworten);
+    if (Object.keys(clientFehler).length > 0) {
+      feldFehlerSetzen(clientFehler);
+      einreichenStatus.textContent = "Bitte alle Pflichtfelder korrekt ausfüllen.";
+      return;
+    }
+  }
+
   einreichenStatus.textContent = "Wird eingereicht...";
   await nuiAufruf("hm_bp:antrag_einreichen", { formularId: ausgewaehltesFormularId, antworten });
 });
@@ -1484,6 +1730,14 @@ btnBuergerNachreichen.addEventListener("click", async () => {
     if (!input || input.disabled) return;
     if (input.type === "checkbox") {
       felder[key] = input.checked;
+    } else if (input.multiple) {
+      // Multiselect
+      const vals = [];
+      for (const opt of input.selectedOptions) vals.push(opt.value);
+      if (vals.length > 0) felder[key] = vals;
+    } else if (input.type === "number") {
+      const val = input.value.trim();
+      if (val !== "") felder[key] = Number(val);
     } else {
       const val = (input.value || "").trim();
       if (val !== "") felder[key] = val;

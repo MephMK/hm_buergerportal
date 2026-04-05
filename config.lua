@@ -823,6 +823,235 @@ Config.Formulare = {
           sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
         }
       }
+    },
+
+    -- ==============================================================
+    -- DEMO: Formular mit ALLEN Feldtypen (Lastenheft – PR #5)
+    -- Dieses Formular dient als Referenz und Akzeptanztest.
+    -- Kann deaktiviert werden mit: aktiv = false
+    -- ==============================================================
+    ["alle_feldtypen_demo"] = {
+      id = "alle_feldtypen_demo",
+      titel = "Demo: Alle Feldtypen",
+      interneBezeichnung = "ALLE_FELDTYPEN",
+      beschreibung = "Referenzformular mit allen unterstützten Feldtypen.",
+      kategorieId = "general",
+
+      aktiv = true,
+      fuerBuergerSichtbar = true,
+      buergerDuerfenEinreichen = true,
+      nurJustizDarfErstellen = false,
+
+      gebuehren = { aktiv = false, betrag = 0, erstattbar = false },
+      cooldownSekunden = 30,
+      maxOffenProSpieler = 5,
+      duplikatPruefung = { aktiv = false },
+      standardStatus = "submitted",
+      standardPrioritaet = "normal",
+      zuweisung = {
+        autoZuweisungAktiv = false,
+        erlaubteBearbeiterJobs = { "doj", "admin" },
+        erlaubterMindestGrad = 0,
+      },
+      fristen = { fristStunden = 72 },
+
+      felder = {
+        -- Dekorative Felder
+        {
+          id = "h_allgemein", key = "h_allgemein",
+          label = "Allgemeine Angaben",
+          typ = "heading",
+          reihenfolge = 0,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "info_hinweis", key = "info_hinweis",
+          label = "Bitte alle Felder sorgfältig ausfüllen.",
+          typ = "info",
+          reihenfolge = 1,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Texteingaben
+        {
+          id = "kurztitel", key = "kurztitel",
+          label = "Kurzbezeichnung",
+          beschreibung = "Bis zu 60 Zeichen",
+          typ = "text_short",
+          pflicht = true,
+          minLaenge = 3, maxLaenge = 60,
+          placeholder = "Stichwort oder Titel",
+          reihenfolge = 2,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "langbeschreibung", key = "langbeschreibung",
+          label = "Ausführliche Beschreibung",
+          typ = "text_long",
+          pflicht = true,
+          minLaenge = 10, maxLaenge = 3000,
+          reihenfolge = 3,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Trennlinie
+        {
+          id = "divider_1", key = "divider_1",
+          label = "",
+          typ = "divider",
+          reihenfolge = 4,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Zahlen / Beträge
+        {
+          id = "anzahl", key = "anzahl",
+          label = "Anzahl",
+          typ = "number",
+          pflicht = false,
+          min = 1, max = 1000,
+          reihenfolge = 5,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "betrag_eur", key = "betrag_eur",
+          label = "Betrag (€)",
+          beschreibung = "Bitte in Euro (z.B. 123.45)",
+          typ = "amount",
+          pflicht = false,
+          min = 0, max = 1000000,
+          reihenfolge = 6,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Datum / Zeit
+        {
+          id = "ereignis_datum", key = "ereignis_datum",
+          label = "Datum des Ereignisses",
+          beschreibung = "Format: JJJJ-MM-TT",
+          typ = "date",
+          pflicht = false,
+          reihenfolge = 7,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "ereignis_uhrzeit", key = "ereignis_uhrzeit",
+          label = "Uhrzeit",
+          beschreibung = "Format: HH:MM",
+          typ = "time",
+          pflicht = false,
+          reihenfolge = 8,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "termin_datetime", key = "termin_datetime",
+          label = "Termindatum + Uhrzeit",
+          typ = "datetime",
+          pflicht = false,
+          reihenfolge = 9,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Auswahl
+        {
+          id = "kategorie_auswahl", key = "kategorie_auswahl",
+          label = "Kategorie",
+          typ = "select",
+          pflicht = true,
+          optionen = {
+            { value = "privat",  label = "Privat" },
+            { value = "gewerblich", label = "Gewerblich" },
+            { value = "sonstiges", label = "Sonstiges" },
+          },
+          reihenfolge = 10,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "interessen", key = "interessen",
+          label = "Relevante Bereiche (Mehrfachauswahl)",
+          typ = "multiselect",
+          pflicht = false,
+          optionen = {
+            { value = "recht",   label = "Recht" },
+            { value = "finanzen", label = "Finanzen" },
+            { value = "immobilien", label = "Immobilien" },
+            { value = "fahrzeuge", label = "Fahrzeuge" },
+          },
+          reihenfolge = 11,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "prioritaet_wunsch", key = "prioritaet_wunsch",
+          label = "Gewünschte Bearbeitungspriorität",
+          typ = "radio",
+          pflicht = false,
+          optionen = {
+            { value = "niedrig", label = "Niedrig" },
+            { value = "normal",  label = "Normal" },
+            { value = "hoch",    label = "Hoch" },
+          },
+          standardwert = "normal",
+          reihenfolge = 12,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Boolean
+        {
+          id = "datenschutz_akzeptiert", key = "datenschutz_akzeptiert",
+          label = "Ich stimme der Datenschutzerklärung zu",
+          typ = "checkbox",
+          pflicht = true,
+          reihenfolge = 13,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+
+        -- Spezialfelder
+        {
+          id = "webseite", key = "webseite",
+          label = "Webseite (optional)",
+          beschreibung = "Muss mit http:// oder https:// beginnen",
+          typ = "url",
+          pflicht = false,
+          maxLaenge = 200,
+          reihenfolge = 14,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "fahrzeug_kennzeichen", key = "fahrzeug_kennzeichen",
+          label = "Fahrzeugkennzeichen",
+          beschreibung = "z.B. AB 1234",
+          typ = "license_plate",
+          pflicht = false,
+          reihenfolge = 15,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "spieler_ref", key = "spieler_ref",
+          label = "Betroffener Spieler",
+          beschreibung = "Name oder Identifier des Spielers",
+          typ = "player_reference",
+          pflicht = false,
+          reihenfolge = 16,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "firma_ref", key = "firma_ref",
+          label = "Unternehmen / Firma",
+          typ = "company_reference",
+          pflicht = false,
+          reihenfolge = 17,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+        {
+          id = "aktenzeichen", key = "aktenzeichen",
+          label = "Bezug-Aktenzeichen",
+          beschreibung = "Falls bekannt: z.B. DOJ-2024-000123",
+          typ = "case_number",
+          pflicht = false,
+          reihenfolge = 18,
+          sichtbarkeit = { buerger = true, justiz = true, nurIntern = false },
+        },
+      }
     }
   }
 }
