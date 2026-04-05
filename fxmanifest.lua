@@ -62,6 +62,9 @@ server_scripts {
 
   'server/dienste/rueckfrage_service.lua',
 
+  'server/dienste/webhook_service.lua',
+  'server/dienste/formular_editor_service.lua',
+
   'server/middleware.lua',
 
   'server/api.lua',

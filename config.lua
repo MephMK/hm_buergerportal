@@ -610,13 +610,77 @@ Config.Formulare = {
 Config.Status = {
   Aktiviert = true,
   Liste = {
-    ["draft"] = { id = "draft", label = "Entwurf", farbe = "#9aa0a6", sortierung = 1 },
-    ["submitted"] = { id = "submitted", label = "Eingereicht", farbe = "#2f80ed", sortierung = 2 },
-    ["in_review"] = { id = "in_review", label = "In Prüfung", farbe = "#f2c94c", sortierung = 3 },
-    ["question_open"] = { id = "question_open", label = "Rückfrage offen", farbe = "#bb6bd9", sortierung = 4 },
-    ["approved"] = { id = "approved", label = "Genehmigt", farbe = "#27ae60", sortierung = 10 },
-    ["rejected"] = { id = "rejected", label = "Abgelehnt", farbe = "#eb5757", sortierung = 11 },
-    ["archived"] = { id = "archived", label = "Archiviert", farbe = "#4f4f4f", sortierung = 99 },
+    ["draft"] = {
+      id = "draft", label = "Entwurf", farbe = "#9aa0a6", sortierung = 1,
+      -- Metadaten
+      sichtbarFuerBuerger   = false,  -- Entwurf ist für Bürger noch nicht sichtbar
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = true,   -- Bürger darf Entwurf noch bearbeiten
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "submitted" },
+    },
+    ["submitted"] = {
+      id = "submitted", label = "Eingereicht", farbe = "#2f80ed", sortierung = 2,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "question_open", "approved", "rejected", "archived" },
+    },
+    ["in_review"] = {
+      id = "in_review", label = "In Prüfung", farbe = "#f2c94c", sortierung = 3,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = true,   -- Bürger darf Dokumente nachreichen
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "question_open", "approved", "rejected", "archived" },
+    },
+    ["question_open"] = {
+      id = "question_open", label = "Rückfrage offen", farbe = "#bb6bd9", sortierung = 4,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = true,   -- Bürger darf auf Rückfrage antworten
+      erlaubtNachreichung   = true,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "in_review", "approved", "rejected", "archived" },
+    },
+    ["approved"] = {
+      id = "approved", label = "Genehmigt", farbe = "#27ae60", sortierung = 10,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "archived" },
+    },
+    ["rejected"] = {
+      id = "rejected", label = "Abgelehnt", farbe = "#eb5757", sortierung = 11,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = true,
+      erlaubteFolgeStatus   = { "archived" },
+    },
+    ["archived"] = {
+      id = "archived", label = "Archiviert", farbe = "#4f4f4f", sortierung = 99,
+      sichtbarFuerBuerger   = true,
+      sichtbarFuerJustiz    = true,
+      bearbeitbar           = false,
+      erlaubtBuergerAntwort = false,
+      erlaubtNachreichung   = false,
+      erlaubtInterneNotiz   = false,
+      erlaubteFolgeStatus   = {},
+    },
   }
 }
 
@@ -674,9 +738,38 @@ Config.Webhooks = {
     }
   },
   Routing = {
+    -- Webhook-URL als Fallback, wenn kein anderer Eintrag greift
     Fallback = nil,
+
+    -- Pro Event-Key eine Webhook-URL eintragen.
+    -- Verfügbare Event-Keys (lower_snake_case):
+    --   antrag_created              – Neuer Antrag eingereicht
+    --   antrag_status_changed       – Status eines Antrags geändert
+    --   antrag_assigned             – Antrag einem Bearbeiter zugewiesen
+    --   antrag_priority_changed     – Priorität geändert
+    --   antrag_archived             – Antrag archiviert
+    --   antrag_question_asked       – Justiz stellt Rückfrage
+    --   antrag_citizen_replied      – Bürger antwortet auf Rückfrage
+    --   antrag_staff_public_reply   – Öffentliche Antwort durch Justiz
+    --   antrag_staff_internal_note  – Interne Notiz durch Justiz
+    --   form_editor_form_created    – Neues Formular im Editor erstellt
+    --   form_editor_schema_saved    – Schema-Entwurf gespeichert
+    --   form_editor_published       – Formular veröffentlicht
+    --   form_editor_archived        – Formular archiviert
+    --
+    -- Beispiel:
+    --   NachEvent = {
+    --     antrag_created = "https://discord.com/api/webhooks/...",
+    --     antrag_citizen_replied = "https://discord.com/api/webhooks/...",
+    --   },
     NachEvent = {},
+
+    -- Pro Kategorie-ID eine Webhook-URL eintragen.
+    -- Beispiel: NachKategorie = { ["general"] = "https://..." }
     NachKategorie = {},
+
+    -- Pro Formular-ID eine Webhook-URL eintragen.
+    -- Beispiel: NachFormular = { ["general_request"] = "https://..." }
     NachFormular = {}
   }
 }

@@ -202,6 +202,78 @@ RegisterNUICallback("hm_bp:debug_oeffentliche_id_test", function(_, cb)
   cb({ ok = true })
 end)
 
+-- ==========================
+-- Formular-Editor (Direkte NUI-Callbacks mit Promise/Await)
+-- ==========================
+-- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
+local function formEditorAufruf(serverEvent, daten, antwortEvent)
+  local p = promise.new()
+  local h = AddEventHandler(antwortEvent, function(result)
+    p:resolve(result)
+  end)
+  TriggerServerEvent(serverEvent, daten)
+  local ok, result = pcall(Citizen.Await, p)
+  RemoveEventHandler(h)
+  if ok then return result end
+  return { ok = false, fehler = { nachricht = "Keine Antwort vom Server erhalten." } }
+end
+
+RegisterNUICallback("hm_bp:form_editor_rechte_laden", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:rechte_anfordern",
+    daten or {},
+    "hm_bp:form_editor:rechte_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_liste_laden", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:liste_anfordern",
+    daten or {},
+    "hm_bp:form_editor:liste_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_formular_erstellen", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:formular_erstellen",
+    daten or {},
+    "hm_bp:form_editor:formular_erstellen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_schema_holen", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:schema_holen",
+    daten or {},
+    "hm_bp:form_editor:schema_holen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_schema_speichern", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:schema_speichern",
+    daten or {},
+    "hm_bp:form_editor:schema_speichern_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_veroeffentlichen", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:veroeffentlichen",
+    daten or {},
+    "hm_bp:form_editor:veroeffentlichen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_archivieren", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:archivieren",
+    daten or {},
+    "hm_bp:form_editor:archivieren_antwort"
+  ))
+end)
+
 local function sende(typ, payload)
   SendNUIMessage({ typ = typ, payload = payload or {} })
 end
