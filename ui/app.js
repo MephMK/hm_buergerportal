@@ -68,6 +68,9 @@ const justizRueckfrageText = document.getElementById("justizRueckfrageText");
 const btnJustizRueckfrageStellen = document.getElementById("btnJustizRueckfrageStellen");
 const justizRueckfrageMeta = document.getElementById("justizRueckfrageMeta");
 
+const btnJustizPdfExport = document.getElementById("btnJustizPdfExport");
+const justizPdfExportMeta = document.getElementById("justizPdfExportMeta");
+
 const justizVerlauf = document.getElementById("justizVerlauf");
 
 // Suche/Filter UI
@@ -1348,6 +1351,7 @@ function setBearbeitungNachRegeln() {
 
     btnJustizRueckfrageStellen.disabled = true;
     justizRueckfrageText.disabled = true;
+    if (btnJustizPdfExport) btnJustizPdfExport.disabled = true;
     return;
   }
 
@@ -1376,6 +1380,8 @@ function setBearbeitungNachRegeln() {
 
     btnJustizRueckfrageStellen.disabled = true;
     justizRueckfrageText.disabled = true;
+    // PDF-Export auch bei Sperre erlaubt (nur Lesezugriff nötig)
+    if (btnJustizPdfExport) btnJustizPdfExport.disabled = false;
     return;
   }
 
@@ -1412,6 +1418,9 @@ function setBearbeitungNachRegeln() {
   const rq = (a.rueckfrageStellen === true);
   btnJustizRueckfrageStellen.disabled = !rq;
   justizRueckfrageText.disabled = !rq;
+
+  // PDF-Export ist immer erlaubt, solange ein Antrag ausgewählt ist (Justiz/Admin)
+  if (btnJustizPdfExport) btnJustizPdfExport.disabled = false;
 }
 
 function sperrHinweisSetzen(lock, gesperrtAnderer) {
@@ -2174,6 +2183,19 @@ btnJustizRueckfrageStellen.addEventListener("click", async () => {
   await nuiAufruf("hm_bp:justiz_rueckfrage_stellen", { antragId: ausgewaehlterJustizAntragId, text });
 });
 
+// PR11: PDF-Export
+if (btnJustizPdfExport) {
+  btnJustizPdfExport.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlterJustizAntragId) return fehlerAnzeigen("Kein Antrag ausgewählt.");
+    if (btnJustizPdfExport.disabled) return;
+
+    justizPdfExportMeta.textContent = "Exportdaten werden geladen…";
+    btnJustizPdfExport.disabled = true;
+    await nuiAufruf("hm_bp:export_pdf_starten", { antragId: ausgewaehlterJustizAntragId });
+  });
+}
+
 // ===== Formular-Editor Bindings =====
 formEditorKategorieSelect.addEventListener("change", async () => {
   formEditorKategorieId = formEditorKategorieSelect.value || null;
@@ -2590,6 +2612,21 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
       nuiAufruf("hm_bp:anhaenge_listen", { antragId: ausgewaehlterJustizAntragId });
     }
   }
+
+  // PR11: PDF-Export Antwort
+  if (msg.typ === "hm_bp:export:pdf_daten_antwort") {
+    if (btnJustizPdfExport) btnJustizPdfExport.disabled = false;
+    const payload = msg.payload || {};
+    if (!payload.ok) {
+      if (justizPdfExportMeta) justizPdfExportMeta.textContent = "";
+      return fehlerAnzeigen(payload.fehler?.nachricht || "PDF-Export fehlgeschlagen.");
+    }
+    if (justizPdfExportMeta) justizPdfExportMeta.textContent = "PDF wird vorbereitet…";
+    pdfExportGenerierenUndDrucken(payload.daten || {});
+    setTimeout(() => {
+      if (justizPdfExportMeta) justizPdfExportMeta.textContent = "PDF-Druckdialog geöffnet. Discord-Benachrichtigung wurde gesendet.";
+    }, 800);
+  }
 });
 
 // ==========================
@@ -2598,6 +2635,113 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
 document.addEventListener("keydown", async (e) => {
   if (e.key === "Escape") await nuiAufruf("hm_bp:ui_schliessen", {});
 });
+
+// ==========================
+// PR11: PDF-Export – Generierung via Browser-Druck
+// ==========================
+
+function pdfExportGenerierenUndDrucken(daten) {
+  const antrag   = daten.antrag   || {};
+  const timeline = daten.timeline || [];
+  const akteur   = daten.akteur_name || "Unbekannt";
+  const jetzt    = new Date().toLocaleString("de-DE");
+
+  const esc = (v) => String(v == null ? "–" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+  // Timeline-Einträge (alle Sichtbarkeitsstufen – Justiz/Admin sieht alles)
+  let verlaufHtml = "";
+  for (const eintrag of timeline) {
+    let inhalt = "";
+    try {
+      const c = typeof eintrag.content === "string" ? JSON.parse(eintrag.content) : (eintrag.content || {});
+      inhalt = esc(c.text || c.nachricht || JSON.stringify(c));
+    } catch (_) {
+      inhalt = esc(eintrag.content);
+    }
+    const vis   = eintrag.visibility === "internal" ? " (intern)" : "";
+    const autor = esc(eintrag.author_name || "System");
+    const datum = esc(eintrag.created_at || "");
+    verlaufHtml += `<div class="verlauf-item">
+      <div class="verlauf-meta">${esc(eintrag.entry_type || "")}${vis} – ${autor} – ${datum}</div>
+      <div>${inhalt}</div>
+    </div>`;
+  }
+  if (!verlaufHtml) verlaufHtml = "<p>Kein Verlauf vorhanden.</p>";
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Antragsexport ${esc(antrag.public_id)}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #222; padding: 20mm; }
+    .kopf { border-bottom: 2.5px solid #1a365d; padding-bottom: 12px; margin-bottom: 18px; }
+    .branding { font-size: 22pt; font-weight: bold; color: #1a365d; letter-spacing: 1px; }
+    .subtitle { font-size: 11pt; color: #555; margin-top: 2px; }
+    .aktenzeichen { font-size: 13pt; font-weight: bold; margin-top: 8px; color: #333; }
+    h2 { font-size: 12pt; color: #1a365d; border-bottom: 1px solid #bbb; padding-bottom: 3px; margin: 18px 0 8px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+    td { padding: 3px 6px; vertical-align: top; font-size: 10.5pt; }
+    td.k { font-weight: bold; width: 38%; color: #444; }
+    .verlauf-item { margin: 6px 0; padding: 7px 10px; border-left: 3px solid #2f80ed; background: #f5f7fa; font-size: 10pt; }
+    .verlauf-meta { font-size: 9pt; color: #666; margin-bottom: 2px; font-weight: bold; }
+    .fusszeile { margin-top: 28px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9pt; color: #888; }
+    @media print { @page { margin: 12mm; size: A4; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="kopf">
+    <div class="branding">Justiz Eisenfurt</div>
+    <div class="subtitle">Bürgerportal — Antragsexport</div>
+    <div class="aktenzeichen">Aktenzeichen: ${esc(antrag.public_id)}</div>
+  </div>
+
+  <h2>Antragsdaten</h2>
+  <table>
+    <tr><td class="k">Aktenzeichen:</td><td>${esc(antrag.public_id)}</td></tr>
+    <tr><td class="k">Status:</td><td>${esc(antrag.status)}</td></tr>
+    <tr><td class="k">Priorität:</td><td>${esc(antrag.priority)}</td></tr>
+    <tr><td class="k">Antragsteller:</td><td>${esc(antrag.citizen_name)}</td></tr>
+    <tr><td class="k">Zugewiesener Bearbeiter:</td><td>${esc(antrag.assigned_to_name)}</td></tr>
+    <tr><td class="k">Kategorie:</td><td>${esc(antrag.category_id)}</td></tr>
+    <tr><td class="k">Formular:</td><td>${esc(antrag.form_id)}</td></tr>
+    <tr><td class="k">Eingereicht am:</td><td>${esc(antrag.created_at)}</td></tr>
+    <tr><td class="k">Zuletzt geändert:</td><td>${esc(antrag.updated_at)}</td></tr>
+  </table>
+
+  <h2>Verlauf</h2>
+  ${verlaufHtml}
+
+  <div class="fusszeile">
+    Exportiert von: ${esc(akteur)} &nbsp;|&nbsp; ${esc(jetzt)} &nbsp;|&nbsp; Justiz Eisenfurt Bürgerportal
+  </div>
+
+  <script>window.onload = function() { window.print(); };<\/script>
+</body>
+</html>`;
+
+  const blob    = new Blob([html], { type: "text/html; charset=utf-8" });
+  const url     = URL.createObjectURL(blob);
+  const iframe  = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
+  document.body.appendChild(iframe);
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      if (typeof console !== "undefined") console.warn("[hm_bp] PDF-Druckdialog konnte nicht geöffnet werden:", e);
+    }
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      URL.revokeObjectURL(url);
+    }, 2000);
+  };
+  iframe.src = url;
+}
 
 // ==========================
 // Admin Panel
@@ -3145,7 +3289,7 @@ function adminModulAnzeigen(daten) {
     Gebuehren:         "Geb\u00fchren an Formularen (Implementierung folgt)",
     Delegation:        "Antr\u00e4ge weiterdelegieren (Implementierung folgt)",
     Entwuerfe:         "B\u00fcrger kann Entw\u00fcrfe speichern",
-    Exporte:           "CSV/PDF-Export (Implementierung folgt)",
+    Exporte:           "PDF-Export für Justiz/Admin (PR11)",
     AuditHaertung:     "Erweiterte Audit-H\u00e4rtung",
     Webhooks:          "Discord-Webhook-Benachrichtigungen",
     Benachrichtigungen: "Ingame-Benachrichtigungen",

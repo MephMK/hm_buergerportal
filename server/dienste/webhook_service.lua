@@ -40,6 +40,13 @@ end
 local function resolveWebhookUrl(eventName, data)
   local c = cfg()
   if not c or c.Aktiviert ~= true then return nil end
+
+  -- Dedizierte URL-Tabelle (z.B. für pdf_export): hat Vorrang vor NachEvent
+  if type(c.Urls) == "table" then
+    local directUrl = c.Urls[eventName]
+    if directUrl and directUrl ~= "" then return directUrl end
+  end
+
   local routing = c.Routing or {}
 
   local categoryId = data and (data.category_id or data.kategorie_id)
@@ -85,6 +92,7 @@ local EVENT_META = {
   ["form_editor.archived"]   = { farbe = 0x4F4F4F, titel = "📦 Formular archiviert"               },
   ["admin.config.changed"]   = { farbe = 0xEB5757, titel = "⚙️ Admin-Konfiguration geändert"      },
   webhook_test               = { farbe = 0x3447DB, titel = "🔔 Webhook-Test"                       },
+  pdf_export                 = { farbe = 0x1a365d, titel = "📄 PDF-Export erstellt"                 },
 }
 
 local function embedColorForEvent(eventName)

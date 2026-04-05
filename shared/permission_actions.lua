@@ -142,4 +142,10 @@ HM_BP.Shared.Actions = {
   ATTACHMENT_REMOVE = "attachment.remove",
   -- Anhänge ansehen (Justiz/Admin: immer; Bürger: nur eigene)
   ATTACHMENT_VIEW   = "attachment.view",
+
+  -- -------------------------------------------------------
+  -- Export / PDF (PR11)
+  -- -------------------------------------------------------
+  -- Antrag als PDF exportieren und Discord-Webhook auslösen (nur Justiz/Admin)
+  EXPORT_PDF        = "export.pdf",
 }

@@ -328,6 +328,8 @@ Config.Permissions = {
         "attachment.add",
         "attachment.view",
         "attachment.remove",
+        -- Export: Justiz darf PDFs exportieren (PR11)
+        "export.pdf",
       },
       deny  = {},
     },
@@ -1321,6 +1323,22 @@ Config.Webhooks = {
     -- Pro Formular-ID eine Webhook-URL eintragen.
     -- Beispiel: NachFormular = { ["general_request"] = "https://..." }
     NachFormular = {}
+  },
+
+  -- ----------------------------------------------------------
+  -- Dedizierte Webhook-URLs (PR11+)
+  -- Für spezifische Systemfunktionen (nicht antragsbezogen).
+  -- Der Schlüssel wird direkt als Event-Name verwendet.
+  -- ----------------------------------------------------------
+  -- pdf_export: Discord-Webhook-URL für PDF-Export-Benachrichtigungen.
+  -- Jedes erzeugte PDF wird mit Akteur (Spielername + Charname) und
+  -- Aktenzeichen als Embed in diesen Discord-Kanal gepostet.
+  -- PFLICHT für Discord-Export: Trage hier die vollständige Discord-Webhook-URL ein.
+  -- Solange dieser Wert nil ist, werden keine Benachrichtigungen gesendet.
+  -- Beispiel:
+  --   ["pdf_export"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+  Urls = {
+    ["pdf_export"] = nil,
   }
 }
 
@@ -1391,8 +1409,8 @@ Config.Module = {
   -- Entwürfe: Bürger kann Anträge als Entwurf speichern.
   Entwuerfe        = false,
 
-  -- Exporte: Anträge/Berichte als CSV/PDF exportieren (Implementierung folgt).
-  Exporte          = false,
+  -- Exporte: Anträge/Berichte als CSV/PDF exportieren (PR11).
+  Exporte          = true,
 
   -- Audit-Härtung: Erweiterte Audit-Sicherheit und Unveränderlichkeit der Logs.
   AuditHaertung    = false,

@@ -210,6 +210,17 @@ RegisterNUICallback("hm_bp:debug_oeffentliche_id_test", function(_, cb)
 end)
 
 -- ==========================
+-- Export / PDF (PR11)
+-- ==========================
+
+-- NUI fordert PDF-Exportdaten an; Antwort kommt als ClientEvent zurück.
+RegisterNUICallback("hm_bp:export_pdf_starten", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:export:pdf_daten_anfordern", { antragId = daten.antragId })
+  cb({ ok = true })
+end)
+
+-- ==========================
 -- Formular-Editor (Direkte NUI-Callbacks mit Promise/Await)
 -- ==========================
 -- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
@@ -319,6 +330,9 @@ RegisterNetEvent("hm_bp:justiz:suchen_antwort", function(payload) sende("hm_bp:j
 RegisterNetEvent("hm_bp:justiz:rueckfrage_stellen_antwort", function(payload) sende("hm_bp:justiz:rueckfrage_stellen_antwort", payload) end)
 
 RegisterNetEvent("hm_bp:debug:oeffentliche_id_test_antwort", function(payload) sende("hm_bp:debug:oeffentliche_id_test_antwort", payload) end)
+
+-- PR11: PDF-Export Antwort (Daten + Discord-Status)
+RegisterNetEvent("hm_bp:export:pdf_daten_antwort", function(payload) sende("hm_bp:export:pdf_daten_antwort", payload) end)
 
 function HM_BP.Client.UIOeffnen(kontext)
   if uiOffen then return end
