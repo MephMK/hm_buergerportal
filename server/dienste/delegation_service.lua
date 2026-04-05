@@ -43,7 +43,7 @@ function DelegationService.OnlineSpielerSuchen(suchname)
   if suchname == "" then return {} end
 
   local max  = (Config.Delegation and Config.Delegation.MaxSuchergebnisse) or 20
-  local esx  = esxSicherstellen()
+  local esx = esxSicherstellen()
   local ergebnisse = {}
 
   if esx then

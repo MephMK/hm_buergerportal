@@ -4465,9 +4465,9 @@ function delegationSpielerListeRendern(container, ergebnisse, onAuswahl) {
 // Delegation-Bereich: Typ-Auswahl steuert Zielbereich
 if (delegationTyp) {
   delegationTyp.addEventListener("change", () => {
-    const gewählt = delegationTyp.value;
+    const gewaehlt = delegationTyp.value;
     if (delegationZielBereich) {
-      delegationZielBereich.style.display = gewählt ? "" : "none";
+      delegationZielBereich.style.display = gewaehlt ? "" : "none";
     }
     // Auswahl zurücksetzen
     delegationAusgewaehlterSpieler = null;

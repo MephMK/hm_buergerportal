@@ -1747,7 +1747,9 @@ Config.Delegation = {
   -- Wenn Aktiviert = true: Delegation A (Bürger) und B (Firma) sind
   -- NUR erlaubt, wenn eine gültige Vollmacht in hm_bp_vollmachten
   -- vorhanden ist. Justiz-Hilfsantrag (Typ C) ist davon NICHT betroffen.
-  -- default OFF
+  -- Sicherheitsrelevant: explicit opt-in erforderlich (default false).
+  -- Setze auf true, wenn dein RP-Server Vollmachten operativ nutzt.
+  -- default OFF = Delegation ohne Vollmacht-Prüfung erlaubt.
   Vollmacht = {
     Aktiviert = false,
   },
