@@ -85,7 +85,7 @@ local EVENT_META = {
   antrag_deleted             = { farbe = 0xEB5757, titel = "🗑️ Antrag gelöscht"                   },
   antrag_approved            = { farbe = 0x27AE60, titel = "✅ Antrag genehmigt"                   },
   antrag_rejected            = { farbe = 0xEB5757, titel = "❌ Antrag abgelehnt"                   },
-  antrag_escalated           = { farbe = 0xF2994A, titel = "🚨 Antrag eskaliert"                   },
+  antrag_escalation          = { farbe = 0xF2994A, titel = "🚨 Antrag eskaliert"                   },
   antrag_question_asked      = { farbe = 0x9B51E0, titel = "❓ Rückfrage gestellt"                 },
   antrag_citizen_replied     = { farbe = 0x56CCF2, titel = "💬 Bürger hat geantwortet"             },
   antrag_staff_public_reply  = { farbe = 0x27AE60, titel = "📢 Öffentliche Antwort (Justiz)"       },
