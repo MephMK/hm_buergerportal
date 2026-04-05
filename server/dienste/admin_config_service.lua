@@ -70,12 +70,16 @@ local function tiefKopie(tbl)
   return tbl
 end
 
+-- Maximale Rekursionstiefe beim Traversieren verschachtelter Tabellen (Schutz vor zyklischen
+-- Referenzen oder extrem tiefen Strukturen in Konfigurationsdaten).
+local MAX_VEKTOR_TIEFE = 12
+
 -- Wandelt JSON-deserialisierte Koordinaten-Tabellen zurück in vector3/vector4.
 -- FiveM serialisiert vector3 als {"x":..,"y":..,"z":..}; nach json.decode
 -- brauchen wir native vector3-Werte für koordinaten, startPosition etc.
 local function fixVektoren(tbl, tiefe)
   tiefe = tiefe or 0
-  if tiefe > 12 then return tbl end
+  if tiefe > MAX_VEKTOR_TIEFE then return tbl end
   if type(tbl) ~= "table" then return tbl end
 
   -- Ist diese Tabelle selbst ein {x,y,z[,w]}-Objekt?
@@ -267,5 +271,9 @@ function AdminConfigService.Neuladen()
   end
   return true
 end
+
+---Liste aller vom AdminConfigService verwalteten Sektionsnamen.
+---Wird von api_admin.lua genutzt, um Duplikate zu vermeiden.
+AdminConfigService.SEKTIONEN = MANAGED_SECTIONS
 
 HM_BP.Server.Dienste.AdminConfigService = AdminConfigService

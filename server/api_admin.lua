@@ -58,21 +58,23 @@ local function grundPruefen(grund)
   return true, nil
 end
 
--- Minimale Validierung einer Override-Sektion (Schema-Check)
-local GUELTIGE_SEKTIONEN = {
-  Standorte   = true,
-  Kategorien  = true,
-  Formulare   = true,
-  Permissions = true,
-  Status      = true,
-  Webhooks    = true,
-}
+-- Gültige Sektionen: aus AdminConfigService.SEKTIONEN abgeleitet (single source of truth).
+-- Wird als Set für O(1)-Lookup aufgebaut.
+local function gueltigeSektionenSet()
+  local svc = cfgSvc()
+  local sektionen = (svc and svc.SEKTIONEN) or
+    { "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks" }
+  local set = {}
+  for _, s in ipairs(sektionen) do set[s] = true end
+  return set, sektionen
+end
 
 local function sektionValidieren(sektion, daten)
-  if not GUELTIGE_SEKTIONEN[sektion] then
+  local set, liste = gueltigeSektionenSet()
+  if not set[sektion] then
     return false, ("Unbekannte Sektion '%s'. Gültige Sektionen: %s"):format(
       tostring(sektion),
-      table.concat({ "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks" }, ", ")
+      table.concat(liste, ", ")
     )
   end
   if type(daten) ~= "table" then
@@ -116,8 +118,10 @@ RegisterNetEvent("hm_bp:admin:panel_anfordern", function(payload)
   local eff = svc and svc.GetEffectiveConfig() or Config
 
   -- Nur die relevanten Sektionen senden (kein kompletter Config-Dump)
+  local verwaltete = (svc and svc.SEKTIONEN) or
+    { "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks" }
   local sektionen = {}
-  for sek in pairs(GUELTIGE_SEKTIONEN) do
+  for _, sek in ipairs(verwaltete) do
     sektionen[sek] = eff[sek] or {}
   end
 
@@ -146,14 +150,18 @@ RegisterNetEvent("hm_bp:admin:sektion_laden", function(payload)
   end
 
   local sektion = payload.sektion
-  if not GUELTIGE_SEKTIONEN[sektion] then
+  local svc = cfgSvc()
+  local sektSet = {}
+  for _, s in ipairs((svc and svc.SEKTIONEN) or
+    { "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks" }) do
+    sektSet[s] = true
+  end
+  if not sektSet[sektion] then
     TriggerClientEvent("hm_bp:admin:sektion_antwort", quelle, {
       ok = false, fehler = { nachricht = "Unbekannte Sektion." }
     })
     return
   end
-
-  local svc = cfgSvc()
   local modus = payload.modus or "effektiv"  -- "effektiv" | "override" | "basis"
 
   local daten
@@ -309,14 +317,18 @@ RegisterNetEvent("hm_bp:admin:sektion_zuruecksetzen", function(payload)
   end
 
   local sektion = payload.sektion
-  if not GUELTIGE_SEKTIONEN[sektion] then
+  local svc = cfgSvc()
+  local sektSet2 = {}
+  for _, s in ipairs((svc and svc.SEKTIONEN) or
+    { "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks" }) do
+    sektSet2[s] = true
+  end
+  if not sektSet2[sektion] then
     TriggerClientEvent("hm_bp:admin:sektion_zuruecksetzen_antwort", quelle, {
       ok = false, fehler = { nachricht = "Unbekannte Sektion." }
     })
     return
   end
-
-  local svc = cfgSvc()
   local altDaten = svc and svc.GetOverrides(sektion) or {}
   local ok, err2
   if svc then
