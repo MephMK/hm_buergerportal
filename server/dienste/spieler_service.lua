@@ -42,6 +42,56 @@ function SpielerService.SpielerNameAuflosen(quelle)
   return nil
 end
 
+--- Kanonischer Anzeigename für Discord-Embeds (niemals Identifier/Char-ID).
+--- Gibt "Spielername (Charname)" zurück, wenn der Spieler online ist und ESX
+--- einen Charnamen liefert. Fallback-Kette:
+---   1) "Spielername (Charname)"  – Spieler online + ESX Charname verfügbar
+---   2) "Spielername"             – Spieler online, Charname nicht verfügbar
+---   3) fallback_name             – Spieler offline, aber gespeicherter Name bekannt
+---   4) "System"                  – kein Spieler, kein Fallback
+--- @param quelle       FiveM source (number oder nil)
+--- @param fallback_name string|nil  gespeicherter Anzeigename (z.B. citizen_name aus DB)
+function SpielerService.AnzeigeNameAuflosen(quelle, fallback_name)
+  local src = tonumber(quelle)
+  local spielerName = nil
+  local charName    = nil
+
+  -- Spielername via FiveM
+  if src and src > 0 then
+    local ok, name = pcall(GetPlayerName, src)
+    if ok and name and name ~= "" then
+      spielerName = name
+    end
+  end
+
+  -- Charname via ESX (nur wenn Spieler online)
+  if spielerName then
+    local esx = esxSicherstellen()
+    if esx then
+      local ok2, xPlayer = pcall(esx.GetPlayerFromId, src)
+      if ok2 and xPlayer then
+        local ok3, cn = pcall(xPlayer.getName)
+        if ok3 and cn and cn ~= "" then
+          charName = cn
+        end
+      end
+    end
+  end
+
+  if spielerName then
+    if charName then
+      return spielerName .. " (" .. charName .. ")"
+    end
+    return spielerName
+  end
+
+  -- Spieler offline: gespeicherter Name oder "System"
+  if fallback_name and fallback_name ~= "" then
+    return tostring(fallback_name)
+  end
+  return "System"
+end
+
 -- Gibt den Bezeichner (Identifier) für eine Server-Quell-ID zurück.
 function SpielerService.IdentifierAuflosen(quelle)
   local src = tonumber(quelle)

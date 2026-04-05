@@ -10,12 +10,16 @@ local function emitWebhook(eventName, data)
   if ws and ws.Emit then ws.Emit(eventName, data) end
 end
 
-local function spielerNameAuflosen(quelle)
+local function anzeigeNameAuflosen(quelle, fallback)
   local ss = HM_BP.Server.Dienste.SpielerService
-  if ss and ss.SpielerNameAuflosen then
-    return ss.SpielerNameAuflosen(quelle)
+  if ss and ss.AnzeigeNameAuflosen then
+    return ss.AnzeigeNameAuflosen(quelle, fallback)
   end
-  return nil
+  if ss and ss.SpielerNameAuflosen then
+    local name = ss.SpielerNameAuflosen(quelle)
+    if name and name ~= "" then return name end
+  end
+  return fallback or "System"
 end
 
 -- =========================
@@ -179,14 +183,14 @@ RegisterNetEvent("hm_bp:justiz:rueckfrage_stellen", function(payload)
 
   -- Webhook + Bürger benachrichtigen
   emitWebhook("antrag_question_asked", {
-    submission_id = antragId,
-    public_id     = res.public_id,
-    aktenzeichen  = res.public_id,
-    category_id   = res.category_id,
-    form_id       = res.form_id,
-    spieler_name  = spielerNameAuflosen(quelle) or spieler.name,
-    bearbeiter_name = spieler.name,
-    text          = text,
+    submission_id   = antragId,
+    public_id       = res.public_id,
+    aktenzeichen    = res.public_id,
+    category_id     = res.category_id,
+    form_id         = res.form_id,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
+    text            = text,
   })
   local benachrichtigungSvc = HM_BP.Server.Dienste.BenachrichtigungService
   if benachrichtigungSvc then benachrichtigungSvc.RueckfrageGestellt(res.citizen_identifier, res.public_id) end
@@ -221,7 +225,8 @@ RegisterNetEvent("hm_bp:justiz:uebernehmen", function(payload)
     submission_id   = antragId,
     public_id       = res and res.public_id,
     aktenzeichen    = res and res.public_id,
-    bearbeiter_name = spieler.name,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
   })
 end)
 
@@ -256,8 +261,8 @@ RegisterNetEvent("hm_bp:justiz:zuweisen", function(payload)
     submission_id   = antragId,
     public_id       = res and res.public_id,
     aktenzeichen    = res and res.public_id,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
     bearbeiter_name = zielName or zielIdentifier,
-    spieler_name    = spielerNameAuflosen(quelle) or spieler.name,
   })
 end)
 
@@ -291,8 +296,9 @@ RegisterNetEvent("hm_bp:justiz:prioritaet_setzen", function(payload)
     submission_id   = antragId,
     public_id       = res and res.public_id,
     aktenzeichen    = res and res.public_id,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
     priority        = prio,
-    bearbeiter_name = spieler.name,
   })
 end)
 
@@ -326,7 +332,8 @@ RegisterNetEvent("hm_bp:justiz:archivieren", function(payload)
     submission_id   = antragId,
     public_id       = res and res.public_id,
     aktenzeichen    = res and res.public_id,
-    bearbeiter_name = spieler.name,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
     text            = (grund ~= "") and grund or nil,
   })
 end)
@@ -360,7 +367,8 @@ RegisterNetEvent("hm_bp:justiz:interne_notiz", function(payload)
     submission_id   = antragId,
     public_id       = res and res.public_id,
     aktenzeichen    = res and res.public_id,
-    bearbeiter_name = spieler.name,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
     text            = text,
   })
 end)
@@ -396,7 +404,8 @@ RegisterNetEvent("hm_bp:justiz:oeffentliche_antwort", function(payload)
     aktenzeichen    = res and res.public_id,
     category_id     = res and res.category_id,
     form_id         = res and res.form_id,
-    bearbeiter_name = spieler.name,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
     text            = text,
   })
   local benachrichtigungSvc = HM_BP.Server.Dienste.BenachrichtigungService
@@ -440,11 +449,12 @@ RegisterNetEvent("hm_bp:justiz:status_setzen", function(payload)
     aktenzeichen    = res and res.public_id,
     category_id     = res and res.category_id,
     form_id         = res and res.form_id,
-    -- WICHTIG: Spielername aus Antragsdaten, kein Identifier
-    spieler_name    = res and res.citizen_name,
+    akteur_name     = anzeigeNameAuflosen(quelle, spieler.name),
+    -- Bürger: gespeicherter Charname aus DB (citizen_name), nie Identifier
+    buerger_name    = res and res.citizen_name,
     alter_status    = alterStatus,
     neuer_status    = neuerStatusVal,
-    bearbeiter_name = spieler.name,
+    bearbeiter_name = anzeigeNameAuflosen(quelle, spieler.name),
     text            = (kommentar and kommentar ~= "") and kommentar or nil,
   })
 

@@ -67,6 +67,10 @@ local EVENT_META = {
   antrag_assigned            = { farbe = 0x6FCF97, titel = "👤 Antrag zugewiesen"                  },
   antrag_priority_changed    = { farbe = 0xEB5757, titel = "⚡ Priorität geändert"                 },
   antrag_archived            = { farbe = 0x4F4F4F, titel = "📦 Antrag archiviert"                  },
+  antrag_deleted             = { farbe = 0xEB5757, titel = "🗑️ Antrag gelöscht"                   },
+  antrag_approved            = { farbe = 0x27AE60, titel = "✅ Antrag genehmigt"                   },
+  antrag_rejected            = { farbe = 0xEB5757, titel = "❌ Antrag abgelehnt"                   },
+  antrag_escalated           = { farbe = 0xF2994A, titel = "🚨 Antrag eskaliert"                   },
   antrag_question_asked      = { farbe = 0x9B51E0, titel = "❓ Rückfrage gestellt"                 },
   antrag_citizen_replied     = { farbe = 0x56CCF2, titel = "💬 Bürger hat geantwortet"             },
   antrag_staff_public_reply  = { farbe = 0x27AE60, titel = "📢 Öffentliche Antwort (Justiz)"       },
@@ -74,6 +78,9 @@ local EVENT_META = {
   antrag_nachgereicht        = { farbe = 0x2D9CDB, titel = "📎 Unterlagen nachgereicht"            },
   anhang_hinzugefuegt        = { farbe = 0x2D9CDB, titel = "🖼️ Anhang hinzugefügt"               },
   anhang_entfernt            = { farbe = 0xEB5757, titel = "🗑️ Anhang entfernt"                   },
+  admin_action               = { farbe = 0xEB5757, titel = "🛡️ Admin-Aktion"                      },
+  security_incident          = { farbe = 0xEB5757, titel = "⚠️ Sicherheitsvorfall"                 },
+  system_error               = { farbe = 0xFF0000, titel = "🔴 Systemfehler"                       },
   ["form_editor.published"]  = { farbe = 0x27AE60, titel = "✅ Formular veröffentlicht"            },
   ["form_editor.archived"]   = { farbe = 0x4F4F4F, titel = "📦 Formular archiviert"               },
   ["admin.config.changed"]   = { farbe = 0xEB5757, titel = "⚙️ Admin-Konfiguration geändert"      },
@@ -110,8 +117,16 @@ local function makeEmbed(eventName, data)
   -- Aktenzeichen / öffentliche ID (immer zuerst, wenn vorhanden)
   add("Aktenzeichen", data and (data.public_id or data.aktenzeichen), true)
 
-  -- WICHTIG: Spielername – immer aus spieler_name, nie Identifier
-  add("Spielername", data and (data.spieler_name or data.buerger_name or data.citizen_name), true)
+  -- Akteur: wer hat die Aktion ausgelöst (immer dabei)
+  -- Bevorzuge akteur_name; Fallback auf spieler_name/buerger_name/citizen_name
+  local akteurAnzeige = data and (data.akteur_name or data.spieler_name or data.buerger_name or data.citizen_name)
+  add("Akteur", akteurAnzeige, true)
+
+  -- Bürger/Antragsteller (wenn separat angegeben und vom Akteur verschieden)
+  local buergerAnzeige = data and (data.buerger_name or data.citizen_name)
+  if buergerAnzeige and buergerAnzeige ~= akteurAnzeige then
+    add("Bürger", buergerAnzeige, true)
+  end
 
   -- Formular / Kategorie
   add("Formular",   data and (data.form_id    or data.formular_id),  true)
@@ -124,8 +139,11 @@ local function makeEmbed(eventName, data)
     add("Status", data.status, true)
   end
 
-  -- Bearbeiter / Zuweisung
-  add("Bearbeiter",  data and (data.assigned_to_name or data.bearbeiter_name), true)
+  -- Bearbeiter / Zuweisung (nur wenn vom Akteur verschieden)
+  local bearbeiterAnzeige = data and (data.bearbeiter_name or data.assigned_to_name)
+  if bearbeiterAnzeige and bearbeiterAnzeige ~= akteurAnzeige then
+    add("Bearbeiter", bearbeiterAnzeige, true)
+  end
   add("Priorität",   data and data.priority,  true)
 
   -- Freitext (kurz)
@@ -301,7 +319,8 @@ end
 -- ---------------------------------------------------------------
 
 --- Sendet ein Webhook-Event in die Queue.
---- spieler_name MUSS im data-Table stehen (kein Identifier an Discord).
+--- akteur_name SOLLTE im data-Table stehen (kein Identifier an Discord).
+--- buerger_name und bearbeiter_name sind optional (werden nur angezeigt, wenn vorhanden).
 function WebhookService.Emit(eventName, data)
   local c = cfg()
   if not c or c.Aktiviert ~= true then return end
@@ -332,10 +351,6 @@ end
 --- Sendet direkt an eine übergebene URL (für Admin-Test).
 --- Gibt das Embed-Objekt zurück und sendet asynchron.
 function WebhookService.SendDirektTest(url, spielerName, cb)
-  local testData = {
-    spieler_name = spielerName or "Administrator",
-    text         = "Verbindungstest – diese Nachricht bestätigt, dass der Webhook erreichbar ist.",
-  }
   local identCfg = ident()
   local embed = {
     title       = "🔔 Webhook-Test",
@@ -343,8 +358,8 @@ function WebhookService.SendDirektTest(url, spielerName, cb)
                     tostring(spielerName or "Administrator")),
     color       = 0x3447DB,
     fields      = {
-      { name = "Spielername", value = tostring(spielerName or "Administrator"), inline = true },
-      { name = "Zeitpunkt",   value = nowIsoUtc(),                              inline = true },
+      { name = "Akteur",    value = tostring(spielerName or "Administrator"), inline = true },
+      { name = "Zeitpunkt", value = nowIsoUtc(),                              inline = true },
     },
     footer    = { text = identCfg.Footer or "HM Bürgerportal Admin-Panel" },
     timestamp = nowIsoUtc(),

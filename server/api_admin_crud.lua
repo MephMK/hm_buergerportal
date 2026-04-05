@@ -24,6 +24,18 @@ local function cfgSvc()  return HM_BP.Server.Dienste.AdminConfigService   end
 local function audSvc()  return HM_BP.Server.Dienste.AdminAuditService    end
 local function valSvc()  return HM_BP.Server.Dienste.AdminValidierungService end
 
+local function anzeigeNameAuflosen(quelle, fallback)
+  local ss = HM_BP.Server.Dienste.SpielerService
+  if ss and ss.AnzeigeNameAuflosen then
+    return ss.AnzeigeNameAuflosen(quelle, fallback)
+  end
+  if ss and ss.SpielerNameAuflosen then
+    local name = ss.SpielerNameAuflosen(quelle)
+    if name and name ~= "" then return name end
+  end
+  return fallback or "System"
+end
+
 -- Admin-Prüfung (identisch zu api_admin.lua)
 local function pruefeAdmin(quelle, aktion)
   local spieler, err = HM_BP.Server.Middleware.PruefeRecht(
@@ -614,8 +626,9 @@ RegisterNetEvent("hm_bp:admin:webhook_test", function(payload)
   end
 
   -- Deutschen Embed-Test senden (via WebhookService.SendDirektTest)
+  local anzeigeNameAdmin = anzeigeNameAuflosen(quelle, spieler.name)
   if ws.SendDirektTest then
-    ws.SendDirektTest(url, spieler.name, function(statusCode, responseText)
+    ws.SendDirektTest(url, anzeigeNameAdmin, function(statusCode, responseText)
       if Config and Config.Kern and Config.Kern.Debugmodus then
         print(("[AdminCRUD] Webhook-Test Antwort: HTTP %d"):format(tonumber(statusCode) or 0))
       end
@@ -634,11 +647,11 @@ RegisterNetEvent("hm_bp:admin:webhook_test", function(payload)
         {
           title       = "🔔 Webhook-Test",
           description = ("Webhook-Test von Administrator **%s** – die Verbindung funktioniert."):format(
-            tostring(spieler.name or "Admin")
+            tostring(anzeigeNameAdmin)
           ),
           color  = 3427803,
           fields = {
-            { name = "Spielername", value = tostring(spieler.name or "Admin"), inline = true },
+            { name = "Akteur", value = tostring(anzeigeNameAdmin), inline = true },
           },
           footer = { text = "HM Bürgerportal Admin-Panel" },
         }
