@@ -89,6 +89,12 @@ const buergerAntwortText = document.getElementById("buergerAntwortText");
 const btnBuergerAntwortSenden = document.getElementById("btnBuergerAntwortSenden");
 const buergerAntwortMeta = document.getElementById("buergerAntwortMeta");
 
+// Nachreichen UI
+const buergerNachreichenSection = document.getElementById("buergerNachreichenSection");
+const buergerNachreichenFelder = document.getElementById("buergerNachreichenFelder");
+const btnBuergerNachreichen = document.getElementById("btnBuergerNachreichen");
+const buergerNachreichenMeta = document.getElementById("buergerNachreichenMeta");
+
 // ===== NEU: Formular-Editor UI Elements =====
 const formEditorMeta = document.getElementById("formEditorMeta");
 const formEditorBox = document.getElementById("formEditorBox");
@@ -148,6 +154,8 @@ let justizSuchModusAktiv = false;
 
 let ausgewaehlterBuergerAntragId = null;
 let buergerRueckfrageOffen = false;
+let buergerNachreichungErlaubt = false;
+let buergerAktuellerPayload = null; // { fields_snapshot, answers } für Nachreichen
 
 window.__hm_bp_aktuellerStatus = null;
 
@@ -464,6 +472,8 @@ function antraegeRendern(antraege) {
       onclick: () => {
         ausgewaehlterBuergerAntragId = a.id;
         buergerAntwortMeta.textContent = "";
+        buergerNachreichenMeta.textContent = "";
+        buergerNachreichenUiSetzen(false, null);
         nuiAufruf("hm_bp:antrag_details_mein_laden", { antragId: a.id });
         antraegeRendern(arr);
       }
@@ -507,8 +517,89 @@ function buergerAntwortUiSetzen(erlaubt, metaText) {
 }
 
 // ==========================
-// Justiz: Kategorien, Queues, Details
+// Bürger: Nachreichen UI
 // ==========================
+function buergerNachreichenUiSetzen(erlaubt, payload) {
+  buergerNachreichungErlaubt = !!erlaubt;
+  buergerAktuellerPayload = payload || null;
+  buergerNachreichenSection.style.display = erlaubt ? "block" : "none";
+  buergerNachreichenMeta.textContent = "";
+
+  if (!erlaubt || !payload) {
+    buergerNachreichenFelder.innerHTML = "";
+    return;
+  }
+
+  // Felder aus fields_snapshot rendern (bereits ausgefüllte = disabled)
+  let felderSnapshot = [];
+  try {
+    felderSnapshot = Array.isArray(payload.fields_snapshot)
+      ? payload.fields_snapshot
+      : JSON.parse(payload.fields_snapshot || "[]");
+  } catch { felderSnapshot = []; }
+
+  let bestehendeAntworten = {};
+  try {
+    bestehendeAntworten = (typeof payload.answers === "object" && payload.answers !== null)
+      ? payload.answers
+      : JSON.parse(payload.answers || "{}");
+  } catch { bestehendeAntworten = {}; }
+
+  buergerNachreichenFelder.innerHTML = "";
+
+  if (felderSnapshot.length === 0) {
+    buergerNachreichenFelder.innerHTML = `<div class="muted">Keine Felder im Snapshot vorhanden.</div>`;
+    return;
+  }
+
+  for (const feld of felderSnapshot) {
+    if (!feld.key) continue;
+    // Nur Felder anzeigen, die sichtbar für Bürger sind (falls Metadatum gesetzt)
+    if (feld.sichtbarFuerBuerger === false) continue;
+
+    const vorhanden = bestehendeAntworten[feld.key];
+    const istAusgefuellt = vorhanden !== undefined && vorhanden !== null && String(vorhanden).trim() !== "";
+    const wrapper = feldElementErstellen({ ...feld, pflicht: false });
+
+    // Bereits ausgefüllte Felder deaktivieren
+    const inputs = wrapper.querySelectorAll("input, textarea, select");
+    if (istAusgefuellt) {
+      inputs.forEach(el => {
+        el.disabled = true;
+        if (el.type === "checkbox") {
+          el.checked = !!vorhanden;
+        } else {
+          el.value = vorhanden;
+        }
+      });
+      const hinweis = document.createElement("div");
+      hinweis.className = "muted";
+      hinweis.textContent = "Bereits ausgefüllt – kann nicht geändert werden.";
+      wrapper.appendChild(hinweis);
+    } else {
+      // Leere Felder sind editierbar
+      inputs.forEach(el => { el.disabled = false; });
+    }
+
+    buergerNachreichenFelder.appendChild(wrapper);
+  }
+
+  const hatLeereFelder = felderSnapshot.some(f => {
+    if (!f.key || f.sichtbarFuerBuerger === false) return false;
+    const v = bestehendeAntworten[f.key];
+    return v === undefined || v === null || String(v).trim() === "";
+  });
+
+  if (!hatLeereFelder) {
+    const hinweis = document.createElement("div");
+    hinweis.className = "muted";
+    hinweis.textContent = "Alle Felder sind bereits ausgefüllt. Keine Nachreichung erforderlich.";
+    buergerNachreichenFelder.appendChild(hinweis);
+    btnBuergerNachreichen.disabled = true;
+  } else {
+    btnBuergerNachreichen.disabled = false;
+  }
+}
 function justizKategorienRendern(liste) {
   justizKategorien = Array.isArray(liste) ? liste : [];
   listeLeeren(justizKategorienListe);
@@ -1328,6 +1419,8 @@ btnReload.addEventListener("click", async () => {
   justizSearchMeta.textContent = "";
   justizRueckfrageMeta.textContent = "";
   buergerAntwortMeta.textContent = "";
+  buergerNachreichenMeta.textContent = "";
+  buergerNachreichenUiSetzen(false, null);
   formEditorCreateMeta.textContent = "";
   formEditorFieldAddMeta.textContent = "";
   formEditorActionMeta.textContent = "";
@@ -1374,6 +1467,35 @@ btnBuergerAntwortSenden.addEventListener("click", async () => {
 
   buergerAntwortMeta.textContent = "Wird gesendet…";
   await nuiAufruf("hm_bp:antrag_buerger_antwort_senden", { antragId: ausgewaehlterBuergerAntragId, text });
+});
+
+btnBuergerNachreichen.addEventListener("click", async () => {
+  fehlerVerstecken();
+  if (!ausgewaehlterBuergerAntragId) return fehlerAnzeigen("Bitte wähle links einen Antrag aus.");
+  if (!buergerNachreichungErlaubt) return fehlerAnzeigen("Nachreichen ist derzeit nicht erlaubt.");
+
+  // Felder aus dem Nachreichen-Formular einsammeln
+  const inputs = buergerNachreichenFelder.querySelectorAll("[data-key]");
+  const felder = {};
+  inputs.forEach(wrapper => {
+    const key = wrapper.dataset.key;
+    if (!key) return;
+    const input = wrapper.querySelector("input, textarea, select");
+    if (!input || input.disabled) return;
+    if (input.type === "checkbox") {
+      felder[key] = input.checked;
+    } else {
+      const val = (input.value || "").trim();
+      if (val !== "") felder[key] = val;
+    }
+  });
+
+  if (Object.keys(felder).length === 0) {
+    return fehlerAnzeigen("Keine neuen Werte zum Nachreichen eingegeben.");
+  }
+
+  buergerNachreichenMeta.textContent = "Wird nachgereicht…";
+  await nuiAufruf("hm_bp:antrag_nachreichen", { antragId: ausgewaehlterBuergerAntragId, felder });
 });
 
 btnJustizSuchen.addEventListener("click", async () => {
@@ -1842,6 +1964,7 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
     buergerDetailsHeader.textContent = `Antrag: ${a.public_id} | Status: ${a.status} | Priorität: ${a.priority}`;
     buergerVerlaufRendern(d.timeline || []);
     buergerAntwortUiSetzen(!!d.rueckfrageOffen, null);
+    buergerNachreichenUiSetzen(!!d.nachreichungErlaubt, d.payload || null);
   }
 
   if (msg.typ === "hm_bp:antrag:buerger_antwort_antwort") {
@@ -1852,6 +1975,20 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
     }
     buergerAntwortMeta.textContent = "Antwort gesendet.";
     buergerAntwortText.value = "";
+    if (ausgewaehlterBuergerAntragId) {
+      nuiAufruf("hm_bp:antrag_details_mein_laden", { antragId: ausgewaehlterBuergerAntragId });
+    }
+  }
+
+  if (msg.typ === "hm_bp:antrag:nachreichen_antwort") {
+    const payload = msg.payload || {};
+    if (!payload.ok) {
+      buergerNachreichenMeta.textContent = "";
+      return fehlerAnzeigen(payload.fehler?.nachricht || "Nachreichen fehlgeschlagen.");
+    }
+    const res = payload.res || {};
+    buergerNachreichenMeta.textContent = `Nachgereicht (${res.felderCount || 0} Feld(er)).${res.statusGeaendert ? " Status → " + res.statusNeu : ""}`;
+    // Details neu laden, damit die UI aktualisiert wird
     if (ausgewaehlterBuergerAntragId) {
       nuiAufruf("hm_bp:antrag_details_mein_laden", { antragId: ausgewaehlterBuergerAntragId });
     }

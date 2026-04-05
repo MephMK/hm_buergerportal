@@ -110,6 +110,13 @@ RegisterNUICallback("hm_bp:antrag_buerger_antwort_senden", function(daten, cb)
   cb({ ok = true })
 end)
 
+-- NEU: Bürger – Fehlende Felder nachreichen (nur bei question_open)
+RegisterNUICallback("hm_bp:antrag_nachreichen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:antrag:nachreichen", { antragId = daten.antragId, felder = daten.felder })
+  cb({ ok = true })
+end)
+
 -- Justiz
 RegisterNUICallback("hm_bp:justiz_kategorien_laden", function(_, cb)
   TriggerServerEvent("hm_bp:justiz:kategorien_anfordern")
@@ -288,9 +295,10 @@ RegisterNetEvent("hm_bp:formular:schema_antwort", function(payload) sende("hm_bp
 RegisterNetEvent("hm_bp:antrag:einreichen_antwort", function(payload) sende("hm_bp:antrag:einreichen_antwort", payload) end)
 RegisterNetEvent("hm_bp:antraege:meine_antwort", function(payload) sende("hm_bp:antraege:meine_antwort", payload) end)
 
--- NEU: Bürger Details + Antwort Ack
+-- NEU: Bürger Details + Antwort + Nachreichen Ack
 RegisterNetEvent("hm_bp:antrag:details_mein_antwort", function(payload) sende("hm_bp:antrag:details_mein_antwort", payload) end)
 RegisterNetEvent("hm_bp:antrag:buerger_antwort_antwort", function(payload) sende("hm_bp:antrag:buerger_antwort_antwort", payload) end)
+RegisterNetEvent("hm_bp:antrag:nachreichen_antwort", function(payload) sende("hm_bp:antrag:nachreichen_antwort", payload) end)
 
 RegisterNetEvent("hm_bp:justiz:kategorien_antwort", function(payload) sende("hm_bp:justiz:kategorien_antwort", payload) end)
 RegisterNetEvent("hm_bp:justiz:bearbeiter_liste_antwort", function(payload) sende("hm_bp:justiz:bearbeiter_liste_antwort", payload) end)

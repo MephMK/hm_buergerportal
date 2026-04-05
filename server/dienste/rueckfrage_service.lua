@@ -159,12 +159,14 @@ function RueckfrageService.BuergerDetailsHolen(spieler, antragId)
     LIMIT 200
   ]], { antragId })
 
-  -- rueckfrageOffen: nutzt Status-Metadaten als Quelle der Wahrheit
+  -- rueckfrageOffen / nachreichungErlaubt: Status-Metadaten als Quelle der Wahrheit
   local rueckfrageOffen = false
+  local nachreichungErlaubt = false
   local statusListe = HM_BP.Server.Dienste.StatusService.StatusListeFuerKategorie(a.category_id)
   for _, s in ipairs(statusListe) do
     if s.id == a.status then
       rueckfrageOffen = (s.erlaubtBuergerAntwort == true)
+      nachreichungErlaubt = (s.erlaubtNachreichung == true)
       break
     end
   end
@@ -172,12 +174,17 @@ function RueckfrageService.BuergerDetailsHolen(spieler, antragId)
     -- Fallback: Legacy
     rueckfrageOffen = (a.status == "question_open")
   end
+  if not nachreichungErlaubt then
+    -- Fallback: Legacy
+    nachreichungErlaubt = (a.status == "question_open")
+  end
 
   return {
     antrag = a,
     payload = payload,
     timeline = timeline,
-    rueckfrageOffen = rueckfrageOffen
+    rueckfrageOffen = rueckfrageOffen,
+    nachreichungErlaubt = nachreichungErlaubt
   }, nil
 end
 

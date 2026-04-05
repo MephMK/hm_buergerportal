@@ -273,6 +273,49 @@ RegisterNetEvent("hm_bp:antrag:buerger_antwort", function(payload)
   TriggerClientEvent("hm_bp:antrag:buerger_antwort_antwort", quelle, { ok = true, res = res })
 end)
 
+-- =========================
+-- Bürger – Formular-Antworten nachreichen (nur bei question_open)
+-- =========================
+RegisterNetEvent("hm_bp:antrag:nachreichen", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_EIGENE_ANSEHEN", {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:antrag:nachreichen_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local antragId = tonumber(payload.antragId)
+  local felder = payload.felder
+
+  if not antragId or type(felder) ~= "table" then
+    TriggerClientEvent("hm_bp:antrag:nachreichen_antwort", quelle, { ok = false, fehler = { nachricht = "Ungültige Daten (antragId oder felder fehlen)." } })
+    return
+  end
+
+  local res, err2 = HM_BP.Server.Dienste.NachreichungService.NachreichungEinreichen(spieler, antragId, felder)
+  if not res then
+    TriggerClientEvent("hm_bp:antrag:nachreichen_antwort", quelle, { ok = false, fehler = err2 })
+    return
+  end
+
+  if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
+    HM_BP.Server.Dienste.WebhookService.Emit("antrag_nachgereicht", {
+      submission_id = antragId,
+      public_id = res.public_id,
+      citizen = spieler.identifier,
+      citizen_name = spieler.name,
+      category_id = res.category_id,
+      form_id = res.form_id,
+      fields_count = res.felderCount,
+      timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    })
+  end
+
+  TriggerClientEvent("hm_bp:antrag:nachreichen_antwort", quelle, { ok = true, res = res })
+end)
+
 -- Debug: Öffentliche ID testen
 RegisterNetEvent("hm_bp:debug:oeffentliche_id_test", function()
   local quelle = source
