@@ -2547,10 +2547,10 @@ const btnAdminCrudAbbrechen = document.getElementById("btnAdminCrudAbbrechen");
 
 function adminModusSetzen(modus) {
   adminModus = modus;
-  if (btnAdminModeGefuehrt)   btnAdminModeGefuehrt.classList.toggle("active-mode",   modus === "gefuehrt");
+  if (btnAdminModeGefuehrt)  btnAdminModeGefuehrt.classList.toggle("active-mode",  modus === "gefuehrt");
   if (btnAdminModeErweitert) btnAdminModeErweitert.classList.toggle("active-mode", modus === "erweitert");
-  if (adminCrudGefuehrt)  adminCrudGefuehrt.style.display  = (modus === "gefuehrt")   ? "" : "none";
-  if (adminCrudErweitert) adminCrudErweitert.style.display = (modus === "erweitert") ? "" : "none";
+  if (adminCrudGefuehrt)     adminCrudGefuehrt.style.display  = (modus === "gefuehrt")   ? "" : "none";
+  if (adminCrudErweitert)    adminCrudErweitert.style.display = (modus === "erweitert") ? "" : "none";
   if (modus === "erweitert") {
     if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = adminAktiveSubsektion;
     if (adminAktionMeta) adminAktionMeta.textContent = "Klicke 'Effektiv laden', 'Basis laden' oder 'Override laden', um die Konfiguration zu bearbeiten.";

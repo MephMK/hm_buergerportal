@@ -628,25 +628,24 @@ RegisterNetEvent("hm_bp:admin:webhook_test", function(payload)
     }
   }
 
-  -- Direkt per HTTP senden (nicht über die interne Warteschlange)
-  local ok2 = false
+  -- Direkt per HTTP senden (FiveM: PerformHttpRequest ist callback-basiert und nicht-blockierend.
+  -- Die Antwort kann nicht synchron abgewartet werden. Die Anfrage wird abgeschickt und
+  -- der Client wird sofort informiert, dass die Nachricht gesendet wurde.
   local PerformHttpRequest = PerformHttpRequest
-  if PerformHttpRequest then
-    local body = json.encode(testPayload)
-    local sent = false
-    local resultOk = false
-    PerformHttpRequest(url, function(statusCode, responseText, responseHeaders)
-      resultOk = (statusCode >= 200 and statusCode < 300)
-      sent = true
-    end, "POST", body, { ["Content-Type"] = "application/json" })
-
-    -- Kurz warten (nicht-blockierend geht hier nicht direkt, daher direkte Antwort)
-    ok2 = true  -- Bestätigen, dass gesendet wurde
-  else
+  if not PerformHttpRequest then
     TriggerClientEvent("hm_bp:admin:webhook_test_antwort", quelle,
       { ok = false, fehler = { nachricht = "HTTP-Funktionalität nicht verfügbar." } })
     return
   end
+
+  local body = json.encode(testPayload)
+  PerformHttpRequest(url, function(statusCode, responseText, responseHeaders)
+    -- Asynchroner Callback: wird nach Rückmeldung von Discord ausgeführt.
+    -- Ergebnis kann hier nur geloggt werden (Client wurde bereits informiert).
+    if Config and Config.Kern and Config.Kern.Debugmodus then
+      print(("[AdminCRUD] Webhook-Test Antwort: HTTP %d"):format(tonumber(statusCode) or 0))
+    end
+  end, "POST", body, { ["Content-Type"] = "application/json" })
 
   local aud = audSvc()
   if aud then

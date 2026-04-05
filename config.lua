@@ -22,7 +22,7 @@ Config.Kern = {
   -- Ändere hier den Job-Namen wenn dein Justiz-Job nicht "doj" heißt.
   -- Config.Kern.Jobs.Justiz bleibt als Fallback für Rückwärtskompatibilität erhalten.
   Justiz = {
-    Job = "doj",  -- Job-Name des Justiz-Jobs (konfigurierbar für zukünftige Änderungen)
+    Job = "doj",  -- Job-Name des Justiz-Jobs (anpassbar an den Job-Namen deines Servers)
   },
 
   Debugmodus = false,

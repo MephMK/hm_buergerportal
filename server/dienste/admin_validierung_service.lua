@@ -58,16 +58,16 @@ function AdminValidierungService.ValidiereStandort(daten, alleStandorteIds)
   if daten.koordinaten ~= nil then
     local k = daten.koordinaten
     if not istTabelle(k) then return fehler("Feld 'koordinaten' muss eine Tabelle mit x, y, z sein.") end
-    if k.x ~= nil and not istZahl(tonumber(k.x)) then return fehler("koordinaten.x muss eine Zahl sein.") end
-    if k.y ~= nil and not istZahl(tonumber(k.y)) then return fehler("koordinaten.y muss eine Zahl sein.") end
-    if k.z ~= nil and not istZahl(tonumber(k.z)) then return fehler("koordinaten.z muss eine Zahl sein.") end
+    if k.x ~= nil and tonumber(k.x) == nil then return fehler("koordinaten.x muss eine Zahl sein.") end
+    if k.y ~= nil and tonumber(k.y) == nil then return fehler("koordinaten.y muss eine Zahl sein.") end
+    if k.z ~= nil and tonumber(k.z) == nil then return fehler("koordinaten.z muss eine Zahl sein.") end
   end
 
-  if daten.interaktionsRadius ~= nil and not istZahl(tonumber(daten.interaktionsRadius)) then
+  if daten.interaktionsRadius ~= nil and tonumber(daten.interaktionsRadius) == nil then
     return fehler("Feld 'interaktionsRadius' muss eine Zahl sein.")
   end
 
-  if daten.sichtbarRadius ~= nil and not istZahl(tonumber(daten.sichtbarRadius)) then
+  if daten.sichtbarRadius ~= nil and tonumber(daten.sichtbarRadius) == nil then
     return fehler("Feld 'sichtbarRadius' muss eine Zahl sein.")
   end
 
@@ -113,7 +113,7 @@ function AdminValidierungService.ValidiereKategorie(daten)
     return fehler("Feld 'aktiv' muss ein boolescher Wert (true/false) sein.")
   end
 
-  if daten.sortierung ~= nil and not istZahl(tonumber(daten.sortierung)) then
+  if daten.sortierung ~= nil and tonumber(daten.sortierung) == nil then
     return fehler("Feld 'sortierung' muss eine Zahl sein.")
   end
 
@@ -172,11 +172,11 @@ function AdminValidierungService.ValidiereFormular(daten, alleKategorienIds)
     end
   end
 
-  if daten.cooldownSekunden ~= nil and not istZahl(tonumber(daten.cooldownSekunden)) then
+  if daten.cooldownSekunden ~= nil and tonumber(daten.cooldownSekunden) == nil then
     return fehler("Feld 'cooldownSekunden' muss eine Zahl sein.")
   end
 
-  if daten.maxOffen ~= nil and not istZahl(tonumber(daten.maxOffen)) then
+  if daten.maxOffen ~= nil and tonumber(daten.maxOffen) == nil then
     return fehler("Feld 'maxOffen' muss eine Zahl sein.")
   end
 
@@ -299,7 +299,7 @@ function AdminValidierungService.ValidiereAnhaenge(daten)
   if not istTabelle(daten) then
     return fehler("Anhaenge-Daten müssen eine Tabelle sein.")
   end
-  if daten.MaxProAntrag ~= nil and not istZahl(tonumber(daten.MaxProAntrag)) then
+  if daten.MaxProAntrag ~= nil and tonumber(daten.MaxProAntrag) == nil then
     return fehler("Feld 'MaxProAntrag' muss eine Zahl sein.")
   end
   return ok()
