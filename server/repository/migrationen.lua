@@ -399,10 +399,11 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   ]])
 
   -- v12: Gebührenzahlung (PR14)
-  -- fee_eur:        Gebührenbetrag in Euro (Ganzzahl) am Formular
-  -- fee_eur:        Gebührenbetrag in Euro (Ganzzahl) zur Einreichung (Snapshot)
-  -- zahlung_status: 'bezahlt' | 'unbezahlt' | 'fehlgeschlagen'
-  -- charged_at:     Zeitpunkt der erfolgreichen Abbuchung
+  -- fee_eur (forms):    Gebührenbetrag in Euro (Ganzzahl) am Formular
+  -- fee_eur (submissions): Gebührenbetrag in Euro (Snapshot beim Einreichen)
+  -- zahlung_status:     'bezahlt' | 'unbezahlt' | 'fehlgeschlagen'
+  --   DEFAULT 'bezahlt': neue Zeilen ohne explizites Setzen sind implizit bezahlt (Fallback)
+  -- charged_at:         Zeitpunkt der erfolgreichen Abbuchung
   migrationAnwenden("v12_gebuehren_forms", [[
     ALTER TABLE hm_bp_form_editor_forms
       ADD COLUMN IF NOT EXISTS fee_eur INT NOT NULL DEFAULT 0;
@@ -413,8 +414,8 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       ADD COLUMN IF NOT EXISTS zahlung_status VARCHAR(16) NOT NULL DEFAULT 'bezahlt',
       ADD COLUMN IF NOT EXISTS charged_at DATETIME NULL;
   ]])
-  -- Backfill: Einreichungen mit fee_eur = 0 gelten als bezahlt (keine Gebühr erhoben).
-  -- Neue Einreichungen mit fee_eur > 0 werden beim Einreichen auf 'unbezahlt' gesetzt.
+  -- Backfill: Alle bestehenden Einreichungen hatten fee_eur = 0 → als bezahlt markieren.
+  -- Neue Einreichungen mit fee_eur > 0 werden beim Einreichen explizit auf 'unbezahlt' gesetzt.
   migrationAnwenden("v12_backfill_zahlung_status", [[
     UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt' WHERE fee_eur = 0;
   ]])

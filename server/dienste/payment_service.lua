@@ -67,8 +67,10 @@ local function bankAbheben(spieler, betrag, grund)
   end
 
   -- esx_billing (Fallback über Rechnungssystem)
+  -- HINWEIS: esx_billing ist fire-and-forget via TriggerEvent (keine Bestätigung möglich).
+  -- Wird als Erfolg gewertet, auch wenn die Rechnung intern fehlschlägt.
+  -- Nur nutzen wenn kein anderes Banking-System verfügbar ist.
   if ressourceGestartet("esx_billing") then
-    -- esx_billing nutzt AddPlayerBill – stellt eine Rechnung, die sofort eingelöst wird
     TriggerEvent("esx_billing:addPlayerBill", identifier, "justiz", grund, betrag)
     return true, nil
   end
@@ -113,6 +115,7 @@ local function societyEinzahlen(societyName, betrag, grund)
   end
 
   -- esx_billing (Fallback)
+  -- HINWEIS: fire-and-forget via TriggerEvent (keine Bestätigung möglich).
   if ressourceGestartet("esx_billing") then
     TriggerEvent("esx_billing:addSocietyMoney", societyName, betrag, 1)
     return true, nil

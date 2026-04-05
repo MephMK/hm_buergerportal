@@ -260,6 +260,11 @@ function normName(name) {
   return s ? s : "Unbekannt";
 }
 
+/** Parses a non-negative integer from a string input value. Returns 0 for invalid/negative values. */
+function parsePositiveInteger(value) {
+  return Math.max(0, Math.floor(parseInt(String(value || "0"), 10) || 0));
+}
+
 function parseOptionLines(text) {
   const arr = String(text || "").split("\n").map(x => x.trim()).filter(Boolean);
   const out = [];
@@ -545,9 +550,10 @@ function schemaRendern(schema) {
     felderContainer.parentNode.insertBefore(gebuehrHinweis, felderContainer);
   }
   if (feeEur > 0) {
+    const feeInt = parseInt(feeEur, 10) || 0;
     gebuehrHinweis.innerHTML =
-      `<span class="badge badge-warn">Gebühr: ${feeEur} €</span> ` +
-      `<span class="muted">Die Gebühr wird nach Bearbeitung Ihres Antrags von Ihrem Bankkonto abgebucht.</span>`;
+      `<span class="badge badge-warn">Geb\u00fchr: ${feeInt} \u20ac</span> ` +
+      `<span class="muted">Die Geb\u00fchr wird nach Bearbeitung Ihres Antrags von Ihrem Bankkonto abgebucht.</span>`;
     gebuehrHinweis.style.display = "block";
   } else {
     gebuehrHinweis.style.display = "none";
@@ -730,7 +736,7 @@ function formulareRendern(formulare) {
   for (const f of arr) {
     const badge = f.quelle === "db" ? " <span class=\"badge badge-ok\">DB</span>" : "";
     const feeBadge = (f.fee_eur && f.fee_eur > 0)
-      ? ` <span class="badge badge-warn">${f.fee_eur} €</span>`
+      ? ` <span class="badge badge-warn">${parseInt(f.fee_eur, 10) || 0} \u20ac</span>`
       : "";
     const div = itemErstellen({
       name: f.titel,
@@ -2246,7 +2252,7 @@ btnFormEditorCreate.addEventListener("click", async () => {
   const id = String(formEditorNewId.value || "").trim();
   const titel = String(formEditorNewTitel.value || "").trim();
   const beschreibung = String(formEditorNewBeschreibung.value || "").trim();
-  const feeEur = Math.max(0, Math.floor(parseInt(formEditorNewFeeEur?.value || "0") || 0));
+  const feeEur = parsePositiveInteger(formEditorNewFeeEur?.value);
 
   if (!id) return fehlerAnzeigen("Formular-ID fehlt.");
   if (!titel) return fehlerAnzeigen("Titel fehlt.");
@@ -2308,7 +2314,7 @@ btnFormEditorSave.addEventListener("click", async () => {
 
   // Gebühr aus Input übernehmen (PR14)
   if (formEditorFeeEur) {
-    const fee = Math.max(0, Math.floor(parseInt(formEditorFeeEur.value || "0") || 0));
+    const fee = parsePositiveInteger(formEditorFeeEur.value);
     formEditorSchemaDraft.formular = formEditorSchemaDraft.formular || {};
     formEditorSchemaDraft.formular.fee_eur = fee;
   }
@@ -3313,7 +3319,7 @@ async function adminCrudFormularSpeichern() {
       duplikatPruefung: f.querySelector("[name=duplikatPruefung]")?.value !== "false",
       gebuehren: {
         aktiv:  f.querySelector("[name=gebuehrenAktiviert]")?.value === "true",
-        betrag: Math.floor(parseInt(f.querySelector("[name=gebuehrenBetrag]")?.value) || 0),
+        betrag: parsePositiveInteger(f.querySelector("[name=gebuehrenBetrag]")?.value),
       },
     };
     const katId = f.querySelector("[name=kategorie_id]")?.value;
