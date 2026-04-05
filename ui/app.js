@@ -4048,7 +4048,7 @@ function jobSettingsGradeListeAnzeigen(jobName) {
   const jobDef = ((jobSettingsDaten.Jobs) || {})[jobName] || {};
   const grades = Array.isArray(jobDef.grades) ? jobDef.grades : [];
   if (grades.length === 0) {
-    jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine R00e4nge definiert.</div>";
+    jobSettingsGradeListe.innerHTML = "<div class='muted' style='padding:8px;'>Keine R\u00e4nge definiert.</div>";
     return;
   }
   const sortedGrades = [...grades].sort((a, b) => (a.grade ?? 0) - (b.grade ?? 0));

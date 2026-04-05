@@ -66,8 +66,8 @@ function EntwurfService.Speichern(spieler, antragId, draftType, text)
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_staff_drafts (submission_id, actor_identifier, draft_type, draft_text)
     VALUES (?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE draft_text = VALUES(draft_text), updated_at = CURRENT_TIMESTAMP
-  ]], { antragId, spieler.identifier, draftType, text })
+    ON DUPLICATE KEY UPDATE draft_text = ?, updated_at = CURRENT_TIMESTAMP
+  ]], { antragId, spieler.identifier, draftType, text, text })
 
   -- Audit
   local audit = HM_BP.Server.Dienste.AuditService
