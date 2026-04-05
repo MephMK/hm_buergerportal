@@ -78,3 +78,43 @@ CreateThread(function()
     end
   end
 end)
+
+-- =============================================================
+-- Audit-Retention-Cleanup: Löscht Einträge älter als N Tage (PR12)
+-- Läuft einmal beim Start und dann periodisch.
+-- Blockiert den Game-Thread NICHT (DB-Aufruf asynchron).
+-- =============================================================
+CreateThread(function()
+  -- Auf vollständige DB-Initialisierung warten (nach Migrationen)
+  Wait(15000)
+
+  -- Cleanup beim Start
+  if Config and Config.Audit and Config.Audit.Aktiviert ~= false then
+    local auditSvc = HM_BP.Server and HM_BP.Server.Dienste and HM_BP.Server.Dienste.AuditService
+    if auditSvc and auditSvc.RetentionCleanup then
+      local ok, err = pcall(function() auditSvc.RetentionCleanup() end)
+      if not ok and Config.Kern and Config.Kern.Debugmodus == true then
+        print(("[hm_buergerportal] WARN: AuditRetentionCleanup (Start) fehlgeschlagen: %s"):format(tostring(err)))
+      end
+    end
+  end
+
+  -- Periodischer Cleanup
+  while true do
+    local interval = tonumber(
+      Config.Audit and Config.Audit.Cleanup and Config.Audit.Cleanup.IntervalSekunden
+    ) or 3600  -- Standard: 1 Stunde
+
+    Wait(interval * 1000)
+
+    if Config and Config.Audit and Config.Audit.Aktiviert ~= false then
+      local auditSvc = HM_BP.Server and HM_BP.Server.Dienste and HM_BP.Server.Dienste.AuditService
+      if auditSvc and auditSvc.RetentionCleanup then
+        local ok, err = pcall(function() auditSvc.RetentionCleanup() end)
+        if not ok and Config.Kern and Config.Kern.Debugmodus == true then
+          print(("[hm_buergerportal] WARN: AuditRetentionCleanup fehlgeschlagen: %s"):format(tostring(err)))
+        end
+      end
+    end
+  end
+end)

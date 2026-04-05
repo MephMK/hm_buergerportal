@@ -146,3 +146,14 @@ RegisterNUICallback("hm_bp:admin_sektion_validieren_v2", function(daten, cb)
     "hm_bp:admin:sektion_validieren_v2_antwort"
   ))
 end)
+
+-- -------------------------------------------------------
+-- PR12: Audit-Log-Liste laden (Admin + Justiz-Leitung)
+-- -------------------------------------------------------
+RegisterNUICallback("hm_bp:audit_liste_laden", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:audit:liste_laden",
+    daten or {},
+    "hm_bp:audit:liste_antwort"
+  ))
+end)
