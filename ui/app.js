@@ -82,6 +82,19 @@ const btnJustizSuchen = document.getElementById("btnJustizSuchen");
 const btnJustizFilterReset = document.getElementById("btnJustizFilterReset");
 const justizSearchMeta = document.getElementById("justizSearchMeta");
 
+// Bearbeiter / Flags Filter
+const justizFilterBearbeiter = document.getElementById("justizFilterBearbeiter");
+const justizFilterBearbeiterName = document.getElementById("justizFilterBearbeiterName");
+const justizFilterEskaliert = document.getElementById("justizFilterEskaliert");
+const justizFilterUeberfaellig = document.getElementById("justizFilterUeberfaellig");
+
+// Paginierung
+const justizPaginierung = document.getElementById("justizPaginierung");
+const btnJustizSeiteZurueck = document.getElementById("btnJustizSeiteZurueck");
+const btnJustizSeiteWeiter = document.getElementById("btnJustizSeiteWeiter");
+const justizSeiteInfo = document.getElementById("justizSeiteInfo");
+const justizGesamtInfo = document.getElementById("justizGesamtInfo");
+
 // Bürger Details UI
 const buergerDetailsHeader = document.getElementById("buergerDetailsHeader");
 const buergerVerlauf = document.getElementById("buergerVerlauf");
@@ -165,6 +178,10 @@ let bearbeiterListe = [];
 let statusListeAktuell = [];
 
 let justizSuchModusAktiv = false;
+// Paginierungs-State für Suche
+let justizSuchAktuelleSeite = 1;
+let justizSuchGesamtSeiten = 1;
+let justizSuchLetztesPayload = null; // wird für Seitenblättern wiederverwendet
 
 let ausgewaehlterBuergerAntragId = null;
 let buergerRueckfrageOffen = false;
@@ -1134,7 +1151,8 @@ function justizQueueLaden() {
     if (tabArchiv.disabled) return;
     justizSearchMeta.textContent = "Archiv wird geladen…";
     justizSuchModusAktiv = true;
-    nuiAufruf("hm_bp:justiz_suchen", {
+    justizSuchAktuelleSeite = 1;
+    const archivPayload = {
       kategorieId: ausgewaehlteJustizKategorieId,
       queue: "archiv",
       query: "",
@@ -1144,9 +1162,13 @@ function justizQueueLaden() {
       dateTo: "",
       sortBy: justizSortBy.value || "updated_at",
       sortDir: justizSortDir.value || "DESC",
-      limit: 100,
-      offset: 0
-    });
+      bearbeiter: "",
+      eskaliert: false,
+      ueberfaellig: false,
+      page: 1,
+    };
+    justizSuchLetztesPayload = archivPayload;
+    nuiAufruf("hm_bp:justiz_suchen", archivPayload);
   }
 }
 
@@ -1204,9 +1226,31 @@ function filterSelectsInitialisieren() {
   }
 }
 
-async function justizSuchen() {
+// -------------------------------------------------------
+// Paginierungssteuerung
+// -------------------------------------------------------
+function justizPaginierungAktualisieren(total, seite, gesamtSeiten) {
+  if (!justizPaginierung) return;
+  if (total === 0 || gesamtSeiten <= 1) {
+    justizPaginierung.style.display = "none";
+    return;
+  }
+  justizPaginierung.style.display = "flex";
+  justizSeiteInfo.textContent = `Seite ${seite} von ${gesamtSeiten}`;
+  justizGesamtInfo.textContent = `(${total} Einträge gesamt)`;
+  btnJustizSeiteZurueck.disabled = seite <= 1;
+  btnJustizSeiteWeiter.disabled = seite >= gesamtSeiten;
+}
+
+async function justizSuchen(seite) {
   fehlerVerstecken();
   if (!ausgewaehlteJustizKategorieId) return fehlerAnzeigen("Bitte wähle zuerst eine Justiz-Kategorie.");
+
+  // Bearbeiter-Filter zusammenbauen
+  let bearbeiterWert = justizFilterBearbeiter.value || "";
+  if (bearbeiterWert === "name") {
+    bearbeiterWert = (justizFilterBearbeiterName.value || "").trim();
+  }
 
   const payload = {
     kategorieId: ausgewaehlteJustizKategorieId,
@@ -1222,10 +1266,15 @@ async function justizSuchen() {
     sortBy: justizSortBy.value || "updated_at",
     sortDir: justizSortDir.value || "DESC",
 
-    limit: 100,
-    offset: 0
+    bearbeiter: bearbeiterWert,
+    eskaliert: justizFilterEskaliert.checked,
+    ueberfaellig: justizFilterUeberfaellig.checked,
+
+    page: (typeof seite === "number" && seite >= 1) ? seite : 1,
   };
 
+  justizSuchAktuelleSeite = payload.page;
+  justizSuchLetztesPayload = payload;
   justizSuchModusAktiv = true;
   justizSearchMeta.textContent = "Suche läuft…";
   await nuiAufruf("hm_bp:justiz_suchen", payload);
@@ -1932,7 +1981,7 @@ btnBuergerAnhangHinzufuegen.addEventListener("click", async () => {
 });
 
 btnJustizSuchen.addEventListener("click", async () => {
-  await justizSuchen();
+  await justizSuchen(1);
 });
 
 btnJustizFilterReset.addEventListener("click", () => {
@@ -1943,10 +1992,41 @@ btnJustizFilterReset.addEventListener("click", () => {
   justizFilterDateTo.value = "";
   justizSortBy.value = "updated_at";
   justizSortDir.value = "DESC";
+  if (justizFilterBearbeiter) justizFilterBearbeiter.value = "";
+  if (justizFilterBearbeiterName) { justizFilterBearbeiterName.value = ""; justizFilterBearbeiterName.style.display = "none"; }
+  if (justizFilterEskaliert) justizFilterEskaliert.checked = false;
+  if (justizFilterUeberfaellig) justizFilterUeberfaellig.checked = false;
   justizSearchMeta.textContent = "Filter zurückgesetzt.";
   justizSuchModusAktiv = false;
+  justizSuchLetztesPayload = null;
+  if (justizPaginierung) justizPaginierung.style.display = "none";
   justizQueueLaden();
 });
+
+// Bearbeiter-Name-Feld ein-/ausblenden
+if (justizFilterBearbeiter) {
+  justizFilterBearbeiter.addEventListener("change", () => {
+    if (justizFilterBearbeiterName) {
+      justizFilterBearbeiterName.style.display = justizFilterBearbeiter.value === "name" ? "" : "none";
+    }
+  });
+}
+
+// Paginierung – Zurück/Weiter
+if (btnJustizSeiteZurueck) {
+  btnJustizSeiteZurueck.addEventListener("click", async () => {
+    if (justizSuchAktuelleSeite > 1) {
+      await justizSuchen(justizSuchAktuelleSeite - 1);
+    }
+  });
+}
+if (btnJustizSeiteWeiter) {
+  btnJustizSeiteWeiter.addEventListener("click", async () => {
+    if (justizSuchAktuelleSeite < justizSuchGesamtSeiten) {
+      await justizSuchen(justizSuchAktuelleSeite + 1);
+    }
+  });
+}
 
 tabBuerger.addEventListener("click", () => tabSetzen("buerger"));
 tabJustiz.addEventListener("click", () => tabSetzen("justiz"));
@@ -1956,6 +2036,8 @@ tabEingang.addEventListener("click", () => {
     queueTabSetzen("eingang");
     justizSuchModusAktiv = false;
     justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
     justizQueueLaden();
   }
 });
@@ -1964,6 +2046,8 @@ tabZugewiesen.addEventListener("click", () => {
     queueTabSetzen("zugewiesen");
     justizSuchModusAktiv = false;
     justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
     justizQueueLaden();
   }
 });
@@ -1972,6 +2056,8 @@ tabAlleKategorie.addEventListener("click", () => {
     queueTabSetzen("alle");
     justizSuchModusAktiv = false;
     justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
     justizQueueLaden();
   }
 });
@@ -1980,6 +2066,8 @@ tabArchiv.addEventListener("click", () => {
     queueTabSetzen("archiv");
     justizSuchModusAktiv = false;
     justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
     justizQueueLaden();
   }
 });
@@ -2324,12 +2412,27 @@ window.addEventListener("message", (event) => {
     const payload = msg.payload || {};
     if (!payload.ok) {
       justizSearchMeta.textContent = "";
+      justizPaginierungAktualisieren(0, 1, 1);
       return fehlerAnzeigen(payload.fehler?.nachricht || "Suche fehlgeschlagen.");
     }
 
     const res = payload.res || {};
+    const total = res.total || 0;
+    const seite = res.page || 1;
+    const gesamtSeiten = res.gesamtSeiten || 1;
+    const perPage = res.perPage || 25;
+    const vonZeige = total === 0 ? 0 : (seite - 1) * perPage + 1;
+    const bisZeige = Math.min(seite * perPage, total);
+
     justizSuchModusAktiv = true;
-    justizSearchMeta.textContent = `Gefunden: ${res.total || (res.liste ? res.liste.length : 0)} (zeige: ${res.liste ? res.liste.length : 0})`;
+    justizSuchAktuelleSeite = seite;
+    justizSuchGesamtSeiten = gesamtSeiten;
+
+    justizSearchMeta.textContent = total === 0
+      ? "Keine Ergebnisse."
+      : `Zeige ${vonZeige}–${bisZeige} von ${total} Eintrag${total !== 1 ? "en" : ""}`;
+
+    justizPaginierungAktualisieren(total, seite, gesamtSeiten);
     justizAntraegeRendern(res.liste || []);
   }
 

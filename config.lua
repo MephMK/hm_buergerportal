@@ -1310,6 +1310,28 @@ Config.Webhooks = {
   }
 }
 
+-- =============================================================
+-- Config.Suche
+-- Sucheinstellungen für Justiz- und Admin-Queues.
+-- Aktiviert/deaktivierbar; Standard- und Maximalwerte für
+-- Seitenanzahl und Suchtext-Länge konfigurierbar.
+-- Wird über AdminConfigService verwaltet und ist per
+-- data/admin_overrides.json live überschreibbar.
+-- =============================================================
+Config.Suche = {
+  -- Suche/Filter insgesamt aktivieren
+  Aktiviert = true,
+
+  -- Standard-Seitengröße (Einträge pro Seite)
+  StandardProSeite = 25,
+
+  -- Maximale Seitengröße (Schutz vor übermäßigen DB-Abfragen)
+  MaxProSeite = 100,
+
+  -- Maximale Länge des Suchtexts (Bürgername)
+  MaxSuchtextLaenge = 64,
+}
+
 Config.AntiSpam = {
   Aktiviert = true,
   GlobalerCooldownSekunden = 15,

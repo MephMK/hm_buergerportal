@@ -165,12 +165,36 @@
           <div class="grid2">
             <div class="feld">
               <div class="label">Suche</div>
-              <input id="justizSearchQuery" type="text" placeholder="Public-ID, Bürgername oder Identifier..." />
-              <div class="hint">Tipp: Mindestlänge 2 Zeichen. Suche läuft nur innerhalb der ausgewählten Kategorie/Queue.</div>
+              <input id="justizSearchQuery" type="text" placeholder="Bürgername (min. 2 Zeichen)…" maxlength="64" aria-label="Bürgername suchen" />
+              <div class="hint">Suche nach Bürgername (Teilsuche). Min. 2 Zeichen. Nur innerhalb der ausgewählten Kategorie/Queue.</div>
+
+              <div style="margin-top:10px;">
+                <div class="muted" style="margin:0 0 6px 0;">Bearbeiter</div>
+                <select id="justizFilterBearbeiter">
+                  <option value="">Alle</option>
+                  <option value="unbearbeitet">Nicht zugewiesen</option>
+                  <option value="zugewiesen">Zugewiesen (beliebig)</option>
+                  <option value="name">Nach Name…</option>
+                </select>
+                <input id="justizFilterBearbeiterName" type="text" placeholder="Bearbeitername…" maxlength="64"
+                       aria-label="Bearbeitername eingeben"
+                       style="margin-top:6px; display:none;" />
+              </div>
+
+              <div style="margin-top:10px; display:flex; gap:16px; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input id="justizFilterEskaliert" type="checkbox" />
+                  <span>Eskaliert</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input id="justizFilterUeberfaellig" type="checkbox" />
+                  <span>Überfällig</span>
+                </label>
+              </div>
             </div>
 
             <div class="feld">
-              <div class="label">Filter</div>
+              <div class="label">Filter &amp; Sortierung</div>
 
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div>
@@ -185,11 +209,11 @@
 
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                 <div>
-                  <div class="muted" style="margin:0 0 6px 0;">Datum von</div>
+                  <div class="muted" style="margin:0 0 6px 0;">Zeitraum von</div>
                   <input id="justizFilterDateFrom" type="date" />
                 </div>
                 <div>
-                  <div class="muted" style="margin:0 0 6px 0;">Datum bis</div>
+                  <div class="muted" style="margin:0 0 6px 0;">Zeitraum bis</div>
                   <input id="justizFilterDateTo" type="date" />
                 </div>
               </div>
@@ -199,7 +223,7 @@
                   <div class="muted" style="margin:0 0 6px 0;">Sortierung</div>
                   <select id="justizSortBy">
                     <option value="updated_at">Letzte Änderung</option>
-                    <option value="created_at">Erstellt</option>
+                    <option value="created_at">Erstellt am</option>
                     <option value="priority">Priorität</option>
                     <option value="status">Status</option>
                   </select>
@@ -215,11 +239,19 @@
 
               <div style="display:flex; gap:8px; margin-top:10px;">
                 <button id="btnJustizSuchen" class="btn btn-secondary" type="button" style="flex:1;">Suchen</button>
-                <button id="btnJustizFilterReset" class="btn btn-secondary" type="button" style="flex:1;">Reset</button>
+                <button id="btnJustizFilterReset" class="btn btn-secondary" type="button" style="flex:1;">Zurücksetzen</button>
               </div>
 
               <div class="muted" id="justizSearchMeta"></div>
             </div>
+          </div>
+
+          <!-- Paginierung -->
+          <div id="justizPaginierung" style="display:none; margin-top:10px; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button id="btnJustizSeiteZurueck" class="btn btn-secondary" type="button" disabled aria-label="Vorherige Seite">&#8249; Zurück</button>
+            <span id="justizSeiteInfo" class="muted">Seite 1 von 1</span>
+            <button id="btnJustizSeiteWeiter" class="btn btn-secondary" type="button" disabled aria-label="Nächste Seite">Weiter &#8250;</button>
+            <span id="justizGesamtInfo" class="muted"></span>
           </div>
 
           <div class="trenner"></div>
