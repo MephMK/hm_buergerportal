@@ -25,7 +25,7 @@ local RESOURCE_NAME   = GetCurrentResourceName()
 
 -- Verwaltete Config-Sektionen (werden gemergt)
 local MANAGED_SECTIONS = {
-  "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks"
+  "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks", "Workflows"
 }
 
 -- In-Memory-Snapshot der originalen Basis-Config (vor jedem Merge)

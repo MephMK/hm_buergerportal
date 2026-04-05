@@ -25,7 +25,7 @@ local function utcJetztIso()
 end
 
 local function leitungMinGrade()
-  return tonumber(Config.Workflow and Config.Workflow.LeitungMinGrade) or 29
+  return tonumber(Config.Workflows and Config.Workflows.Leitung and Config.Workflows.Leitung.MinGrade) or 29
 end
 
 local function justizJob()
@@ -94,7 +94,7 @@ end
 ---Berechnet sla_due_at und schreibt es für einen frisch eingereichten Antrag.
 ---Wird von AntragService aufgerufen.
 function WorkflowService.SlaInitialisieren(antragId, kategorieId)
-  local defaultStunden = tonumber(Config.Workflow and Config.Workflow.DefaultSlaHours) or 48
+  local defaultStunden = tonumber(Config.Workflows and Config.Workflows.Sla and Config.Workflows.Sla.DefaultSlaHours) or 48
 
   local k = Config.Kategorien
     and Config.Kategorien.Liste
@@ -114,10 +114,10 @@ end
 -- -------------------------------------------------------
 
 ---Prüft aktive Anträge auf SLA-Überschreitung und eskaliert ggf.
----Wird alle Config.Workflow.TickIntervalSekunden aufgerufen.
+---Wird alle Config.Workflows.Sla.TickIntervalSekunden aufgerufen.
 function WorkflowService.SlaTick()
-  local eskalierung = Config.Workflow and Config.Workflow.Eskalierung
-  if not (eskalierung and eskalierung.Aktiviert) then return end
+  local eskalation = Config.Workflows and Config.Workflows.Eskalation
+  if not (eskalation and eskalation.Aktiviert) then return end
 
   local overdue = HM_BP.Server.Datenbank.Alle([[
     SELECT id, category_id, citizen_name, public_id
