@@ -119,6 +119,7 @@ RegisterNetEvent("hm_bp:form_editor:formular_erstellen", function(payload)
     kategorieId = payload.kategorieId,
     titel       = payload.titel,
     beschreibung = payload.beschreibung,
+    fee_eur     = payload.fee_eur,
   })
   if not result then
     TriggerClientEvent("hm_bp:form_editor:formular_erstellen_antwort", quelle, { ok = false, fehler = fehler })

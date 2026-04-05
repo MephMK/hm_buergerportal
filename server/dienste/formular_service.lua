@@ -36,7 +36,7 @@ end
 
 local function dbPublishedFormsForCategory(kategorieId)
   local rows = HM_BP.Server.Datenbank.Alle([[
-    SELECT id, category_id, title, description, status, active, published_version
+    SELECT id, category_id, title, description, status, active, published_version, fee_eur
     FROM hm_bp_form_editor_forms
     WHERE category_id = ?
       AND status = 'published'
@@ -49,7 +49,7 @@ end
 
 local function dbPublishedSchema(formId)
   local row = HM_BP.Server.Datenbank.Einzel([[
-    SELECT v.schema_json
+    SELECT v.schema_json, f.fee_eur
     FROM hm_bp_form_editor_forms f
     JOIN hm_bp_form_editor_versions v
       ON v.form_id = f.id AND v.version = f.published_version
@@ -160,6 +160,8 @@ function FormularService.ListeSichtbarFuer(spieler, standortId, kategorieId)
           maxOffenProSpieler = f.maxOffenProSpieler or 0,
           standardStatus = f.standardStatus,
           standardPrioritaet = f.standardPrioritaet,
+          -- Gebühr aus config.gebuehren (PR14)
+          fee_eur = (f.gebuehren and f.gebuehren.aktiv and tonumber(f.gebuehren.betrag)) or 0,
         })
       end
       ::weiter::
@@ -190,6 +192,8 @@ function FormularService.ListeSichtbarFuer(spieler, standortId, kategorieId)
           maxOffenProSpieler = 0,
           standardStatus = nil,
           standardPrioritaet = nil,
+          -- Gebühr aus DB-Formular (PR14)
+          fee_eur = tonumber(r.fee_eur) or 0,
         })
 
         ::weiter_db::
@@ -215,6 +219,10 @@ function FormularService.FormularSchemaHolen(spieler, formularId)
       if type(schema) == "string" then
         schema = json.decode(schema)
       end
+
+      -- Gebühr aus DB in Schema eintragen (PR14)
+      schema.formular = schema.formular or {}
+      schema.formular.fee_eur = tonumber(row.fee_eur) or 0
 
       schema = ensureCitizenNameField(schema, rolle)
       return schema, nil
@@ -244,6 +252,8 @@ function FormularService.FormularSchemaHolen(spieler, formularId)
       beschreibung = f.beschreibung,
       kategorieId = f.kategorieId,
       version = 1,
+      -- Gebühr aus Config (PR14)
+      fee_eur = (f.gebuehren and f.gebuehren.aktiv and tonumber(f.gebuehren.betrag)) or 0,
     },
     felder = {}
   }

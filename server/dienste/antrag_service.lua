@@ -80,6 +80,16 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
   local prioritaet = (fConfig and fConfig.standardPrioritaet) or (kConfig and kConfig.standardPrioritaet) or "normal"
   local frist = fristBerechnen(fConfig, kConfig)
 
+  -- Gebühr aus Schema ermitteln (PR14)
+  local feeEur = tonumber(schema.formular and schema.formular.fee_eur) or 0
+  if feeEur < 0 then feeEur = 0 end
+  -- Fallback: Config-Formular gebuehren
+  if feeEur == 0 and fConfig and fConfig.gebuehren and fConfig.gebuehren.aktiv then
+    feeEur = math.max(0, math.floor(tonumber(fConfig.gebuehren.betrag) or 0))
+  end
+  -- Zahlungsstatus: bei Gebühr > 0 → unbezahlt (Zahlung nach Bearbeitung)
+  local zahlungStatus = feeEur > 0 and "unbezahlt" or "bezahlt"
+
   local flags = {
     eingereichtAm = utcJetztIso(),
     standortId = standortId
@@ -88,9 +98,9 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
   -- Insert Antrag
   local inserted = HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_submissions
-      (public_id, citizen_identifier, citizen_name, category_id, form_id, form_version, status, priority, deadline_at, due_state, location_id, flags)
+      (public_id, citizen_identifier, citizen_name, category_id, form_id, form_version, status, priority, deadline_at, due_state, location_id, flags, fee_eur, zahlung_status)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, 'normal', ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, 'normal', ?, ?, ?, ?)
   ]], {
     publicId,
     spieler.identifier,
@@ -102,7 +112,9 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     prioritaet,
     frist,
     standortId,
-    json.encode(flags)
+    json.encode(flags),
+    feeEur,
+    zahlungStatus
   })
 
   if not inserted or inserted < 1 then
@@ -123,6 +135,7 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     beschreibung = schema.formular.beschreibung,
     kategorieId = schema.formular.kategorieId,
     version = schema.formular.version,
+    fee_eur = feeEur,
   }
 
   local okPayload = HM_BP.Server.Datenbank.Ausfuehren([[
@@ -186,7 +199,9 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
       public_id = publicId,
       formular_id = formularId,
       kategorie_id = fConfig.kategorieId,
-      standort_id = standortId
+      standort_id = standortId,
+      fee_eur = feeEur,
+      zahlung_status = zahlungStatus,
     })
   })
 
@@ -202,7 +217,13 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     public_id = publicId,
     status = status,
     prioritaet = prioritaet,
-    frist = frist
+    frist = frist,
+    fee_eur = feeEur,
+    zahlung_status = zahlungStatus,
+    -- Hinweis für den Bürger (PR14: Zahlung nach Bearbeitung)
+    zahlung_hinweis = feeEur > 0
+      and ("Für diesen Antrag wird eine Gebühr von %d € erhoben. Die Zahlung erfolgt nach Bearbeitung Ihres Antrags."):format(feeEur)
+      or nil,
   }, nil
 end
 

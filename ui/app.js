@@ -134,11 +134,13 @@ const formEditorFormListe = document.getElementById("formEditorFormListe");
 const formEditorNewId = document.getElementById("formEditorNewId");
 const formEditorNewTitel = document.getElementById("formEditorNewTitel");
 const formEditorNewBeschreibung = document.getElementById("formEditorNewBeschreibung");
+const formEditorNewFeeEur = document.getElementById("formEditorNewFeeEur");
 const btnFormEditorCreate = document.getElementById("btnFormEditorCreate");
 const formEditorCreateMeta = document.getElementById("formEditorCreateMeta");
 
 const formEditorFormHeader = document.getElementById("formEditorFormHeader");
 const formEditorFeldListe = document.getElementById("formEditorFeldListe");
+const formEditorFeeEur = document.getElementById("formEditorFeeEur");
 
 const formEditorFieldKey = document.getElementById("formEditorFieldKey");
 const formEditorFieldTyp = document.getElementById("formEditorFieldTyp");
@@ -533,6 +535,24 @@ function schemaRendern(schema) {
   formularTitel.textContent = formular.titel || "Formular";
   formularBeschreibung.textContent = formular.beschreibung || "";
 
+  // Gebühren-Hinweis anzeigen (PR14)
+  const feeEur = formular.fee_eur || 0;
+  let gebuehrHinweis = document.getElementById("gebuehrHinweis");
+  if (!gebuehrHinweis) {
+    gebuehrHinweis = document.createElement("div");
+    gebuehrHinweis.id = "gebuehrHinweis";
+    gebuehrHinweis.className = "zahlung-hinweis";
+    felderContainer.parentNode.insertBefore(gebuehrHinweis, felderContainer);
+  }
+  if (feeEur > 0) {
+    gebuehrHinweis.innerHTML =
+      `<span class="badge badge-warn">Gebühr: ${feeEur} €</span> ` +
+      `<span class="muted">Die Gebühr wird nach Bearbeitung Ihres Antrags von Ihrem Bankkonto abgebucht.</span>`;
+    gebuehrHinweis.style.display = "block";
+  } else {
+    gebuehrHinweis.style.display = "none";
+  }
+
   const felder = Array.isArray(schema.felder) ? schema.felder : [];
   // Nach reihenfolge sortieren falls vorhanden
   const sortiert = [...felder].sort((a, b) => (a.reihenfolge || 999) - (b.reihenfolge || 999));
@@ -709,6 +729,9 @@ function formulareRendern(formulare) {
 
   for (const f of arr) {
     const badge = f.quelle === "db" ? " <span class=\"badge badge-ok\">DB</span>" : "";
+    const feeBadge = (f.fee_eur && f.fee_eur > 0)
+      ? ` <span class="badge badge-warn">${f.fee_eur} €</span>`
+      : "";
     const div = itemErstellen({
       name: f.titel,
       desc: f.beschreibung,
@@ -724,7 +747,7 @@ function formulareRendern(formulare) {
         formulareRendern(arr);
       }
     });
-    div.querySelector(".name").innerHTML = `${escapeHtml(f.titel)}${badge}`;
+    div.querySelector(".name").innerHTML = `${escapeHtml(f.titel)}${badge}${feeBadge}`;
     formulareListe.appendChild(div);
   }
 }
@@ -1612,8 +1635,9 @@ function renderFormEditorHeader() {
     formEditorFormHeader.textContent = `Formular: ${formEditorFormId}`;
     return;
   }
+  const feeStr = (f.fee_eur && f.fee_eur > 0) ? ` <span class="badge badge-warn">${f.fee_eur} €</span>` : "";
   formEditorFormHeader.innerHTML =
-    `Formular: <b>${escapeHtml(f.title || f.id)}</b> (ID: ${escapeHtml(f.id)}) ${statusBadge(f.status)}`;
+    `Formular: <b>${escapeHtml(f.title || f.id)}</b> (ID: ${escapeHtml(f.id)}) ${statusBadge(f.status)}${feeStr}`;
 }
 
 function renderFormEditorFields() {
@@ -1777,6 +1801,10 @@ async function formEditorLoadDraftSchema() {
   }
 
   formEditorSchemaDraft = res.schema;
+  // Gebühr-Feld synchronisieren (PR14)
+  if (formEditorFeeEur) {
+    formEditorFeeEur.value = String(formEditorSchemaDraft?.formular?.fee_eur || 0);
+  }
   renderFormEditorHeader();
   renderFormEditorFields();
   renderFormEditorPreview();
@@ -2218,12 +2246,13 @@ btnFormEditorCreate.addEventListener("click", async () => {
   const id = String(formEditorNewId.value || "").trim();
   const titel = String(formEditorNewTitel.value || "").trim();
   const beschreibung = String(formEditorNewBeschreibung.value || "").trim();
+  const feeEur = Math.max(0, Math.floor(parseInt(formEditorNewFeeEur?.value || "0") || 0));
 
   if (!id) return fehlerAnzeigen("Formular-ID fehlt.");
   if (!titel) return fehlerAnzeigen("Titel fehlt.");
 
   formEditorCreateMeta.textContent = "Formular wird erstellt…";
-  const res = await nuiAufruf("hm_bp:form_editor_formular_erstellen", { id, kategorieId: formEditorKategorieId, titel, beschreibung });
+  const res = await nuiAufruf("hm_bp:form_editor_formular_erstellen", { id, kategorieId: formEditorKategorieId, titel, beschreibung, fee_eur: feeEur });
   if (!res || res.ok !== true) {
     formEditorCreateMeta.textContent = "";
     return fehlerAnzeigen(res?.fehler?.nachricht || "Formular konnte nicht erstellt werden.");
@@ -2233,6 +2262,7 @@ btnFormEditorCreate.addEventListener("click", async () => {
   formEditorNewId.value = "";
   formEditorNewTitel.value = "";
   formEditorNewBeschreibung.value = "";
+  if (formEditorNewFeeEur) formEditorNewFeeEur.value = "0";
 
   await formEditorLoadFormList();
 });
@@ -2275,6 +2305,13 @@ btnFormEditorSave.addEventListener("click", async () => {
   fehlerVerstecken();
   if (btnFormEditorSave.disabled) return;
   if (!formEditorFormId || !formEditorSchemaDraft) return;
+
+  // Gebühr aus Input übernehmen (PR14)
+  if (formEditorFeeEur) {
+    const fee = Math.max(0, Math.floor(parseInt(formEditorFeeEur.value || "0") || 0));
+    formEditorSchemaDraft.formular = formEditorSchemaDraft.formular || {};
+    formEditorSchemaDraft.formular.fee_eur = fee;
+  }
 
   renderFormEditorActionMeta("Entwurf wird gespeichert…", 0);
   const res = await nuiAufruf("hm_bp:form_editor_schema_speichern", { formId: formEditorFormId, schema: formEditorSchemaDraft });
@@ -2392,7 +2429,11 @@ window.addEventListener("message", (event) => {
       if (payload.fehler?.feldFehler) feldFehlerSetzen(payload.fehler.feldFehler);
       return fehlerAnzeigen(payload.fehler?.nachricht || "Einreichen fehlgeschlagen.");
     }
-    einreichenStatus.innerHTML = `<span class="status-ok">Erfolgreich eingereicht:</span> ${escapeHtml(payload.antrag?.public_id)}`;
+    let statusHtml = `<span class="status-ok">Erfolgreich eingereicht:</span> ${escapeHtml(payload.antrag?.public_id || "")}`;
+    if (payload.antrag?.zahlung_hinweis) {
+      statusHtml += `<div class="zahlung-hinweis muted">${escapeHtml(payload.antrag.zahlung_hinweis)}</div>`;
+    }
+    einreichenStatus.innerHTML = statusHtml;
     nuiAufruf("hm_bp:meine_antraege_laden", {});
   }
 
@@ -3186,10 +3227,10 @@ function adminFormFelderErstellen(sektion, id, entity) {
         <div class="feld"><div class="label">Duplikat-Pr\u00fcfung</div>
           <select name="duplikatPruefung"><option value="true" ${entity.duplikatPruefung!==false?"selected":""}>Ja</option><option value="false" ${entity.duplikatPruefung===false?"selected":""}>Nein</option></select></div>
       </div>
-      <div class="admin-form-section"><div class="admin-form-section-title">Geb\u00fchren (Konfiguration f\u00fcr zuk\u00fcnftige Implementierung)</div>
+      <div class="admin-form-section"><div class="admin-form-section-title">Geb\u00fchren</div>
         <div class="admin-form-row">
           <div class="feld"><div class="label">Geb\u00fchren aktiv</div><select name="gebuehrenAktiviert"><option value="false" ${!entity.gebuehren?.aktiv?"selected":""}>Nein</option><option value="true" ${entity.gebuehren?.aktiv?"selected":""}>Ja</option></select></div>
-          <div class="feld"><div class="label">Betrag ($)</div><input type="number" step="0.01" name="gebuehrenBetrag" value="${entity.gebuehren?.betrag??0}" /></div>
+          <div class="feld"><div class="label">Betrag (€, ganze Zahl)</div><input type="number" step="1" min="0" name="gebuehrenBetrag" value="${Math.floor(entity.gebuehren?.betrag??0)}" /></div>
         </div>
       </div>`;
   } else {
@@ -3272,7 +3313,7 @@ async function adminCrudFormularSpeichern() {
       duplikatPruefung: f.querySelector("[name=duplikatPruefung]")?.value !== "false",
       gebuehren: {
         aktiv:  f.querySelector("[name=gebuehrenAktiviert]")?.value === "true",
-        betrag: parseFloat(f.querySelector("[name=gebuehrenBetrag]")?.value)  || 0,
+        betrag: Math.floor(parseInt(f.querySelector("[name=gebuehrenBetrag]")?.value) || 0),
       },
     };
     const katId = f.querySelector("[name=kategorie_id]")?.value;

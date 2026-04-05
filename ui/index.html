@@ -371,6 +371,9 @@
                 <div class="muted" style="margin:10px 0 6px 0;">Beschreibung</div>
                 <textarea id="formEditorNewBeschreibung" placeholder="Beschreibung"></textarea>
 
+                <div class="muted" style="margin:10px 0 6px 0;">Gebühr (€, ganze Zahl, 0 = kostenlos)</div>
+                <input id="formEditorNewFeeEur" type="number" min="0" step="1" value="0" placeholder="z.B. 25" />
+
                 <button id="btnFormEditorCreate" class="btn btn-secondary" type="button">Formular als Entwurf erstellen</button>
                 <div class="muted" id="formEditorCreateMeta"></div>
               </div>
@@ -381,6 +384,12 @@
             <div class="feld">
               <div class="label">Ausgewähltes Formular</div>
               <div class="muted" id="formEditorFormHeader">Kein Formular ausgewählt.</div>
+
+              <div style="margin-top:8px; display:flex; align-items:center; gap:12px;" id="formEditorFeeRow">
+                <label class="muted" for="formEditorFeeEur" style="white-space:nowrap;">Gebühr (€):</label>
+                <input id="formEditorFeeEur" type="number" min="0" step="1" value="0" style="width:90px;" title="Gebühren in ganzen Euro (0 = kostenlos)" />
+                <span class="muted" style="font-size:12px;">Wird beim Speichern des Entwurfs übernommen.</span>
+              </div>
 
               <div class="trenner"></div>
 

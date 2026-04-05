@@ -75,6 +75,7 @@ server_scripts {
 
   'server/dienste/webhook_service.lua',
   'server/dienste/benachrichtigung_service.lua',
+  'server/dienste/payment_service.lua',
   'server/dienste/formular_editor_service.lua',
   'server/dienste/location_service.lua',
 
