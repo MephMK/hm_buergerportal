@@ -2,12 +2,14 @@
 -- server/dienste/permission_service.lua
 --
 -- Feingranulares Permissions-System mit Kaskaden-Auflösung:
---   1) Admin-Job → immer volles Zugriff (Kurzschluss)
---   2) Globale Defaults für die Rolle (Config.Permissions.Defaults)
---   3) Job-Constraint (spieler.job.name muss in defaults.jobs)
---   4) Grade-Constraint (min/max oder allowed-Liste)
---   5) Kategorie-Override (ctx.kategorieId → .permissions[rolle])
---   6) Formular-Override  (ctx.formularId  → .permissions[rolle])
+--   1) System deaktiviert → alles erlaubt
+--   2) Admin-Job → immer volles Zugriff (Kurzschluss)
+--   3) Globale Defaults für die Rolle (Config.Permissions.Defaults)
+--   4) Job-Constraint (spieler.job.name muss in defaults.jobs)
+--   5) Grade-Constraint (min/max oder allowed-Liste)
+--   6) Kategorie-Override (ctx.kategorieId → .permissions[rolle])
+--   7) Formular-Override  (ctx.formularId  → .permissions[rolle])
+--   8) Global-Default entscheidet (Default-Deny)
 --
 -- Entscheidungslogik (pro Ebene):
 --   - deny-Liste hat Vorrang: Aktion in deny? → false (kein weiterer Override)
@@ -164,7 +166,13 @@ function PermissionService.Hat(spieler, aktion, ctx)
 
   debug("Hat(", spieler.identifier, ",", aktion, ", rolle=", rolle, ")")
 
-  -- 2) Lade globale Defaults für die Rolle
+  -- 2) Admin-Job → immer Vollzugriff (Kurzschluss, kein weiteres Cascading)
+  if rolle == "admin" then
+    debug("Admin-Kurzschluss → erlaube", aktion)
+    return true, nil
+  end
+
+  -- 3) Lade globale Defaults für die Rolle
   local defaults = Config.Permissions.Defaults and Config.Permissions.Defaults[rolle]
   if not defaults then
     debug("Keine Defaults für Rolle", rolle, "→ verweigert")
@@ -174,7 +182,7 @@ function PermissionService.Hat(spieler, aktion, ctx)
     }
   end
 
-  -- 3) Job-Constraint aus globalen Defaults
+  -- 4) Job-Constraint aus globalen Defaults
   if not jobPasst(spieler, defaults) then
     debug("Job-Constraint verletzt für Rolle", rolle, "→ verweigert")
     return false, {
@@ -183,7 +191,7 @@ function PermissionService.Hat(spieler, aktion, ctx)
     }
   end
 
-  -- 4) Grade-Constraint aus globalen Defaults
+  -- 5) Grade-Constraint aus globalen Defaults
   if not gradePasst(spieler, defaults) then
     debug("Grade-Constraint verletzt für Rolle", rolle, "→ verweigert")
     return false, {
@@ -192,7 +200,7 @@ function PermissionService.Hat(spieler, aktion, ctx)
     }
   end
 
-  -- 5) Kategorie-Override (höchste kontextuelle Spezifizität nach Formular)
+  -- 6) Kategorie-Override (höchste kontextuelle Spezifizität nach Formular)
   local kategorieId = ctx.kategorieId
   if kategorieId then
     local catRegel = overrideRegel("kategorie", kategorieId, rolle)
@@ -217,7 +225,7 @@ function PermissionService.Hat(spieler, aktion, ctx)
     end
   end
 
-  -- 6) Formular-Override
+  -- 7) Formular-Override
   local formularId = ctx.formularId
   if formularId then
     local frmRegel = overrideRegel("formular", formularId, rolle)
@@ -241,7 +249,7 @@ function PermissionService.Hat(spieler, aktion, ctx)
     end
   end
 
-  -- 7) Globale Defaults entscheiden
+  -- 8) Globale Defaults entscheiden
   local erg = ebeneAuswerten(defaults, aktion)
   if erg == true then
     debug("Globale Defaults erlauben", aktion)
