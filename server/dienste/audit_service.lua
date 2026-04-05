@@ -36,6 +36,9 @@ HM_BP.Server.Dienste = HM_BP.Server.Dienste or {}
 
 local AuditService = {}
 
+-- Maximale Größe des metadata-JSON-Blobs in Bytes
+local METADATA_MAX_BYTES = 4096
+
 -- ----------------------------------------------------------------
 -- Hilfsfunktionen
 -- ----------------------------------------------------------------
@@ -123,7 +126,7 @@ function AuditService.Log(aktion, spieler, targetType, targetId, daten, extra)
   local metaJson = nil
   if extra.metadata ~= nil then
     local rawMeta = safeJsonEncode(extra.metadata)
-    if rawMeta and #rawMeta <= 4096 then
+    if rawMeta and #rawMeta <= METADATA_MAX_BYTES then
       metaJson = rawMeta
     else
       metaJson = safeJsonEncode({ truncated = true, size = rawMeta and #rawMeta or 0 })
