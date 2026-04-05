@@ -63,7 +63,7 @@ CreateThread(function()
 
   while true do
     local interval = tonumber(
-      Config.Workflow and Config.Workflow.TickIntervalSekunden
+      Config.Workflows and Config.Workflows.Sla and Config.Workflows.Sla.TickIntervalSekunden
     ) or 30
 
     Wait(interval * 1000)

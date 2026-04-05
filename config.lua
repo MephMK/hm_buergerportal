@@ -327,27 +327,7 @@ Config.Permissions = {
   },
 }
 
--- =============================================================
--- Config.Workflow
--- Workflow-Engine: SLA/Fristen, Leitung-Erkennung, Eskalierung,
--- Soft-Locks und erlaubte Statusübergänge (PR7).
--- =============================================================
-Config.Workflow = {
-  -- Standard-SLA in Stunden, wenn für eine Kategorie nichts definiert.
-  DefaultSlaHours = 48,
 
-  -- Ab welchem DOJ-Jobgrad gilt jemand als "Leitung"
-  -- (SLA pausieren/übersteuern, Lock-Override, Eskalierungs-Empfänger).
-  LeitungMinGrade = 29,
-
-  -- Periodischer SLA-Check-Intervall in Sekunden (30–60 empfohlen).
-  TickIntervalSekunden = 30,
-
-  -- Eskalierung bei SLA-Ablauf
-  Eskalierung = {
-    Aktiviert = true,
-  },
-}
 
 -- ------------------------------------------------------------------
 -- Beispiel: Kategorie-Override „general"
@@ -483,7 +463,7 @@ Config.Kategorien = {
 
       -- Workflow-Regeln: SLA, erlaubte Statusübergänge, SLA-Pause-Statuses
       workflow = {
-        -- SLA in Stunden; Fallback: Config.Workflow.DefaultSlaHours
+        -- SLA in Stunden; Fallback: Config.Workflows.Sla.DefaultSlaHours
         sla_hours = 48,
 
         -- Statuses, in denen der SLA-Countdown pausiert
@@ -1209,12 +1189,33 @@ Config.Prioritaeten = {
   }
 }
 
+-- =============================================================
+-- Config.Workflows
+-- Workflow-Engine: SLA/Fristen, Leitung-Erkennung, Eskalation,
+-- Soft-Locks und erlaubte Statusübergänge.
+-- Alle Einstellungen sind über config.lua und/oder
+-- data/admin_overrides.json (Live-Override) änderbar.
+-- =============================================================
 Config.Workflows = {
   Aktiviert = true,
 
+  -- Leitung-Erkennung: ab welchem DOJ-Jobgrad gilt ein Justiz-Mitglied
+  -- als Leitung (SLA-Pause/-Override, Lock-Override, Eskalierungs-Empfänger).
+  Leitung = {
+    MinGrade = 29,
+  },
+
+  -- SLA / Fristen
+  Sla = {
+    -- Standard-SLA in Stunden, wenn für eine Kategorie nichts definiert.
+    DefaultSlaHours = 48,
+    -- Periodischer SLA-Check-Intervall in Sekunden (30–60 empfohlen).
+    TickIntervalSekunden = 30,
+  },
+
   Sperren = {
     -- Soft-Locks: Server blockiert Schreibzugriffe wenn ein anderer Bearbeiter
-    -- die Sperre hält. Leitung (Grade >= Config.Workflow.LeitungMinGrade) und
+    -- die Sperre hält. Leitung (Grade >= Config.Workflows.Leitung.MinGrade) und
     -- Admin können Sperren immer überschreiben.
     Aktiviert = true,
     ExklusiveBearbeitung = true,
@@ -1226,7 +1227,7 @@ Config.Workflows = {
   Eskalation = {
     Aktiviert = true,
     UeberfaelligNachStunden = 72,
-  }
+  },
 }
 
 Config.Benachrichtigungen = {
