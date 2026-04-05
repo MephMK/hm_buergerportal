@@ -182,7 +182,7 @@ RegisterNetEvent("hm_bp:antrag:einreichen", function(payload)
 
   -- optional: webhook + notify (nur falls aktiviert/konfiguriert)
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
-    HM_BP.Server.Dienste.WebhookService.Emit("submission.created", {
+    HM_BP.Server.Dienste.WebhookService.Emit("antrag_created", {
       submission_id = res.id,
       public_id = res.public_id,
       category_id = (Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[formularId] and Config.Formulare.Liste[formularId].kategorieId) or nil,
@@ -260,7 +260,7 @@ RegisterNetEvent("hm_bp:antrag:buerger_antwort", function(payload)
   end
 
   if HM_BP.Server.Dienste.WebhookService and HM_BP.Server.Dienste.WebhookService.Emit then
-    HM_BP.Server.Dienste.WebhookService.Emit("submission.citizen_reply", {
+    HM_BP.Server.Dienste.WebhookService.Emit("antrag_citizen_replied", {
       submission_id = antragId,
       citizen_identifier = spieler.identifier,
       citizen_name = spieler.name,
