@@ -38,53 +38,111 @@ Config.Datenbank = {
 Config.Standorte = {
   Aktiviert = true,
 
+  -- Globaler Interaktionsmodus für alle Standorte:
+  --   "taste"     – Spieler drückt Taste E (Standard)
+  --   "ox_target" – Interaktion über ox_target (erfordert ox_target Resource)
+  -- Pro Standort kann der Modus in standort.interaktion.modus überschrieben werden.
+  InteraktionsModus = "taste",
+
   Liste = {
+    -- -------------------------------------------------------
+    -- Standort 1: Justizzentrum Empfang (öffentlich, alle Rollen)
+    -- -------------------------------------------------------
     ["doj_frontdesk_1"] = {
-      id = "doj_frontdesk_1",
+      id   = "doj_frontdesk_1",
       name = "Justizzentrum Empfang",
       aktiv = true,
 
       koordinaten = vector3(440.12, -981.92, 30.69),
-      heading = 90.0,
+      heading     = 90.0,
 
       interaktionsRadius = 2.0,
-      sichtbarRadius = 30.0,
+      sichtbarRadius     = 30.0,
 
+      -- interaktion: leer = globale Defaults (Taste E, globaler Text)
       interaktion = {},
 
       zugriff = {
         nurBuerger = false,
-        nurJustiz = false,
-        nurAdmin = false,
+        nurJustiz  = false,
+        nurAdmin   = false,
 
-        erlaubteJobs = { "doj", "admin" },
-
+        -- Alle Rollen erlaubt (leer = keine Einschränkung)
+        erlaubteRollen     = {},
+        erlaubteJobs       = {},
         erlaubteKategorien = {},
-        erlaubteFormulare = {},
+        erlaubteFormulare  = {},
       },
 
       ped = {
-        aktiv = true,
-        modell = "s_m_y_cop_01",
-        scenario = "WORLD_HUMAN_CLIPBOARD",
-        unverwundbar = true,
-        eingefroren = true,
+        aktiv           = true,
+        modell          = "s_m_y_cop_01",
+        scenario        = "WORLD_HUMAN_CLIPBOARD",
+        unverwundbar    = true,
+        eingefroren     = true,
         blockiereEvents = true,
       },
 
       marker = {
-        aktiv = true,
-        typ = 2,
+        aktiv   = true,
+        typ     = 2,
         groesse = vector3(0.3, 0.3, 0.3),
-        farbe = { r = 0, g = 120, b = 255, a = 160 },
+        farbe   = { r = 0, g = 120, b = 255, a = 160 },
       },
 
       blip = {
-        aktiv = true,
+        aktiv  = true,
         sprite = 525,
-        farbe = 3,
-        scale = 0.8,
-        name = "Justizzentrum Bürgerportal",
+        farbe  = 3,
+        scale  = 0.8,
+        name   = "Justizzentrum Bürgerportal",
+      }
+    },
+
+    -- -------------------------------------------------------
+    -- Standort 2: Interne Justiz-Workstation (nur Justiz/Admin)
+    -- -------------------------------------------------------
+    ["doj_intern_1"] = {
+      id   = "doj_intern_1",
+      name = "Justiz Workstation (Intern)",
+      aktiv = true,
+
+      koordinaten = vector3(462.31, -993.46, 30.69),
+      heading     = 270.0,
+
+      interaktionsRadius = 1.8,
+      sichtbarRadius     = 15.0,
+
+      -- Per-Location Interaktionsmodus-Override (z.B. ox_target nur hier):
+      -- interaktion = { modus = "ox_target", text = "[E] Intern öffnen" },
+      interaktion = {
+        text = "[E] Interne Workstation öffnen",
+      },
+
+      zugriff = {
+        nurBuerger = false,
+        nurJustiz  = true,   -- Nur Justiz und Admin dürfen diesen Standort nutzen
+        nurAdmin   = false,
+
+        erlaubteRollen     = {},
+        erlaubteJobs       = { "doj", "admin" },
+        erlaubteKategorien = {},
+        erlaubteFormulare  = {},
+      },
+
+      ped = {
+        aktiv = false,   -- kein PED an internem Terminal
+      },
+
+      marker = {
+        aktiv   = true,
+        typ     = 1,
+        groesse = vector3(0.5, 0.5, 0.5),
+        farbe   = { r = 255, g = 165, b = 0, a = 180 },
+      },
+
+      blip = {
+        aktiv  = false,  -- kein Blip für internen Standort
       }
     }
   }
