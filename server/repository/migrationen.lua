@@ -307,4 +307,27 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ALTER TABLE hm_bp_submission_locks
       ADD COLUMN IF NOT EXISTS lock_reason VARCHAR(128) NULL;
   ]])
+
+  -- v8: Anhänge als URL-Links (PR8)
+  migrationAnwenden("v8_attachments", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_submission_attachments (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      submission_id BIGINT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by_identifier VARCHAR(128) NOT NULL,
+      created_by_role VARCHAR(16) NOT NULL,
+      url VARCHAR(2048) NOT NULL,
+      title VARCHAR(128) NULL,
+      mime_hint VARCHAR(64) NULL,
+      is_direct_image TINYINT(1) NOT NULL DEFAULT 0,
+      deleted_at DATETIME NULL,
+      deleted_by_identifier VARCHAR(128) NULL,
+      delete_reason VARCHAR(255) NULL,
+      PRIMARY KEY (id),
+      INDEX idx_attach_submission (submission_id),
+      INDEX idx_attach_created (created_at),
+      INDEX idx_attach_deleted (deleted_at),
+      CONSTRAINT fk_attach_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 end

@@ -95,6 +95,20 @@ const buergerNachreichenFelder = document.getElementById("buergerNachreichenFeld
 const btnBuergerNachreichen = document.getElementById("btnBuergerNachreichen");
 const buergerNachreichenMeta = document.getElementById("buergerNachreichenMeta");
 
+// Anhänge UI (Bürger)
+const buergerAnhaengeSection       = document.getElementById("buergerAnhaengeSection");
+const buergerAnhaengeListe          = document.getElementById("buergerAnhaengeListe");
+const buergerAnhaengeMeta           = document.getElementById("buergerAnhaengeMeta");
+const buergerAnhangUrl              = document.getElementById("buergerAnhangUrl");
+const buergerAnhangTitel            = document.getElementById("buergerAnhangTitel");
+const btnBuergerAnhangHinzufuegen   = document.getElementById("btnBuergerAnhangHinzufuegen");
+const buergerAnhangHinzufuegenMeta  = document.getElementById("buergerAnhangHinzufuegenMeta");
+
+// Anhänge UI (Justiz)
+const justizAnhaengeSection = document.getElementById("justizAnhaengeSection");
+const justizAnhaengeListe   = document.getElementById("justizAnhaengeListe");
+const justizAnhaengeMeta    = document.getElementById("justizAnhaengeMeta");
+
 // ===== NEU: Formular-Editor UI Elements =====
 const formEditorMeta = document.getElementById("formEditorMeta");
 const formEditorBox = document.getElementById("formEditorBox");
@@ -156,6 +170,10 @@ let ausgewaehlterBuergerAntragId = null;
 let buergerRueckfrageOffen = false;
 let buergerNachreichungErlaubt = false;
 let buergerAktuellerPayload = null; // { fields_snapshot, answers } für Nachreichen
+let buergerAnhangHinzufuegenErlaubt = false; // PR8: Anhänge erlaubt in aktuellem Status
+
+// PR8: Status, in denen Bürger Anhänge hinzufügen darf (spiegelt Config.Anhaenge.BuergerErlaubteStatus)
+const ANHANG_BUERGER_ERLAUBTE_STATUS = ["submitted", "question_open"];
 
 window.__hm_bp_aktuellerStatus = null;
 
@@ -196,6 +214,13 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// PR8: Sanitize a URL to only allow safe https:// links (client-side guard).
+// Server already validates hosts; this prevents XSS via javascript: or data: URLs.
+function sanitizeAnhangUrl(url) {
+  const s = String(url || "").trim();
+  return s.startsWith("https://") ? s : "";
 }
 
 function listeLeeren(el) { el.innerHTML = ""; }
@@ -707,6 +732,7 @@ function antraegeRendern(antraege) {
         buergerAntwortMeta.textContent = "";
         buergerNachreichenMeta.textContent = "";
         buergerNachreichenUiSetzen(false, null);
+        buergerAnhaengeSection.style.display = "none"; // PR8: reset
         nuiAufruf("hm_bp:antrag_details_mein_laden", { antragId: a.id });
         antraegeRendern(arr);
       }
@@ -844,6 +870,126 @@ function buergerNachreichenUiSetzen(erlaubt, payload) {
     btnBuergerNachreichen.disabled = false;
   }
 }
+
+// ==========================
+// PR8: Anhänge – gemeinsame Render-Hilfsfunktion
+// ==========================
+function anhangElementErstellen(a, mitEntfernenButton) {
+  const div = document.createElement("div");
+  div.className = "eintrag";
+
+  const isDirekt = !!(a.is_direct_image || a.is_direct_image === 1);
+  const rawUrl = sanitizeAnhangUrl(a.url);
+  const rawTitel = a.title || rawUrl;
+
+  // Meta-Zeile (nur sichere Werte, keine URLs)
+  const metaDiv = document.createElement("div");
+  metaDiv.className = "meta";
+  metaDiv.textContent = `${a.created_at || ""} | ${a.created_by_role || ""} | ${a.created_by_identifier || ""}`;
+  div.appendChild(metaDiv);
+
+  // Link-Zeile: DOM-basiert, kein innerHTML mit URL
+  const linkDiv = document.createElement("div");
+  const link = document.createElement("a");
+  link.href = "#";
+  link.className = "anhang-link";
+  link.textContent = rawTitel;
+  link.title = rawUrl;
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+  });
+  linkDiv.appendChild(link);
+  div.appendChild(linkDiv);
+
+  // Vorschau nur bei direktem Bildlink
+  if (isDirekt && rawUrl) {
+    const previewDiv = document.createElement("div");
+    previewDiv.style.marginTop = "4px";
+    const img = document.createElement("img");
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === "https:") {
+        img.src = parsed.href;
+      }
+    } catch (_e) {
+      // URL ungültig – kein Preview
+    }
+    img.alt = rawTitel;
+    img.style.cssText = "max-width:240px;max-height:160px;border-radius:4px;border:1px solid #444;";
+    img.addEventListener("error", () => { img.style.display = "none"; });
+    previewDiv.appendChild(img);
+    div.appendChild(previewDiv);
+  }
+
+  if (mitEntfernenButton) {
+    const btnWrap = document.createElement("div");
+    btnWrap.style.marginTop = "4px";
+    const btn = document.createElement("button");
+    btn.className = "btn btn-secondary";
+    btn.type = "button";
+    btn.textContent = "Anhang entfernen";
+    btn.style.fontSize = "0.85em";
+    btn.addEventListener("click", () => {
+      const grund = prompt("Begründung für Entfernung (optional):");
+      nuiAufruf("hm_bp:anhang_entfernen", { anhangId: a.id, grund: grund || "" });
+    });
+    btnWrap.appendChild(btn);
+    div.appendChild(btnWrap);
+  }
+
+  return div;
+}
+
+// Bürger: Anhänge-Section anzeigen/ausblenden + Liste rendern
+function buergerAnhaengeUiSetzen(erlaubt, liste) {
+  buergerAnhangHinzufuegenErlaubt = !!erlaubt;
+  buergerAnhaengeSection.style.display = "block";
+  buergerAnhangHinzufuegenMeta.textContent = "";
+  buergerAnhangUrl.value = "";
+  buergerAnhangTitel.value = "";
+
+  btnBuergerAnhangHinzufuegen.disabled = !erlaubt;
+  buergerAnhangUrl.disabled = !erlaubt;
+  buergerAnhangTitel.disabled = !erlaubt;
+
+  if (!erlaubt) {
+    buergerAnhaengeMeta.textContent = "Anhänge hinzufügen ist im aktuellen Status nicht möglich.";
+  } else {
+    buergerAnhaengeMeta.textContent = "Erlaubte Hosts: Imgur, Discord CDN. Nur https-Links.";
+  }
+
+  buergerAnhaengeListe.innerHTML = "";
+  const arr = Array.isArray(liste) ? liste : [];
+  if (arr.length === 0) {
+    const m = document.createElement("div");
+    m.className = "muted";
+    m.textContent = "Keine Anhänge vorhanden.";
+    buergerAnhaengeListe.appendChild(m);
+  } else {
+    for (const a of arr) {
+      buergerAnhaengeListe.appendChild(anhangElementErstellen(a, false));
+    }
+  }
+}
+
+// Justiz: Anhänge-Section anzeigen + Liste rendern + Entfernen-Button
+function justizAnhaengeRendern(liste) {
+  justizAnhaengeSection.style.display = "block";
+  justizAnhaengeMeta.textContent = "";
+  justizAnhaengeListe.innerHTML = "";
+  const arr = Array.isArray(liste) ? liste : [];
+  if (arr.length === 0) {
+    const m = document.createElement("div");
+    m.className = "muted";
+    m.textContent = "Keine Anhänge vorhanden.";
+    justizAnhaengeListe.appendChild(m);
+  } else {
+    for (const a of arr) {
+      justizAnhaengeListe.appendChild(anhangElementErstellen(a, true));
+    }
+  }
+}
+
 function justizKategorienRendern(liste) {
   justizKategorien = Array.isArray(liste) ? liste : [];
   listeLeeren(justizKategorienListe);
@@ -879,6 +1025,7 @@ function justizKategorienRendern(liste) {
         justizStatusResult.textContent = "";
         justizRueckfrageMeta.textContent = "";
         justizRueckfrageText.value = "";
+        justizAnhaengeSection.style.display = "none"; // PR8
 
         // Formular-Editor: Kategorie vorauswählen, wenn Rechte vorhanden
         formEditorKategorieId = null;
@@ -1672,6 +1819,8 @@ btnReload.addEventListener("click", async () => {
   buergerAntwortMeta.textContent = "";
   buergerNachreichenMeta.textContent = "";
   buergerNachreichenUiSetzen(false, null);
+  buergerAnhaengeSection.style.display = "none"; // PR8
+  justizAnhaengeSection.style.display = "none"; // PR8
   formEditorCreateMeta.textContent = "";
   formEditorFieldAddMeta.textContent = "";
   formEditorActionMeta.textContent = "";
@@ -1766,6 +1915,20 @@ btnBuergerNachreichen.addEventListener("click", async () => {
 
   buergerNachreichenMeta.textContent = "Wird nachgereicht…";
   await nuiAufruf("hm_bp:antrag_nachreichen", { antragId: ausgewaehlterBuergerAntragId, felder });
+});
+
+// PR8: Bürger – Anhang hinzufügen
+btnBuergerAnhangHinzufuegen.addEventListener("click", async () => {
+  fehlerVerstecken();
+  if (!ausgewaehlterBuergerAntragId) return fehlerAnzeigen("Bitte wähle links einen Antrag aus.");
+  if (!buergerAnhangHinzufuegenErlaubt) return fehlerAnzeigen("Anhänge hinzufügen ist im aktuellen Status nicht möglich.");
+
+  const url = (buergerAnhangUrl.value || "").trim();
+  if (!url) return fehlerAnzeigen("Bitte gib eine URL ein.");
+
+  const titel = (buergerAnhangTitel.value || "").trim() || null;
+  buergerAnhangHinzufuegenMeta.textContent = "Wird hinzugefügt…";
+  await nuiAufruf("hm_bp:anhang_hinzufuegen", { antragId: ausgewaehlterBuergerAntragId, url, titel });
 });
 
 btnJustizSuchen.addEventListener("click", async () => {
@@ -2208,6 +2371,12 @@ window.addEventListener("message", (event) => {
     justizStatusResult.textContent = "";
     justizVerlaufRendern(d.timeline || []);
 
+    // PR8: Anhänge laden
+    if (a.id) {
+      nuiAufruf("hm_bp:anhaenge_listen", { antragId: a.id });
+      justizAnhaengeRendern([]);
+    }
+
     setBearbeitungNachRegeln();
   }
 
@@ -2237,10 +2406,18 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
     const d = payload.details || {};
     const a = d.antrag || {};
 
+    window.__hm_bp_aktuellerStatus = a.status; // PR8: wird für Anhang-Status-Check benötigt
     buergerDetailsHeader.textContent = `Antrag: ${a.public_id} | Status: ${a.status} | Priorität: ${a.priority}`;
     buergerVerlaufRendern(d.timeline || []);
     buergerAntwortUiSetzen(!!d.rueckfrageOffen, null);
     buergerNachreichenUiSetzen(!!d.nachreichungErlaubt, d.payload || null);
+
+    // PR8: Anhänge laden
+    const anhangErlaubt = ANHANG_BUERGER_ERLAUBTE_STATUS.includes(a.status);
+    if (ausgewaehlterBuergerAntragId) {
+      nuiAufruf("hm_bp:anhaenge_listen", { antragId: ausgewaehlterBuergerAntragId });
+      buergerAnhaengeUiSetzen(anhangErlaubt, []);
+    }
   }
 
   if (msg.typ === "hm_bp:antrag:buerger_antwort_antwort") {
@@ -2274,6 +2451,41 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
     const payload = msg.payload || {};
     if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Fehler beim Erzeugen der ID.");
     publicIdAusgabe.textContent = `Neue öffentliche Antragsnummer: ${payload.publicId}`;
+  }
+
+  // PR8: Anhänge-Antworten
+  if (msg.typ === "hm_bp:anhaenge_listen_antwort") {
+    const payload = msg.payload || {};
+    if (!payload.ok) return; // still zeigen (Liste bleibt leer)
+    const liste = payload.liste || [];
+    // Entscheiden wer gerade aktiv ist: Bürger oder Justiz
+    if (aktuellerSpieler.rolle === "buerger") {
+      const statusOk = ANHANG_BUERGER_ERLAUBTE_STATUS.includes(window.__hm_bp_aktuellerStatus);
+      buergerAnhaengeUiSetzen(statusOk, liste);
+    } else {
+      justizAnhaengeRendern(liste);
+    }
+  }
+
+  if (msg.typ === "hm_bp:anhang_hinzufuegen_antwort") {
+    const payload = msg.payload || {};
+    buergerAnhangHinzufuegenMeta.textContent = "";
+    if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Anhang konnte nicht hinzugefügt werden.");
+    buergerAnhangUrl.value = "";
+    buergerAnhangTitel.value = "";
+    buergerAnhangHinzufuegenMeta.textContent = "Anhang hinzugefügt.";
+    if (ausgewaehlterBuergerAntragId) {
+      nuiAufruf("hm_bp:anhaenge_listen", { antragId: ausgewaehlterBuergerAntragId });
+    }
+  }
+
+  if (msg.typ === "hm_bp:anhang_entfernen_antwort") {
+    const payload = msg.payload || {};
+    if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Anhang konnte nicht entfernt werden.");
+    justizAnhaengeMeta.textContent = "Anhang entfernt.";
+    if (ausgewaehlterJustizAntragId) {
+      nuiAufruf("hm_bp:anhaenge_listen", { antragId: ausgewaehlterJustizAntragId });
+    }
   }
 });
 

@@ -71,6 +71,7 @@ server_scripts {
 
   'server/dienste/rueckfrage_service.lua',
   'server/dienste/nachreichung_service.lua',
+  'server/dienste/attachment_service.lua',
 
   'server/dienste/webhook_service.lua',
   'server/dienste/formular_editor_service.lua',
@@ -86,6 +87,7 @@ server_scripts {
   'server/api_workflow.lua',
   'server/api_form_editor.lua',
   'server/api_locations.lua',
+  'server/api_attachments.lua',
   'server/api_admin.lua'
 }
 

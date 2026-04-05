@@ -282,6 +282,9 @@ Config.Permissions = {
         "message.public.read",
         "question.answer",
         "citizen.supplement",
+        -- Anhänge: Bürger darf hinzufügen (Status-Prüfung im Service) und eigene ansehen
+        "attachment.add",
+        "attachment.view",
       },
       deny  = {},
     },
@@ -314,6 +317,10 @@ Config.Permissions = {
         "workflow.lock.request",
         "workflow.lock.release",
         -- SLA-Pause und Lock-Override nur per Kategorie/Grade-Override für Leitung
+        -- Anhänge: Justiz darf immer ansehen und entfernen (PR8)
+        "attachment.add",
+        "attachment.view",
+        "attachment.remove",
       },
       deny  = {},
     },
@@ -1276,6 +1283,8 @@ Config.Webhooks = {
     --   form_editor_schema_saved    – Schema-Entwurf gespeichert
     --   form_editor_published       – Formular veröffentlicht
     --   form_editor_archived        – Formular archiviert
+    --   anhang_hinzugefuegt         – Anhang zu Antrag hinzugefügt (PR8)
+    --   anhang_entfernt             – Anhang von Antrag entfernt (PR8)
     --
     -- Beispiel:
     --   NachEvent = {
@@ -1315,6 +1324,49 @@ Config.Archiv = {
 Config.Entwuerfe = {
   Aktiviert = false,
   AutoLoeschenNachTagen = 14
+}
+
+-- =============================================================
+-- Config.Anhaenge
+-- Bild-Anhänge als URL-Links (kein lokaler Upload).
+-- Whitelist: Imgur + Discord CDN.
+-- Bürger darf Anhänge nur in erlaubten Status hinzufügen.
+-- Justiz/Admin sieht immer alle Anhänge.
+-- Alle Einstellungen sind über config.lua und/oder
+-- data/admin_overrides.json (Live-Override) änderbar.
+-- =============================================================
+Config.Anhaenge = {
+  Aktiviert = true,
+
+  -- Maximale Anzahl Anhänge pro Antrag (gesamt, inkl. aller Rollen)
+  MaxProAntrag = 10,
+
+  -- Erlaubte URL-Schemes (nur https empfohlen)
+  ErlaubteSchemes = { "https" },
+
+  -- Erlaubte Hosts (Whitelist). Nur URLs von diesen Domains werden akzeptiert.
+  -- Imgur: i.imgur.com (Direktlinks), imgur.com (Seiten-Links)
+  -- Discord: cdn.discordapp.com, media.discordapp.net
+  ErlaubteHosts = {
+    "i.imgur.com",
+    "imgur.com",
+    "cdn.discordapp.com",
+    "media.discordapp.net",
+  },
+
+  -- Direktlink-Erkennung: Endungen, die als direktes Bild-URL gewertet werden
+  -- → UI zeigt dann eine Vorschau (<img>). Alle anderen Links werden nur als
+  --   klickbarer Hyperlink angezeigt (kein <img>-Preview).
+  DirektlinkEndungen = { ".png", ".jpg", ".jpeg", ".webp", ".gif" },
+
+  -- Status, in denen ein Bürger Anhänge hinzufügen darf.
+  -- Justiz/Admin kann immer Anhänge hinzufügen und entfernen.
+  BuergerErlaubteStatus = { "submitted", "question_open" },
+
+  Preview = {
+    -- true = nur bei erkanntem Direktlink wird ein <img>-Preview gezeigt
+    NurBeiDirektlink = true,
+  },
 }
 
 -- Formular-Editor (Entwurf/Veröffentlicht) – Serverlogik hast du bereits.
