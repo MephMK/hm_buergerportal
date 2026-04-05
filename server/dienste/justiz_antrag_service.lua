@@ -393,20 +393,20 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
       -- Bürger-Source ermitteln
       local buergerSource = nil
       do
-        local ok2, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
-        if ok2 and esx and esx.GetPlayerFromIdentifier then
+        local esxCallSuccess, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
+        if esxCallSuccess and esx and esx.GetPlayerFromIdentifier then
           local xPlayer = esx.GetPlayerFromIdentifier(a.citizen_identifier)
           if xPlayer then buergerSource = tonumber(xPlayer.source) end
         end
       end
       if not buergerSource and GetPlayerIdentifier then
         local players = GetPlayers and GetPlayers() or {}
-        for _, pid in ipairs(players) do
-          local pidN = tonumber(pid)
-          if pidN then
-            for i = 0, GetNumPlayerIdentifiers(pidN) - 1 do
-              if GetPlayerIdentifier(pidN, i) == a.citizen_identifier then
-                buergerSource = pidN; break
+        for _, playerId in ipairs(players) do
+          local playerIdNum = tonumber(playerId)
+          if playerIdNum then
+            for i = 0, GetNumPlayerIdentifiers(playerIdNum) - 1 do
+              if GetPlayerIdentifier(playerIdNum, i) == a.citizen_identifier then
+                buergerSource = playerIdNum; break
               end
             end
             if buergerSource then break end
