@@ -61,6 +61,7 @@ server_scripts {
   'server/dienste/justiz_suche_service.lua',
 
   'server/dienste/rueckfrage_service.lua',
+  'server/dienste/nachreichung_service.lua',
 
   'server/dienste/webhook_service.lua',
   'server/dienste/formular_editor_service.lua',
