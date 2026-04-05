@@ -23,7 +23,9 @@ local function esxSicherstellen()
 end
 
 local function istStaffJob(jobName)
-  if jobName == (Config.Kern.Jobs and Config.Kern.Jobs.Justiz or "doj") then return true end
+  local justizJob = (Config.Kern.Justiz and Config.Kern.Justiz.Job)
+                 or (Config.Kern.Jobs and Config.Kern.Jobs.Justiz) or "doj"
+  if jobName == justizJob then return true end
   if jobName == (Config.Kern.Jobs and Config.Kern.Jobs.Admin or "admin") then return true end
   return false
 end
@@ -100,7 +102,7 @@ function SpielerService.BearbeiterListeHolen()
     ORDER BY job ASC, grade DESC, display_name ASC
     LIMIT 500
   ]], {
-    (Config.Kern.Jobs and Config.Kern.Jobs.Justiz) or "doj",
+    (Config.Kern.Justiz and Config.Kern.Justiz.Job) or (Config.Kern.Jobs and Config.Kern.Jobs.Justiz) or "doj",
     (Config.Kern.Jobs and Config.Kern.Jobs.Admin) or "admin"
   }) or {}
 

@@ -469,35 +469,76 @@ Option B'></textarea>
           <div id="adminPanelBox" style="display:none;">
 
             <!-- Admin-Unternavigation -->
-            <div class="tabs" style="margin-top:12px;">
+            <div class="tabs" style="margin-top:12px; flex-wrap:wrap;">
               <button class="tab admin-subtab active" data-subtab="Standorte">Standorte</button>
               <button class="tab admin-subtab" data-subtab="Kategorien">Kategorien</button>
               <button class="tab admin-subtab" data-subtab="Formulare">Formulare</button>
-              <button class="tab admin-subtab" data-subtab="Permissions">Permissions</button>
+              <button class="tab admin-subtab" data-subtab="Permissions">Berechtigungen</button>
               <button class="tab admin-subtab" data-subtab="Status">Status/Workflow</button>
               <button class="tab admin-subtab" data-subtab="Webhooks">Webhooks</button>
+              <button class="tab admin-subtab" data-subtab="Module">Module</button>
               <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
             </div>
 
-            <!-- Sektion: Standorte / Kategorien / Formulare / Permissions / Status / Webhooks -->
-            <div id="adminSektionEditor" style="display:none; margin-top:16px;">
-              <div class="admin-toolbar">
-                <button id="btnAdminLaden" class="btn btn-secondary" type="button">Effektiv laden</button>
-                <button id="btnAdminBasisLaden" class="btn btn-secondary" type="button">Basis laden</button>
-                <button id="btnAdminOverrideLaden" class="btn btn-secondary" type="button">Override laden</button>
-                <button id="btnAdminValidieren" class="btn btn-secondary" type="button">Validieren</button>
-                <button id="btnAdminSpeichern" class="btn" type="button">Speichern</button>
-                <button id="btnAdminZuruecksetzen" class="btn btn-secondary" type="button">Override zurücksetzen</button>
+            <!-- Geführte CRUD-Ansicht (Standorte, Kategorien, Formulare, Permissions, Status, Webhooks, Module) -->
+            <div id="adminCrudPanel" style="display:none; margin-top:16px;">
+
+              <!-- Modus-Umschalter: Geführt ↔ Erweitert -->
+              <div class="admin-toolbar" style="margin-bottom:12px;">
+                <span class="label" style="margin-right:8px;">Ansicht:</span>
+                <button id="btnAdminModeGeführt" class="btn btn-secondary active-mode" type="button">Geführt</button>
+                <button id="btnAdminModeErweitert" class="btn btn-secondary" type="button">Erweitert (JSON)</button>
               </div>
-              <div class="feld" style="margin-top:12px;">
-                <div class="label">Grund (Pflichtfeld)</div>
-                <input id="adminGrund" type="text" placeholder="Warum wird diese Änderung vorgenommen?" />
+
+              <!-- Geführte Ansicht -->
+              <div id="adminCrudGeführt">
+
+                <!-- Liste + Neu-Button -->
+                <div class="admin-toolbar" style="margin-bottom:8px;">
+                  <button id="btnAdminCrudNeu" class="btn" type="button">+ Neu anlegen</button>
+                  <button id="btnAdminCrudAktualisieren" class="btn btn-secondary" type="button">Aktualisieren</button>
+                  <span id="adminCrudTitel" style="margin-left:12px; font-weight:600;"></span>
+                </div>
+                <div id="adminCrudListe" class="admin-crud-list"></div>
+
+                <!-- Formular: Anlegen / Bearbeiten -->
+                <div id="adminCrudFormular" class="admin-crud-form" style="display:none;">
+                  <div class="admin-crud-form-title" id="adminCrudFormTitel">Eintrag bearbeiten</div>
+                  <div id="adminCrudFormFelder"></div>
+                  <div class="feld" style="margin-top:12px;">
+                    <div class="label">Begründung (Pflichtfeld)</div>
+                    <input id="adminCrudGrund" type="text" placeholder="Warum wird diese Änderung vorgenommen?" />
+                  </div>
+                  <div class="admin-toolbar" style="margin-top:10px;">
+                    <button id="btnAdminCrudSpeichern" class="btn" type="button">Speichern</button>
+                    <button id="btnAdminCrudAbbrechen" class="btn btn-secondary" type="button">Abbrechen</button>
+                  </div>
+                  <div class="muted" id="adminCrudFormMeta" style="margin-top:6px;"></div>
+                </div>
+
               </div>
-              <div class="feld" style="margin-top:12px;">
-                <div class="label">JSON-Editor (<span id="adminAktiveSektionflag">-</span>)</div>
-                <textarea id="adminJsonEditor" class="admin-json-editor" placeholder="JSON der Sektion hier bearbeiten…"></textarea>
+
+              <!-- Erweiterte JSON-Ansicht (für Power-User) -->
+              <div id="adminCrudErweitert" style="display:none;">
+                <div class="admin-toolbar">
+                  <button id="btnAdminLaden" class="btn btn-secondary" type="button">Effektiv laden</button>
+                  <button id="btnAdminBasisLaden" class="btn btn-secondary" type="button">Basis laden</button>
+                  <button id="btnAdminOverrideLaden" class="btn btn-secondary" type="button">Override laden</button>
+                  <button id="btnAdminValidieren" class="btn btn-secondary" type="button">Validieren</button>
+                  <button id="btnAdminSpeichern" class="btn" type="button">Speichern</button>
+                  <button id="btnAdminZuruecksetzen" class="btn btn-secondary" type="button">Override zurücksetzen</button>
+                </div>
+                <div class="feld" style="margin-top:12px;">
+                  <div class="label">Begründung (Pflichtfeld)</div>
+                  <input id="adminGrund" type="text" placeholder="Warum wird diese Änderung vorgenommen?" />
+                </div>
+                <div class="feld" style="margin-top:12px;">
+                  <div class="label">JSON-Editor (<span id="adminAktiveSektionflag">-</span>)</div>
+                  <textarea id="adminJsonEditor" class="admin-json-editor" placeholder="JSON der Sektion hier bearbeiten…"></textarea>
+                </div>
+                <div class="muted" id="adminAktionMeta" style="margin-top:8px;"></div>
               </div>
-              <div class="muted" id="adminAktionMeta" style="margin-top:8px;"></div>
+
             </div>
 
             <!-- Sektion: Audit-Log -->
