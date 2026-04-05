@@ -1,6 +1,23 @@
 HM_BP = HM_BP or {}
 HM_BP.Server = HM_BP.Server or {}
 
+-- ---------------------------------------------------------------
+-- Lokale Hilfsfunktionen für Webhook-Emits und Benachrichtigungen
+-- ---------------------------------------------------------------
+
+local function emitWebhook(eventName, data)
+  local ws = HM_BP.Server.Dienste.WebhookService
+  if ws and ws.Emit then ws.Emit(eventName, data) end
+end
+
+local function spielerNameAuflosen(quelle)
+  local ss = HM_BP.Server.Dienste.SpielerService
+  if ss and ss.SpielerNameAuflosen then
+    return ss.SpielerNameAuflosen(quelle)
+  end
+  return nil
+end
+
 -- =========================
 -- Justiz: Kategorien/Queues/Details/Aktionen + Suche + Rückfragen
 -- =========================
@@ -159,6 +176,20 @@ RegisterNetEvent("hm_bp:justiz:rueckfrage_stellen", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:rueckfrage_stellen_antwort", quelle, { ok = true, res = res })
+
+  -- Webhook + Bürger benachrichtigen
+  emitWebhook("antrag_question_asked", {
+    submission_id = antragId,
+    public_id     = res.public_id,
+    aktenzeichen  = res.public_id,
+    category_id   = res.category_id,
+    form_id       = res.form_id,
+    spieler_name  = spielerNameAuflosen(quelle) or spieler.name,
+    bearbeiter_name = spieler.name,
+    text          = text,
+  })
+  local benachrichtigungSvc = HM_BP.Server.Dienste.BenachrichtigungService
+  if benachrichtigungSvc then benachrichtigungSvc.RueckfrageGestellt(res.citizen_identifier, res.public_id) end
 end)
 
 -- Aktionen
@@ -185,6 +216,13 @@ RegisterNetEvent("hm_bp:justiz:uebernehmen", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:uebernehmen_antwort", quelle, { ok = true })
+
+  emitWebhook("antrag_assigned", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    bearbeiter_name = spieler.name,
+  })
 end)
 
 RegisterNetEvent("hm_bp:justiz:zuweisen", function(payload)
@@ -213,6 +251,14 @@ RegisterNetEvent("hm_bp:justiz:zuweisen", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:zuweisen_antwort", quelle, { ok = true })
+
+  emitWebhook("antrag_assigned", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    bearbeiter_name = zielName or zielIdentifier,
+    spieler_name    = spielerNameAuflosen(quelle) or spieler.name,
+  })
 end)
 
 RegisterNetEvent("hm_bp:justiz:prioritaet_setzen", function(payload)
@@ -240,6 +286,14 @@ RegisterNetEvent("hm_bp:justiz:prioritaet_setzen", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:prioritaet_setzen_antwort", quelle, { ok = true, res = res })
+
+  emitWebhook("antrag_priority_changed", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    priority        = prio,
+    bearbeiter_name = spieler.name,
+  })
 end)
 
 RegisterNetEvent("hm_bp:justiz:archivieren", function(payload)
@@ -267,6 +321,14 @@ RegisterNetEvent("hm_bp:justiz:archivieren", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:archivieren_antwort", quelle, { ok = true })
+
+  emitWebhook("antrag_archived", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    bearbeiter_name = spieler.name,
+    text            = (grund ~= "") and grund or nil,
+  })
 end)
 
 RegisterNetEvent("hm_bp:justiz:interne_notiz", function(payload)
@@ -293,6 +355,14 @@ RegisterNetEvent("hm_bp:justiz:interne_notiz", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:interne_notiz_antwort", quelle, { ok = true })
+
+  emitWebhook("antrag_staff_internal_note", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    bearbeiter_name = spieler.name,
+    text            = text,
+  })
 end)
 
 RegisterNetEvent("hm_bp:justiz:oeffentliche_antwort", function(payload)
@@ -319,6 +389,20 @@ RegisterNetEvent("hm_bp:justiz:oeffentliche_antwort", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:oeffentliche_antwort_antwort", quelle, { ok = true })
+
+  emitWebhook("antrag_staff_public_reply", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    category_id     = res and res.category_id,
+    form_id         = res and res.form_id,
+    bearbeiter_name = spieler.name,
+    text            = text,
+  })
+  local benachrichtigungSvc = HM_BP.Server.Dienste.BenachrichtigungService
+  if benachrichtigungSvc and res and res.citizen_identifier then
+    benachrichtigungSvc.OeffentlicheAntwort(res.citizen_identifier, res.public_id)
+  end
 end)
 
 RegisterNetEvent("hm_bp:justiz:status_setzen", function(payload)
@@ -347,6 +431,33 @@ RegisterNetEvent("hm_bp:justiz:status_setzen", function(payload)
   end
 
   TriggerClientEvent("hm_bp:justiz:status_setzen_antwort", quelle, { ok = true, res = res })
+
+  local alterStatus = res and res.alt
+  local neuerStatusVal = neuerStatus
+  emitWebhook("antrag_status_changed", {
+    submission_id   = antragId,
+    public_id       = res and res.public_id,
+    aktenzeichen    = res and res.public_id,
+    category_id     = res and res.category_id,
+    form_id         = res and res.form_id,
+    -- WICHTIG: Spielername aus Antragsdaten, kein Identifier
+    spieler_name    = res and res.citizen_name,
+    alter_status    = alterStatus,
+    neuer_status    = neuerStatusVal,
+    bearbeiter_name = spieler.name,
+    text            = (kommentar and kommentar ~= "") and kommentar or nil,
+  })
+
+  local benachrichtigungSvc = HM_BP.Server.Dienste.BenachrichtigungService
+  if benachrichtigungSvc and res and res.citizen_identifier then
+    if neuerStatusVal == "approved" or neuerStatusVal == "genehmigt" then
+      benachrichtigungSvc.AntragGenehmigt(res.citizen_identifier, res.public_id)
+    elseif neuerStatusVal == "rejected" or neuerStatusVal == "abgelehnt" then
+      benachrichtigungSvc.AntragAbgelehnt(res.citizen_identifier, res.public_id)
+    else
+      benachrichtigungSvc.StatusGeaendert(res.citizen_identifier, res.public_id, alterStatus, neuerStatusVal)
+    end
+  end
 end)
 
 RegisterNetEvent("hm_bp:justiz:sperre_verlaengern", function(payload)

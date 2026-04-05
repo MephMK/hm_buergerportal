@@ -186,7 +186,10 @@ function JustizAntragService.DetailsHolen(spieler, antragId)
 end
 
 function JustizAntragService.Uebernehmen(spieler, antragId)
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, assigned_to_identifier, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, assigned_to_identifier, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -226,7 +229,7 @@ function JustizAntragService.Uebernehmen(spieler, antragId)
     json.encode({ zeit = utcJetztIso() })
   })
 
-  return { ok = true }, nil
+  return { ok = true, public_id = a.public_id }, nil
 end
 
 function JustizAntragService.Zuweisen(spieler, antragId, zielIdentifier, zielName)
@@ -234,7 +237,10 @@ function JustizAntragService.Zuweisen(spieler, antragId, zielIdentifier, zielNam
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ziel-Identifier fehlt." }
   end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, assigned_to_identifier, assigned_to_name, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, assigned_to_identifier, assigned_to_name, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -275,7 +281,7 @@ function JustizAntragService.Zuweisen(spieler, antragId, zielIdentifier, zielNam
     json.encode({ von = a.assigned_to_identifier, nach = zielIdentifier })
   })
 
-  return { ok = true }, nil
+  return { ok = true, public_id = a.public_id }, nil
 end
 
 function JustizAntragService.PrioritaetSetzen(spieler, antragId, prio)
@@ -286,7 +292,10 @@ function JustizAntragService.PrioritaetSetzen(spieler, antragId, prio)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültige Priorität." }
   end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, priority, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, priority, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -322,14 +331,17 @@ function JustizAntragService.PrioritaetSetzen(spieler, antragId, prio)
     json.encode({ alt = a.priority, neu = prio })
   })
 
-  return { ok = true, alt = a.priority, neu = prio }, nil
+  return { ok = true, alt = a.priority, neu = prio, public_id = a.public_id }, nil
 end
 
 function JustizAntragService.Archivieren(spieler, antragId, grund)
   grund = grund or ""
   if type(grund) ~= "string" then grund = tostring(grund) end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -365,7 +377,7 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
     json.encode({ grund = grund })
   })
 
-  return { ok = true }, nil
+  return { ok = true, public_id = a.public_id }, nil
 end
 
 function JustizAntragService.InterneNotiz(spieler, antragId, text)
@@ -373,7 +385,10 @@ function JustizAntragService.InterneNotiz(spieler, antragId, text)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Notiztext ist leer." }
   end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, form_id, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -394,7 +409,7 @@ function JustizAntragService.InterneNotiz(spieler, antragId, text)
     VALUES (?, 'internal_note', 'internal', ?, ?, ?)
   ]], { antragId, spieler.identifier, spieler.name, json.encode({ text = text }) })
 
-  return { ok = true }, nil
+  return { ok = true, public_id = a.public_id, category_id = a.category_id, form_id = a.form_id }, nil
 end
 
 function JustizAntragService.OeffentlicheAntwort(spieler, antragId, text)
@@ -402,7 +417,10 @@ function JustizAntragService.OeffentlicheAntwort(spieler, antragId, text)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Antworttext ist leer." }
   end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, form_id, citizen_identifier, archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -423,7 +441,8 @@ function JustizAntragService.OeffentlicheAntwort(spieler, antragId, text)
     VALUES (?, 'public_message', 'citizen', ?, ?, ?)
   ]], { antragId, spieler.identifier, spieler.name, json.encode({ text = text }) })
 
-  return { ok = true }, nil
+  return { ok = true, public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
+           citizen_identifier = a.citizen_identifier }, nil
 end
 
 function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, kommentar)
@@ -431,7 +450,11 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Neuer Status fehlt." }
   end
 
-  local a = HM_BP.Server.Datenbank.Einzel("SELECT id, category_id, status, archived_at, deleted_at FROM hm_bp_submissions WHERE id = ?", { antragId })
+  local a = HM_BP.Server.Datenbank.Einzel([[
+    SELECT id, public_id, category_id, form_id, status, citizen_identifier, citizen_name,
+           archived_at, deleted_at
+    FROM hm_bp_submissions WHERE id = ?
+  ]], { antragId })
   if not a or a.deleted_at ~= nil then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
@@ -470,7 +493,9 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     VALUES (?, ?, ?, ?, ?, ?)
   ]], { antragId, a.status, neuerStatus, spieler.identifier, spieler.name, kommentar or "" })
 
-  return { ok = true, alt = a.status, neu = neuerStatus }, nil
+  return { ok = true, alt = a.status, neu = neuerStatus,
+           public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
+           citizen_name = a.citizen_name, citizen_identifier = a.citizen_identifier }, nil
 end
 
 -- NEU: Sperre verlängern (Heartbeat). Nur wenn Spieler Lock-Owner ist.

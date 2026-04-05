@@ -4,8 +4,13 @@ HM_BP.Server.Dienste = HM_BP.Server.Dienste or {}
 
 local WebhookService = {}
 
+-- Warteschlange: { event, url, data, versuch, naechsterVersuchNach }
 local queue = {}
-local sending = false
+local workerLaeuft = false
+
+-- ---------------------------------------------------------------
+-- Hilfsfunktionen: Config-Zugriff
+-- ---------------------------------------------------------------
 
 local function cfg()
   return (Config and Config.Webhooks) or { Aktiviert = false }
@@ -16,14 +21,21 @@ local function ident()
   return (c and c.Identitaet) or { Benutzername = "HM Bürgerportal", AvatarUrl = nil, Footer = "HM Bürgerportal" }
 end
 
+local function debug()
+  return Config and Config.Kern and Config.Kern.Debugmodus == true
+end
+
 local function nowIsoUtc()
   return os.date("!%Y-%m-%dT%H:%M:%SZ")
 end
 
-local function shaLike(text)
-  text = tostring(text or "")
-  return text:gsub("[^a-zA-Z0-9_%-%.:]", ""):sub(1, 64)
+local function gameTimerMs()
+  return GetGameTimer() -- milliseconds since game start (FiveM)
 end
+
+-- ---------------------------------------------------------------
+-- Webhook-URL-Routing: Form > Kategorie > Event > Fallback
+-- ---------------------------------------------------------------
 
 local function resolveWebhookUrl(eventName, data)
   local c = cfg()
@@ -31,93 +43,136 @@ local function resolveWebhookUrl(eventName, data)
   local routing = c.Routing or {}
 
   local categoryId = data and (data.category_id or data.kategorie_id)
-  local formId = data and (data.form_id or data.formular_id)
+  local formId     = data and (data.form_id     or data.formular_id)
 
-  -- 1) pro Formular
   if formId and routing.NachFormular and routing.NachFormular[formId] then
     return routing.NachFormular[formId]
   end
-
-  -- 2) pro Kategorie
   if categoryId and routing.NachKategorie and routing.NachKategorie[categoryId] then
     return routing.NachKategorie[categoryId]
   end
-
-  -- 3) pro Event
   if routing.NachEvent and routing.NachEvent[eventName] then
     return routing.NachEvent[eventName]
   end
-
-  -- 4) fallback
   return routing.Fallback
 end
 
+-- ---------------------------------------------------------------
+-- Embed-Farben + Deutsche Titel/Feldnamen pro Event
+-- ---------------------------------------------------------------
+
+local EVENT_META = {
+  antrag_created             = { farbe = 0x2F80ED, titel = "📋 Neuer Antrag eingereicht"           },
+  antrag_status_changed      = { farbe = 0xF2C94C, titel = "🔄 Antragsstatus geändert"             },
+  antrag_assigned            = { farbe = 0x6FCF97, titel = "👤 Antrag zugewiesen"                  },
+  antrag_priority_changed    = { farbe = 0xEB5757, titel = "⚡ Priorität geändert"                 },
+  antrag_archived            = { farbe = 0x4F4F4F, titel = "📦 Antrag archiviert"                  },
+  antrag_question_asked      = { farbe = 0x9B51E0, titel = "❓ Rückfrage gestellt"                 },
+  antrag_citizen_replied     = { farbe = 0x56CCF2, titel = "💬 Bürger hat geantwortet"             },
+  antrag_staff_public_reply  = { farbe = 0x27AE60, titel = "📢 Öffentliche Antwort (Justiz)"       },
+  antrag_staff_internal_note = { farbe = 0x828282, titel = "🔒 Interne Notiz hinzugefügt"          },
+  antrag_nachgereicht        = { farbe = 0x2D9CDB, titel = "📎 Unterlagen nachgereicht"            },
+  anhang_hinzugefuegt        = { farbe = 0x2D9CDB, titel = "🖼️ Anhang hinzugefügt"               },
+  anhang_entfernt            = { farbe = 0xEB5757, titel = "🗑️ Anhang entfernt"                   },
+  ["form_editor.published"]  = { farbe = 0x27AE60, titel = "✅ Formular veröffentlicht"            },
+  ["form_editor.archived"]   = { farbe = 0x4F4F4F, titel = "📦 Formular archiviert"               },
+  ["admin.config.changed"]   = { farbe = 0xEB5757, titel = "⚙️ Admin-Konfiguration geändert"      },
+  webhook_test               = { farbe = 0x3447DB, titel = "🔔 Webhook-Test"                       },
+}
+
 local function embedColorForEvent(eventName)
-  eventName = tostring(eventName or "")
-  if eventName:find("error") then return 0xE74C3C end
-  if eventName:find("security") then return 0x8E44AD end
-  if eventName:find("submission%.created") then return 0x2F80ED end
-  if eventName:find("status") then return 0xF2C94C end
-  if eventName:find("archiv") then return 0x4F4F4F end
+  local meta = EVENT_META[eventName]
+  if meta then return meta.farbe end
   return 0x2D9CDB
 end
 
+local function embedTitelForEvent(eventName)
+  local meta = EVENT_META[eventName]
+  if meta then return meta.titel end
+  return ("Bürgerportal: %s"):format(tostring(eventName))
+end
+
+-- ---------------------------------------------------------------
+-- Embed-Bau: kurzes Format, nur relevante Felder, kein Identifier
+-- ---------------------------------------------------------------
+
 local function makeEmbed(eventName, data)
   local i = ident()
-  local title = ("Bürgerportal: %s"):format(tostring(eventName))
-
   local fields = {}
-  local function addField(name, value, inline)
+
+  local function add(name, value, inline)
     if value == nil then return end
     local v = tostring(value)
     if v == "" then return end
-    table.insert(fields, { name = name, value = v, inline = inline == true })
+    table.insert(fields, { name = name, value = v, inline = inline ~= false })
   end
 
-  addField("Antrag-ID", data and (data.public_id or data.antrag_id or data.submission_id), true)
-  addField("Kategorie", data and (data.category_id or data.kategorie_id), true)
-  addField("Formular", data and (data.form_id or data.formular_id), true)
+  -- Aktenzeichen / öffentliche ID (immer zuerst, wenn vorhanden)
+  add("Aktenzeichen", data and (data.public_id or data.aktenzeichen), true)
 
-  addField("Bürger", data and data.citizen_name, true)
-  addField("Identifier", data and data.citizen_identifier, true)
+  -- WICHTIG: Spielername – immer aus spieler_name, nie Identifier
+  add("Spielername", data and (data.spieler_name or data.buerger_name or data.citizen_name), true)
 
-  addField("Status", data and data.status, true)
-  addField("Priorität", data and data.priority, true)
+  -- Formular / Kategorie
+  add("Formular",   data and (data.form_id    or data.formular_id),  true)
+  add("Kategorie",  data and (data.category_id or data.kategorie_id), true)
 
-  addField("Bearbeiter", data and data.assigned_to_name, true)
+  -- Status-Änderung
+  if data and data.alter_status and data.neuer_status then
+    add("Status", ("%s → %s"):format(tostring(data.alter_status), tostring(data.neuer_status)), false)
+  elseif data and data.status then
+    add("Status", data.status, true)
+  end
 
+  -- Bearbeiter / Zuweisung
+  add("Bearbeiter",  data and (data.assigned_to_name or data.bearbeiter_name), true)
+  add("Priorität",   data and data.priority,  true)
+
+  -- Freitext (kurz)
   if data and data.text then
-    local text = tostring(data.text)
-    if #text > 900 then text = text:sub(1, 900) .. "..." end
-    addField("Text", text, false)
+    local t = tostring(data.text)
+    if #t > 500 then t = t:sub(1, 500) .. "…" end
+    add("Nachricht", t, false)
   end
-
-  addField("Standort", data and data.standort_id, true)
-
-  local footer = i.Footer or "HM Bürgerportal"
 
   return {
-    title = title,
-    description = nil,
-    color = embedColorForEvent(eventName),
-    fields = fields,
-    footer = { text = footer },
-    timestamp = nowIsoUtc()
+    title     = embedTitelForEvent(eventName),
+    color     = embedColorForEvent(eventName),
+    fields    = fields,
+    footer    = { text = i.Footer or "HM Bürgerportal" },
+    timestamp = nowIsoUtc(),
   }
 end
 
-local function pushQueue(item)
-  local c = cfg()
-  local max = (c.Warteschlange and c.Warteschlange.MaxGroesse) or 5000
-  if #queue >= max then
-    -- wenn zu voll: älteste raus (oder verwerfen). Wir verwerfen hier das neue Item.
-    if Config.Kern and Config.Kern.Debugmodus then
-      print("[hm_buergerportal] WARN: Webhook-Queue voll, verwerfe Event " .. tostring(item and item.event))
-    end
-    return
-  end
-  table.insert(queue, item)
+-- ---------------------------------------------------------------
+-- DB-Log (optional)
+-- ---------------------------------------------------------------
+
+local function shaLike(text)
+  return tostring(text or ""):gsub("[^a-zA-Z0-9_%-%.:]", ""):sub(1, 64)
 end
+
+local function logInDB(c, eventName, url, payload, ok, code, body)
+  if c.LogsInDB ~= true then return end
+  local db = HM_BP.Server.Datenbank
+  if not db or not db.Ausfuehren then return end
+  db.Ausfuehren([[
+    INSERT INTO hm_bp_webhook_logs
+      (event_name, webhook_url_hash, payload, success, response_code, error_text)
+    VALUES (?, ?, ?, ?, ?, ?)
+  ]], {
+    tostring(eventName),
+    shaLike(url),
+    payload,
+    ok and 1 or 0,
+    tonumber(code or 0),
+    ok and nil or (tostring(body or ""):sub(1, 255))
+  })
+end
+
+-- ---------------------------------------------------------------
+-- HTTP POST (nicht-blockierend, Callback)
+-- ---------------------------------------------------------------
 
 local function httpPost(url, payload, cb)
   PerformHttpRequest(url, function(code, body, headers)
@@ -125,87 +180,184 @@ local function httpPost(url, payload, cb)
   end, "POST", payload, { ["Content-Type"] = "application/json" })
 end
 
-local function workerTick()
-  if sending then return end
-  sending = true
+-- ---------------------------------------------------------------
+-- Worker-Schleife mit Retry + Backoff + Rate-Limit (429)
+-- ---------------------------------------------------------------
+
+local function arbeiteQueue()
+  if workerLaeuft then return end
+  workerLaeuft = true
 
   CreateThread(function()
     local c = cfg()
-    local interval = (c.Warteschlange and c.Warteschlange.WorkerIntervallMs) or 750
-    local maxPer = (c.Warteschlange and c.Warteschlange.MaxProIntervall) or 5
+    local intervall  = (c.Warteschlange and c.Warteschlange.WorkerIntervallMs) or 750
+    local maxPer     = (c.Warteschlange and c.Warteschlange.MaxProIntervall)   or 5
+    local wiederholKfg = (c.Warteschlange and c.Warteschlange.Wiederholung) or {}
+    local maxVersuche = tonumber(wiederholKfg.MaxVersuche) or 5
+    local backoff     = wiederholKfg.BackoffMs or { 1000, 3000, 7000, 15000, 30000 }
 
     while #queue > 0 do
+      local jetztMs   = gameTimerMs()
       local processed = 0
-      while processed < maxPer and #queue > 0 do
-        processed = processed + 1
 
-        local item = table.remove(queue, 1)
-        local url = item and item.url
-        local eventName = item and item.event
-        local data = item and item.data or {}
+      -- Index-basierte Iteration, da wir ggf. Einträge am Ende wiedereinfügen
+      local i = 1
+      while i <= #queue and processed < maxPer do
+        local item = queue[i]
 
-        if not url or url == "" then
-          goto continue_item
+        -- Warte-Zeit noch nicht erreicht? → überspringen
+        if item.naechsterVersuchNach and item.naechsterVersuchNach > jetztMs then
+          i = i + 1
+        else
+          table.remove(queue, i)
+          processed = processed + 1
+
+          local url       = item.url
+          local eventName = item.event
+          local data      = item.data or {}
+          local versuch   = item.versuch or 1
+
+          if not url or url == "" then
+            -- kein Ziel, verwerfen
+          else
+            local identCfg = ident()
+            local embed    = makeEmbed(eventName, data)
+            local msg = {
+              username   = identCfg.Benutzername or "HM Bürgerportal",
+              avatar_url = identCfg.AvatarUrl,
+              embeds     = { embed }
+            }
+            local payload = json.encode(msg)
+
+            httpPost(url, payload, function(code, body, headers)
+              local statusCode = tonumber(code or 0)
+              local ok = statusCode >= 200 and statusCode < 300
+
+              -- Discord Rate-Limit: Retry-After Header auswerten
+              if statusCode == 429 then
+                local retryAfterSek = 1
+                if headers then
+                  local ra = headers["retry-after"] or headers["Retry-After"] or headers["x-ratelimit-reset-after"]
+                  retryAfterSek = tonumber(ra) or 1
+                end
+                local warteMs = math.ceil(retryAfterSek * 1000) + 100 -- +100ms Puffer für Netzwerklatenz
+                if versuch <= maxVersuche then
+                  local naechster = gameTimerMs() + warteMs
+                  table.insert(queue, {
+                    event               = eventName,
+                    url                 = url,
+                    data                = data,
+                    versuch             = versuch + 1,
+                    naechsterVersuchNach = naechster,
+                  })
+                end
+                if debug() then
+                  print(("[hm_buergerportal] WARN: Discord Rate-Limit (429), retry %ds: %s"):format(
+                    retryAfterSek, tostring(eventName)))
+                end
+                return
+              end
+
+              -- Fehler: Retry mit Backoff
+              if not ok then
+                if versuch < maxVersuche then
+                  local warteMs = backoff[versuch] or backoff[#backoff] or 30000
+                  local naechster = gameTimerMs() + warteMs
+                  table.insert(queue, {
+                    event               = eventName,
+                    url                 = url,
+                    data                = data,
+                    versuch             = versuch + 1,
+                    naechsterVersuchNach = naechster,
+                  })
+                  if debug() then
+                    print(("[hm_buergerportal] WARN: Webhook fehlgeschlagen (Versuch %d/%d) code=%s event=%s, retry in %dms"):format(
+                      versuch, maxVersuche, tostring(statusCode), tostring(eventName), warteMs))
+                  end
+                else
+                  -- Maximale Versuche erreicht
+                  if debug() then
+                    print(("[hm_buergerportal] ERR: Webhook endgültig fehlgeschlagen (nach %d Versuchen) code=%s event=%s body=%s"):format(
+                      versuch, tostring(statusCode), tostring(eventName), tostring(body or ""):sub(1, 200)))
+                  end
+                end
+              end
+
+              logInDB(c, eventName, url, payload, ok, statusCode, body)
+            end)
+          end
         end
-
-        local i = ident()
-        local embed = makeEmbed(eventName, data)
-
-        local msg = {
-          username = i.Benutzername or "HM Bürgerportal",
-          avatar_url = i.AvatarUrl,
-          embeds = { embed }
-        }
-
-        local payload = json.encode(msg)
-        httpPost(url, payload, function(code, body, headers)
-          local ok = (tonumber(code or 0) >= 200 and tonumber(code or 0) < 300)
-
-          -- optionales Logging in DB: hm_bp_webhook_logs existiert
-          if c.LogsInDB == true then
-            local hash = shaLike(url)
-            HM_BP.Server.Datenbank.Ausfuehren([[
-              INSERT INTO hm_bp_webhook_logs (event_name, webhook_url_hash, payload, success, response_code, error_text)
-              VALUES (?, ?, ?, ?, ?, ?)
-            ]], {
-              tostring(eventName),
-              hash,
-              payload,
-              ok and 1 or 0,
-              tonumber(code or 0),
-              ok and nil or (tostring(body or ""):sub(1, 255))
-            })
-          end
-
-          if not ok and Config.Kern and Config.Kern.Debugmodus then
-            print(("[hm_buergerportal] WARN: Webhook fehlgeschlagen (%s) code=%s body=%s"):format(
-              tostring(eventName), tostring(code), tostring(body)
-            ))
-          end
-        end)
-
-        ::continue_item::
       end
 
-      Wait(interval)
+      Wait(intervall)
     end
 
-    sending = false
+    workerLaeuft = false
   end)
 end
 
+-- ---------------------------------------------------------------
+-- Öffentliche API
+-- ---------------------------------------------------------------
+
+--- Sendet ein Webhook-Event in die Queue.
+--- spieler_name MUSS im data-Table stehen (kein Identifier an Discord).
 function WebhookService.Emit(eventName, data)
   local c = cfg()
   if not c or c.Aktiviert ~= true then return end
+  if Config.Module and Config.Module.Webhooks == false then return end
 
-  local url = resolveWebhookUrl(eventName, data or {})
-  if not url or url == "" then
-    -- bewusst still: wenn nichts geroutet ist, dann nichts senden
+  local url = resolveWebhookUrl(tostring(eventName), data or {})
+  if not url or url == "" then return end
+
+  local maxGroesse = (c.Warteschlange and c.Warteschlange.MaxGroesse) or 5000
+  if #queue >= maxGroesse then
+    if debug() then
+      print(("[hm_buergerportal] WARN: Webhook-Queue voll, verwerfe Event: %s"):format(tostring(eventName)))
+    end
     return
   end
 
-  pushQueue({ event = tostring(eventName), url = url, data = data or {} })
-  workerTick()
+  table.insert(queue, {
+    event               = tostring(eventName),
+    url                 = url,
+    data                = data or {},
+    versuch             = 1,
+    naechsterVersuchNach = nil,
+  })
+
+  arbeiteQueue()
+end
+
+--- Sendet direkt an eine übergebene URL (für Admin-Test).
+--- Gibt das Embed-Objekt zurück und sendet asynchron.
+function WebhookService.SendDirektTest(url, spielerName, cb)
+  local testData = {
+    spieler_name = spielerName or "Administrator",
+    text         = "Verbindungstest – diese Nachricht bestätigt, dass der Webhook erreichbar ist.",
+  }
+  local identCfg = ident()
+  local embed = {
+    title       = "🔔 Webhook-Test",
+    description = ("Webhook-Test von **%s** – die Verbindung funktioniert."):format(
+                    tostring(spielerName or "Administrator")),
+    color       = 0x3447DB,
+    fields      = {
+      { name = "Spielername", value = tostring(spielerName or "Administrator"), inline = true },
+      { name = "Zeitpunkt",   value = nowIsoUtc(),                              inline = true },
+    },
+    footer    = { text = identCfg.Footer or "HM Bürgerportal Admin-Panel" },
+    timestamp = nowIsoUtc(),
+  }
+  local msg = {
+    username   = identCfg.Benutzername or "HM Bürgerportal (Test)",
+    avatar_url = identCfg.AvatarUrl,
+    embeds     = { embed },
+  }
+  local payload = json.encode(msg)
+  PerformHttpRequest(url, function(code, body, headers)
+    if cb then cb(tonumber(code or 0), body) end
+  end, "POST", payload, { ["Content-Type"] = "application/json" })
 end
 
 HM_BP.Server.Dienste.WebhookService = WebhookService

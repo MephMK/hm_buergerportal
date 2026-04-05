@@ -30,6 +30,30 @@ local function istStaffJob(jobName)
   return false
 end
 
+-- Gibt den FiveM-Spielernamen (GetPlayerName) für eine Server-Quell-ID zurück.
+-- Gibt nil zurück, wenn der Spieler nicht online ist oder die Quelle ungültig ist.
+function SpielerService.SpielerNameAuflosen(quelle)
+  local src = tonumber(quelle)
+  if not src or src <= 0 then return nil end
+  local ok, name = pcall(GetPlayerName, src)
+  if ok and name and name ~= "" then
+    return name
+  end
+  return nil
+end
+
+-- Gibt den Bezeichner (Identifier) für eine Server-Quell-ID zurück.
+function SpielerService.IdentifierAuflosen(quelle)
+  local src = tonumber(quelle)
+  if not src or src <= 0 then return nil end
+  local esx = esxSicherstellen()
+  if esx then
+    local xPlayer = esx.GetPlayerFromId(src)
+    if xPlayer then return xPlayer.identifier end
+  end
+  return nil
+end
+
 function SpielerService.UpsertStaffEintrag(identifier, displayName, job, grade)
   if not identifier or identifier == "" then return end
   if not job or job == "" then return end
