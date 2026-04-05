@@ -233,6 +233,125 @@ Config.Rechte = {
   }
 }
 
+-- =============================================================
+-- Config.Permissions
+-- Feingranulares Permissions-System (permission_service.lua).
+-- Dieses System arbeitet parallel zu Config.Rechte und nutzt
+-- kanonische Aktionsschlüssel (HM_BP.Shared.Actions.*).
+--
+-- Kaskaden-Reihenfolge (spezifischste Ebene gewinnt):
+--   1) Admin-Job → immer Vollzugriff (Kurzschluss)
+--   2) Globale Defaults (Defaults[rolle])
+--   3) Kategorie-Override (Config.Kategorien.Liste[id].permissions)
+--   4) Formular-Override  (Config.Formulare.Liste[id].permissions)
+--
+-- allow = { "aktion1", "aktion2", ... } oder { "*" } für alle
+-- deny  = { "aktion1", ... }            deny schlägt allow
+-- grade = { min = N }  oder { max = N } oder { allowed = { 1, 2, 3 } }
+-- jobs  = { "doj", "admin" }            Job-Whitelist (leer = alle)
+-- =============================================================
+Config.Permissions = {
+  Aktiviert = true,
+
+  -- Debug-Ausgabe in der Server-Konsole (nur für Entwicklung!)
+  Debug = false,
+
+  -- ----------------------------------------------------------
+  -- Globale Defaults pro Rolle
+  -- ----------------------------------------------------------
+  Defaults = {
+
+    -- Bürger: darf das Portal öffnen, eigene Anträge verwalten,
+    --         öffentliche Nachrichten lesen, Rückfragen beantworten
+    --         und fehlende Felder nachreichen.
+    buerger = {
+      allow = {
+        "system.open",
+        "citizen.view",
+        "categories.view",
+        "forms.view",
+        "submissions.create",
+        "submissions.view_own",
+        "message.public.read",
+        "question.answer",
+        "citizen.supplement",
+      },
+      deny  = {},
+    },
+
+    -- Justiz: mind. Job "doj", Grade 0+.
+    -- Grundrechte für alle DoJ-Mitglieder; erweiterte Aktionen
+    -- (archivieren, interne Notizen, etc.) können per Kategorie-
+    -- oder Formular-Override für bestimmte Grades freigeschaltet
+    -- werden (siehe Beispiel-Override weiter unten).
+    justiz = {
+      jobs  = { "doj" },
+      grade = { min = 0 },
+      allow = {
+        "system.open",
+        "justice.view",
+        "categories.view",
+        "forms.view",
+        "submissions.view_inbox",
+        "submissions.view_assigned",
+        "submissions.take",
+        "submissions.change_status",
+        "submissions.approve",
+        "submissions.reject",
+        "message.public.read",
+        "message.public.write",
+        "question.ask",
+        "notes.internal.read",
+        "form_editor.use",
+      },
+      deny  = {},
+    },
+
+    -- Admin: voller Zugriff auf alles.
+    admin = {
+      jobs  = { "admin" },
+      allow = { "*" },
+      deny  = {},
+    },
+  },
+}
+
+-- ------------------------------------------------------------------
+-- Beispiel: Kategorie-Override „general"
+-- Justiz-Mitglieder mit Grade >= 2 dürfen zusätzlich:
+--   archivieren, interne Notizen schreiben, Priorität setzen,
+--   zuweisen, Formular-Editor veröffentlichen/-archivieren.
+-- Grade 0–1 bleiben auf die globalen Justiz-Defaults beschränkt.
+-- ------------------------------------------------------------------
+-- Config.Kategorien.Liste["general"].permissions = {
+--   justiz = {
+--     grade = { min = 2 },
+--     allow = {
+--       "submissions.archive",
+--       "submissions.assign",
+--       "submissions.set_priority",
+--       "notes.internal.write",
+--       "submissions.view_all",
+--       "submissions.view_archive",
+--       "form_editor.publish",
+--       "form_editor.archive",
+--     },
+--     deny = {},
+--   },
+-- }
+
+-- ------------------------------------------------------------------
+-- Beispiel: Formular-Override „gewerbe_antrag"
+-- Für dieses Formular darf kein Justiz-Mitarbeiter (unabhängig vom
+-- Grade) eine Rückfrage stellen – stattdessen nur Genehmigen/Ablehnen.
+-- ------------------------------------------------------------------
+-- Config.Formulare.Liste["gewerbe_antrag"].permissions = {
+--   justiz = {
+--     deny  = { "question.ask" },
+--     allow = { "submissions.approve", "submissions.reject" },
+--   },
+-- }
+
 Config.JustizFallback = {
   sehen = {
     eingang = true,
@@ -308,6 +427,27 @@ Config.Kategorien = {
         adminImmer = true
       },
 
+      -- PermissionService-Override für Kategorie "general":
+      -- Justiz-Mitglieder mit Grade >= 2 dürfen archivieren, zuweisen,
+      -- interne Notizen schreiben sowie den Formular-Editor vollständig nutzen.
+      -- Grade 0–1 bleiben auf die globalen Justiz-Defaults beschränkt.
+      permissions = {
+        justiz = {
+          grade = { min = 2 },
+          allow = {
+            "submissions.archive",
+            "submissions.assign",
+            "submissions.set_priority",
+            "submissions.view_all",
+            "submissions.view_archive",
+            "notes.internal.write",
+            "form_editor.publish",
+            "form_editor.archive",
+          },
+          deny = {},
+        },
+      },
+
       webhooks = {}
     },
 
@@ -378,6 +518,28 @@ Config.Kategorien = {
         },
 
         adminImmer = true
+      },
+
+      -- PermissionService-Override für Kategorie "gewerbe":
+      -- Grade 0–1 dürfen nur Status ändern und öffentlich antworten.
+      -- Grade 3+ erhalten erweiterte Aktionen inkl. Archivieren und interne Notizen.
+      -- question.ask ist für alle Justiz-Grades in dieser Kategorie verboten
+      -- (Gewerbeanträge sollen direkt genehmigt/abgelehnt werden).
+      permissions = {
+        justiz = {
+          grade = { min = 3 },
+          allow = {
+            "submissions.archive",
+            "submissions.assign",
+            "submissions.set_priority",
+            "submissions.view_all",
+            "submissions.view_archive",
+            "notes.internal.write",
+            "form_editor.publish",
+            "form_editor.archive",
+          },
+          deny = { "question.ask" },
+        },
       },
 
       webhooks = {}

@@ -24,7 +24,8 @@ shared_scripts {
   'shared/hilfsfunktionen.lua',
   'shared/fehlercodes.lua',
   'shared/texte.lua',
-  'shared/location_schema.lua'
+  'shared/location_schema.lua',
+  'shared/permission_actions.lua'
 }
 
 client_scripts {
@@ -47,6 +48,7 @@ server_scripts {
 
   'server/dienste/auth_service.lua',
   'server/dienste/rechte_service.lua',
+  'server/dienste/permission_service.lua',
   'server/dienste/anti_spam_service.lua',
   'server/dienste/oeffentliche_id_service.lua',
   'server/dienste/status_service.lua',

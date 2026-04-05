@@ -18,7 +18,7 @@ RegisterNetEvent("hm_bp:location:ui_oeffnen_anfordern", function(payload)
   payload = payload or {}
 
   -- Basic auth / rate-limit check
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:location:ui_oeffnen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -70,7 +70,7 @@ end)
 RegisterNetEvent("hm_bp:location:liste_anfordern", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:location:liste_antwort", quelle, { ok = false, fehler = err })
     return

@@ -42,7 +42,7 @@ end
 RegisterNetEvent("hm_bp:form_editor:rechte_anfordern", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:rechte_antwort", quelle, { ok = false, fehler = err })
     return
@@ -74,7 +74,7 @@ RegisterNetEvent("hm_bp:form_editor:liste_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -96,7 +96,7 @@ RegisterNetEvent("hm_bp:form_editor:formular_erstellen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:formular_erstellen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -132,7 +132,7 @@ RegisterNetEvent("hm_bp:form_editor:schema_holen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:schema_holen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -154,7 +154,7 @@ RegisterNetEvent("hm_bp:form_editor:schema_speichern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:schema_speichern_antwort", quelle, { ok = false, fehler = err })
     return
@@ -185,7 +185,7 @@ RegisterNetEvent("hm_bp:form_editor:veroeffentlichen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:veroeffentlichen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -216,7 +216,7 @@ RegisterNetEvent("hm_bp:form_editor:archivieren", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:form_editor:archivieren_antwort", quelle, { ok = false, fehler = err })
     return

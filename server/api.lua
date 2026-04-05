@@ -8,7 +8,7 @@ RegisterNetEvent("hm_bp:portal:daten_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:portal:daten_antwort", quelle, { ok = false, fehler = err })
     return
@@ -44,7 +44,7 @@ RegisterNetEvent("hm_bp:status:liste_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:status:liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -74,7 +74,7 @@ end)
 RegisterNetEvent("hm_bp:prioritaeten:liste_anfordern", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:prioritaeten:liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -98,7 +98,7 @@ RegisterNetEvent("hm_bp:kategorien:liste_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:kategorien:liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -113,7 +113,7 @@ RegisterNetEvent("hm_bp:formulare:liste_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:formulare:liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -134,7 +134,7 @@ RegisterNetEvent("hm_bp:formular:schema_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:formular:schema_antwort", quelle, { ok = false, fehler = err })
     return
@@ -159,7 +159,7 @@ RegisterNetEvent("hm_bp:antrag:einreichen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_ERSTELLEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_CREATE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:antrag:einreichen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -202,7 +202,7 @@ RegisterNetEvent("hm_bp:antraege:meine_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_EIGENE_ANSEHEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_VIEW_OWN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:antraege:meine_antwort", quelle, { ok = false, fehler = err })
     return
@@ -219,7 +219,7 @@ RegisterNetEvent("hm_bp:antrag:details_mein_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_EIGENE_ANSEHEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_VIEW_OWN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:antrag:details_mein_antwort", quelle, { ok = false, fehler = err })
     return
@@ -244,7 +244,7 @@ RegisterNetEvent("hm_bp:antrag:buerger_antwort", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_EIGENE_ANSEHEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_VIEW_OWN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:antrag:buerger_antwort_antwort", quelle, { ok = false, fehler = err })
     return
@@ -280,7 +280,7 @@ RegisterNetEvent("hm_bp:antrag:nachreichen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_EIGENE_ANSEHEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_VIEW_OWN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:antrag:nachreichen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -320,7 +320,7 @@ end)
 RegisterNetEvent("hm_bp:debug:oeffentliche_id_test", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "SYSTEM_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SYSTEM_OPEN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:debug:oeffentliche_id_test_antwort", quelle, { ok = false, fehler = err })
     return

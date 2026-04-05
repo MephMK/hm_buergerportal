@@ -8,7 +8,7 @@ HM_BP.Server = HM_BP.Server or {}
 RegisterNetEvent("hm_bp:justiz:kategorien_anfordern", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:kategorien_antwort", quelle, { ok = false, fehler = err })
     return
@@ -21,7 +21,7 @@ end)
 RegisterNetEvent("hm_bp:justiz:bearbeiter_liste_anfordern", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:bearbeiter_liste_antwort", quelle, { ok = false, fehler = err })
     return
@@ -37,7 +37,7 @@ RegisterNetEvent("hm_bp:justiz:eigang_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:eigang_antwort", quelle, { ok = false, fehler = err })
     return
@@ -57,7 +57,7 @@ RegisterNetEvent("hm_bp:justiz:zugewiesen_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:zugewiesen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -77,7 +77,7 @@ RegisterNetEvent("hm_bp:justiz:alle_kategorie_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:alle_kategorie_antwort", quelle, { ok = false, fehler = err })
     return
@@ -97,7 +97,7 @@ RegisterNetEvent("hm_bp:justiz:details_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:details_antwort", quelle, { ok = false, fehler = err })
     return
@@ -123,7 +123,7 @@ RegisterNetEvent("hm_bp:justiz:suchen_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:suchen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -143,7 +143,7 @@ RegisterNetEvent("hm_bp:justiz:rueckfrage_stellen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_STATUS_SETZEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.QUESTION_ASK, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:rueckfrage_stellen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -166,7 +166,7 @@ RegisterNetEvent("hm_bp:justiz:uebernehmen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_UEBERNEHMEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_TAKE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:uebernehmen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -191,7 +191,7 @@ RegisterNetEvent("hm_bp:justiz:zuweisen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_ZUWEISEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_ASSIGN, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:zuweisen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -219,7 +219,7 @@ RegisterNetEvent("hm_bp:justiz:prioritaet_setzen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_PRIORITAET_SETZEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_SET_PRIORITY, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:prioritaet_setzen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -246,7 +246,7 @@ RegisterNetEvent("hm_bp:justiz:archivieren", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ARCHIVIEREN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_ARCHIVE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:archivieren_antwort", quelle, { ok = false, fehler = err })
     return
@@ -273,7 +273,7 @@ RegisterNetEvent("hm_bp:justiz:interne_notiz", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "INTERNE_NOTIZ_SCHREIBEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.NOTES_INTERNAL_WRITE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:interne_notiz_antwort", quelle, { ok = false, fehler = err })
     return
@@ -299,7 +299,7 @@ RegisterNetEvent("hm_bp:justiz:oeffentliche_antwort", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "OEFFENTLICHE_NACHRICHT_SCHREIBEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.MESSAGE_PUBLIC_WRITE, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:oeffentliche_antwort_antwort", quelle, { ok = false, fehler = err })
     return
@@ -325,7 +325,7 @@ RegisterNetEvent("hm_bp:justiz:status_setzen", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "ANTRAG_STATUS_SETZEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_CHANGE_STATUS, {})
   if not spieler then
     TriggerClientEvent("hm_bp:justiz:status_setzen_antwort", quelle, { ok = false, fehler = err })
     return
@@ -353,7 +353,7 @@ RegisterNetEvent("hm_bp:justiz:sperre_verlaengern", function(payload)
   local quelle = source
   payload = payload or {}
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     return
   end
@@ -367,7 +367,7 @@ end)
 RegisterNetEvent("hm_bp:justiz:sperren_alle_loesen", function()
   local quelle = source
 
-  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, "JUSTIZ_OEFFNEN", {})
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
     return
   end
