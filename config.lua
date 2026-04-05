@@ -62,6 +62,78 @@ Config.Zahlung = {
   TerminaleStatus = { "approved", "rejected", "closed", "completed", "archived" },
 }
 
+-- =============================================================
+-- JobSettings (PR15)
+-- Job-Grade-Berechtigungen: konfigurierbar im Admin-Panel (JobSettings-Tab).
+-- Speicherung über AdminConfigService → data/admin_overrides.json.
+-- Overrides überschreiben beim Serverstart diese Defaults (keine config.lua-Änderung nötig).
+-- =============================================================
+Config.JobSettings = {
+  -- Job-Definitionen: je Job ein Eintrag mit Grades und Grade-Berechtigungen.
+  -- gradPermissions[gradeNummer] = { allow = {...}, deny = {...} }
+  --   allow  – Aktionen, die ZUSÄTZLICH zu den globalen Defaults erlaubt werden.
+  --   deny   – Aktionen, die aus den globalen Defaults ENTZOGEN werden (Vorrang vor allow).
+  -- Wenn kein gradPermissions-Eintrag für einen Grade vorhanden, gelten nur globale Defaults.
+  Jobs = {
+    ["doj"] = {
+      anzeigeName      = "Justiz (DoJ)",
+      globalDefaultRolle = "justiz",   -- Globale Defaults-Rolle, auf der diese Einstellungen aufbauen
+      grades = {
+        { grade = 0, name = "Mitarbeiter"          },
+        { grade = 1, name = "Senior Mitarbeiter"   },
+        { grade = 2, name = "Leitender Mitarbeiter" },
+        { grade = 3, name = "Abteilungsleiter"     },
+      },
+      gradPermissions = {
+        -- Grade 0 & 1: nur globale Justiz-Defaults (kein extra Eintrag nötig)
+        -- Grade 2+: Leitungs-Aktionen freischalten
+        [2] = {
+          allow = {
+            "workflow.lock.override",
+            "workflow.sla.pause",
+            "workflow.sla.resume",
+            "submissions.view_all",
+            "submissions.view_archive",
+            "submissions.archive",
+            "submissions.assign",
+            "submissions.set_priority",
+            "notes.internal.write",
+            "form_editor.publish",
+            "form_editor.archive",
+          },
+          deny = {},
+        },
+        -- Grade 3 (Abteilungsleiter): gleiche Basis wie Grade 2.
+        -- Im Admin-Panel (JobSettings-Tab) können diese Berechtigungen pro Grade individuell angepasst werden.
+        [3] = {
+          allow = {
+            "workflow.lock.override",
+            "workflow.sla.pause",
+            "workflow.sla.resume",
+            "submissions.view_all",
+            "submissions.view_archive",
+            "submissions.archive",
+            "submissions.assign",
+            "submissions.set_priority",
+            "notes.internal.write",
+            "form_editor.publish",
+            "form_editor.archive",
+          },
+          deny = {},
+        },
+      },
+    },
+    ["admin"] = {
+      anzeigeName      = "Administrator",
+      globalDefaultRolle = "admin",
+      grades = {
+        { grade = 0, name = "Administrator" },
+      },
+      gradPermissions = {},
+    },
+  },
+}
+
 Config.Standorte = {
   Aktiviert = true,
 

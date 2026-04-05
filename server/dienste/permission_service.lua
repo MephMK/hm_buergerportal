@@ -7,6 +7,7 @@
 --   3) Globale Defaults für die Rolle (Config.Permissions.Defaults)
 --   4) Job-Constraint (spieler.job.name muss in defaults.jobs)
 --   5) Grade-Constraint (min/max oder allowed-Liste)
+--  5b) JobSettings per-Grade Override (Config.JobSettings.Jobs[job].gradPermissions[grade])
 --   6) Kategorie-Override (ctx.kategorieId → .permissions[rolle])
 --   7) Formular-Override  (ctx.formularId  → .permissions[rolle])
 --   8) Global-Default entscheidet (Default-Deny)
@@ -101,6 +102,16 @@ local function gradePasst(spieler, regel)
   end
 
   return true
+end
+
+-- Holt die JobSettings-Grade-Regel für einen bestimmten Job+Grade aus Config.JobSettings.
+-- Gibt nil zurück wenn keine Überschreibung konfiguriert ist.
+local function jobSettingsGradeRegel(jobName, gradeNum)
+  local js = Config.JobSettings
+  if not js or not js.Jobs then return nil end
+  local jobDef = js.Jobs[jobName]
+  if not jobDef or not jobDef.gradPermissions then return nil end
+  return jobDef.gradPermissions[gradeNum] or nil
 end
 
 -- Wertet eine einzelne Regel-Ebene aus.
@@ -198,6 +209,25 @@ function PermissionService.Hat(spieler, aktion, ctx)
       code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
       nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
     }
+  end
+
+  -- 5b) JobSettings per-Grade Override (konfiguriert via Admin-Panel JobSettings-Tab)
+  --     deny hat Vorrang; allow fügt Berechtigungen hinzu; nil = weiter zum nächsten Level
+  do
+    local jobName  = spieler.job and spieler.job.name or ""
+    local gradeNum = tonumber(spieler.job and spieler.job.grade) or 0
+    local gradeRegel = jobSettingsGradeRegel(jobName, gradeNum)
+    if gradeRegel then
+      local erg = ebeneAuswerten(gradeRegel, aktion)
+      if erg ~= nil then
+        debug("JobSettings-Grade-Override entscheidet:", erg, "für", aktion)
+        if erg then return true, nil end
+        return false, {
+          code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
+          nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
+        }
+      end
+    end
   end
 
   -- 6) Kategorie-Override (höchste kontextuelle Spezifizität nach Formular)
