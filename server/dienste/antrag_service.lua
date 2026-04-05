@@ -30,7 +30,7 @@ local function fristBerechnen(formular, kategorie)
   return os.date("!%Y-%m-%d %H:%M:%S", deadline)
 end
 
-function AntragService.Einreichen(spieler, standortId, formularId, antworten)
+function AntragService.Einreichen(spieler, standortId, formularId, antworten, delegation)
   -- AntiSpam: globaler Cooldown
   local okCd, errCd = HM_BP.Server.Dienste.AntiSpamService.PruefeGlobalenCooldown(spieler)
   if not okCd then return nil, errCd end
@@ -70,6 +70,98 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     }
   end
 
+  -- -------------------------------------------------------
+  -- Delegation: Im-Auftrag-Einreichung (PR3)
+  -- -------------------------------------------------------
+  -- delegation = { typ, ziel_source, ziel_identifier, ziel_name }
+  -- typ: 'submit_for_citizen' | 'submit_for_company' | 'justice_create_for_citizen'
+  -- ziel_identifier + ziel_name: Zielperson (Bürger/Firma)
+
+  local actorIdentifier  = spieler.identifier
+  local actorName        = spieler.name or spieler.identifier
+  local delegationType   = nil
+  local citizenIdentifier = spieler.identifier  -- Standard: einreichender Spieler = Bürger
+
+  if delegation and type(delegation) == "table" and delegation.typ then
+    -- Feature-Guard
+    if not (Config.Module and Config.Module.Delegation) then
+      return nil, {
+        code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG,
+        nachricht = "Delegation ist nicht aktiviert.",
+      }
+    end
+
+    local delTyp = delegation.typ
+
+    -- Permission check
+    local permAktion = nil
+    if delTyp == "submit_for_citizen" then
+      permAktion = HM_BP.Shared.Actions.DELEGATE_SUBMIT_FOR_CITIZEN
+    elseif delTyp == "submit_for_company" then
+      permAktion = HM_BP.Shared.Actions.DELEGATE_SUBMIT_FOR_COMPANY
+    elseif delTyp == "justice_create_for_citizen" then
+      permAktion = HM_BP.Shared.Actions.DELEGATE_JUSTICE_CREATE_FOR_CITIZEN
+    else
+      return nil, {
+        code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+        nachricht = "Ungültiger Delegations-Typ.",
+      }
+    end
+
+    local okPerm, errPerm = HM_BP.Server.Dienste.PermissionService.Hat(spieler, permAktion, {})
+    if not okPerm then
+      return nil, errPerm or {
+        code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG,
+        nachricht = "Keine Berechtigung für diesen Delegations-Typ.",
+      }
+    end
+
+    -- Ziel-Spieler: Identifier und Name aus der source auflösen (nur online erlaubt)
+    local zielSource = tonumber(delegation.ziel_source)
+    if not zielSource or zielSource <= 0 then
+      return nil, {
+        code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+        nachricht = "Ziel-Spieler muss online sein (Quell-ID fehlt oder ungültig).",
+      }
+    end
+
+    local zielSpieler = nil
+    if HM_BP.Server.Dienste.DelegationService then
+      zielSpieler = HM_BP.Server.Dienste.DelegationService.SpielerDurchSource(zielSource)
+    end
+
+    if not zielSpieler then
+      return nil, {
+        code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN,
+        nachricht = "Ziel-Spieler ist nicht (mehr) online oder konnte nicht aufgelöst werden.",
+      }
+    end
+
+    -- Vollmacht prüfen (nur Typen A+B, nicht C)
+    if delTyp == "submit_for_citizen" or delTyp == "submit_for_company" then
+      local vollmachtTyp = delTyp == "submit_for_citizen" and "buerger_anwalt" or "firma_vertreter"
+      local okVm = HM_BP.Server.Dienste.DelegationService.VollmachtPruefen(
+        vollmachtTyp,
+        zielSpieler.identifier,
+        spieler.identifier
+      )
+      if not okVm then
+        return nil, {
+          code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG,
+          nachricht = "Keine gültige Vollmacht für diese Delegation vorhanden.",
+        }
+      end
+    end
+
+    -- Delegation übernehmen: actor = einreichender Spieler, citizen = Ziel
+    actorIdentifier  = spieler.identifier
+    actorName        = spieler.name or spieler.identifier
+    citizenIdentifier = zielSpieler.identifier
+    -- Bürger-Name aus Delegationsfeld überschreiben (Anzeigename des Ziels)
+    citizenName      = zielSpieler.name
+    delegationType   = delTyp
+  end
+
   -- Öffentliche ID
   local publicId, errId = HM_BP.Server.Dienste.OeffentlicheIdService.NaechsteAntragsNummerErzeugen()
   if not publicId then
@@ -98,13 +190,17 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
   -- Insert Antrag
   local inserted = HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_submissions
-      (public_id, citizen_identifier, citizen_name, category_id, form_id, form_version, status, priority, deadline_at, due_state, location_id, flags, fee_eur, zahlung_status)
+      (public_id, citizen_identifier, citizen_name, actor_identifier, actor_name, delegation_type,
+       category_id, form_id, form_version, status, priority, deadline_at, due_state, location_id, flags, fee_eur, zahlung_status)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, 'normal', ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'normal', ?, ?, ?, ?)
   ]], {
     publicId,
-    spieler.identifier,
+    citizenIdentifier,
     citizenName,
+    actorIdentifier,
+    actorName,
+    delegationType,
     fConfig.kategorieId,
     formularId,
     schema.formular.version or 1,
@@ -153,19 +249,32 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
   end
 
   -- Timeline Systemeintrag
+  local timelineText = "Antrag wurde eingereicht."
+  if delegationType then
+    local typLabel = {
+      submit_for_citizen          = "Im Auftrag eines Bürgers",
+      submit_for_company          = "Im Auftrag einer Firma",
+      justice_create_for_citizen  = "Hilfsantrag (Justiz/Admin)",
+    }
+    timelineText = ("Antrag wurde eingereicht von %s. %s"):format(
+      actorName,
+      typLabel[delegationType] or ""
+    )
+  end
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_submission_timeline
       (submission_id, entry_type, visibility, author_identifier, author_name, content)
     VALUES (?, 'system', 'internal', ?, ?, ?)
   ]], {
     antragId,
-    spieler.identifier,
-    citizenName,
+    actorIdentifier,
+    actorName,
     json.encode({
-      text = "Antrag wurde eingereicht.",
+      text = timelineText,
       public_id = publicId,
       status = status,
-      prioritaet = prioritaet
+      prioritaet = prioritaet,
+      delegation_typ = delegationType,
     })
   })
 
@@ -177,8 +286,8 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
   ]], {
     antragId,
     status,
-    spieler.identifier,
-    citizenName,
+    actorIdentifier,
+    actorName,
     "Eingereicht"
   })
 
@@ -188,20 +297,22 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
       (action, actor_identifier, actor_name, actor_job, actor_grade, target_type, target_id, data)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   ]], {
-    "antrag.eingereicht",
-    spieler.identifier,
-    citizenName,
+    delegationType and "antrag.im_auftrag_eingereicht" or "antrag.eingereicht",
+    actorIdentifier,
+    actorName,
     spieler.job.name,
     spieler.job.grade,
     "submission",
     tostring(antragId),
     json.encode({
-      public_id = publicId,
-      formular_id = formularId,
-      kategorie_id = fConfig.kategorieId,
-      standort_id = standortId,
-      fee_eur = feeEur,
-      zahlung_status = zahlungStatus,
+      public_id       = publicId,
+      formular_id     = formularId,
+      kategorie_id    = fConfig.kategorieId,
+      standort_id     = standortId,
+      fee_eur         = feeEur,
+      zahlung_status  = zahlungStatus,
+      delegation_typ  = delegationType,
+      buerger_name    = citizenName,
     })
   })
 
@@ -220,6 +331,8 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     frist = frist,
     fee_eur = feeEur,
     zahlung_status = zahlungStatus,
+    delegation_typ = delegationType,
+    buerger_name   = citizenName,
     -- Hinweis für den Bürger (PR14: Zahlung nach Bearbeitung)
     zahlung_hinweis = feeEur > 0
       and ("Für diesen Antrag wird eine Gebühr von %d € erhoben. Die Zahlung erfolgt nach Bearbeitung Ihres Antrags."):format(feeEur)

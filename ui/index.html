@@ -99,6 +99,31 @@
 
             <div class="trenner"></div>
 
+            <!-- Delegation: Im Auftrag von (PR3, nur sichtbar wenn aktiviert) -->
+            <div id="delegationBereich" style="display:none;">
+              <div class="box-title" style="font-size:13px; margin-bottom:6px;">Im Auftrag von</div>
+              <div class="muted" style="margin-bottom:8px;" id="delegationHinweis">Antrag wird im Auftrag einer anderen Person/Firma eingereicht.</div>
+              <div class="feld">
+                <div class="label">Delegations-Typ</div>
+                <select id="delegationTyp">
+                  <option value="">– Bitte wählen –</option>
+                  <option value="submit_for_citizen">Bevollmächtigter für einen Bürger</option>
+                  <option value="submit_for_company">Firmenvertreter für eine Firma</option>
+                </select>
+              </div>
+              <div class="feld" style="margin-top:8px;" id="delegationZielBereich" style="display:none;">
+                <div class="label">Ziel-Spieler (Ingame-Name)</div>
+                <div style="display:flex; gap:6px;">
+                  <input id="delegationSuchname" type="text" placeholder="Ingame-Name eingeben…" style="flex:1;" />
+                  <button type="button" id="btnDelegationSuchen" class="btn btn-secondary">Suchen</button>
+                </div>
+                <div class="muted" id="delegationSuchMeta" style="margin-top:4px;"></div>
+                <div id="delegationSuchergebnisse" style="margin-top:6px;"></div>
+              </div>
+              <div class="muted" id="delegationAuswahlAnzeige" style="margin-top:4px; color:#27ae60;"></div>
+            </div>
+            <!-- Ende Delegation -->
+
             <div class="form-actions">
               <button type="button" id="btnEinreichen" class="btn">Antrag einreichen</button>
               <div class="muted" id="einreichenStatus"></div>
@@ -260,6 +285,22 @@
           <div class="muted" id="justizDetailsHeader">Bitte links einen Antrag auswählen.</div>
 
           <div id="justizSperreHinweis" class="sperre" style="display:none;"></div>
+
+          <!-- Hilfsantrag: Justiz/Admin kann im Namen eines Bürgers einreichen (PR3) -->
+          <div id="hilfsantragBereich" style="display:none; margin-top:10px; padding:10px; border:1px solid #f39c12; border-radius:6px; background:#fffbf0;">
+            <div class="box-title" style="font-size:13px; color:#f39c12; margin-bottom:6px;">Hilfsantrag anlegen (Im Namen eines Bürgers)</div>
+            <div class="muted" style="margin-bottom:8px;">Wähle den Bürger aus, in dessen Namen der Antrag gestellt wird. Nur online Spieler wählbar.</div>
+            <div class="feld">
+              <div class="label">Ingame-Name des Bürgers</div>
+              <div style="display:flex; gap:6px;">
+                <input id="hilfsantragSuchname" type="text" placeholder="Ingame-Name eingeben…" style="flex:1;" />
+                <button type="button" id="btnHilfsantragSuchen" class="btn btn-secondary">Suchen</button>
+              </div>
+              <div class="muted" id="hilfsantragSuchMeta" style="margin-top:4px;"></div>
+              <div id="hilfsantragSuchergebnisse" style="margin-top:6px;"></div>
+            </div>
+            <div class="muted" id="hilfsantragAuswahlAnzeige" style="margin-top:4px; color:#27ae60;"></div>
+          </div>
 
           <div class="trenner"></div>
 
@@ -542,6 +583,7 @@ Option B'></textarea>
               <button class="tab admin-subtab" data-subtab="Module">Module</button>
               <button class="tab admin-subtab" data-subtab="JobSettings">Job-Einstellungen</button>
               <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
+              <button class="tab admin-subtab" data-subtab="Vollmachten" id="adminSubtabVollmachten" style="display:none;">Vollmachten</button>
             </div>
 
             <!-- Geführte CRUD-Ansicht (Standorte, Kategorien, Formulare, Permissions, Status, Webhooks, Module) -->
@@ -678,6 +720,61 @@ Option B'></textarea>
                 <span class="label" style="margin-left:4px;">pro Seite</span>
               </div>
               <div id="adminAuditListe" class="liste" style="margin-top:4px; max-height:540px; overflow-y:auto;"></div>
+            </div>
+
+            <!-- Sektion: Vollmachten-Verwaltung (PR3) -->
+            <div id="adminVollmachtenPanel" style="display:none; margin-top:16px;">
+              <div class="muted" style="margin-bottom:10px;">
+                Vollmachten ermöglichen die Delegation: Bürger ↔ Bevollmächtigter (z.B. Anwalt) oder Firma ↔ Firmenvertreter.
+                Nur Justiz-Leitung und Admin dürfen Vollmachten anlegen und widerrufen.
+              </div>
+
+              <!-- Neue Vollmacht anlegen -->
+              <div style="border:1px solid #27ae60; border-radius:6px; padding:12px; margin-bottom:16px; background:#f0fff4;">
+                <div class="box-title" style="font-size:13px; color:#27ae60; margin-bottom:8px;">Neue Vollmacht anlegen</div>
+                <div class="feld" style="margin-bottom:8px;">
+                  <div class="label">Vollmacht-Typ</div>
+                  <select id="vollmachtNeuTyp">
+                    <option value="">– Bitte wählen –</option>
+                    <option value="buerger_anwalt">Bürger ↔ Bevollmächtigter (Anwalt)</option>
+                    <option value="firma_vertreter">Firma ↔ Firmenvertreter</option>
+                  </select>
+                </div>
+                <div class="grid2" style="gap:12px;">
+                  <div class="feld">
+                    <div class="label">Auftraggeber (Ingame-Name)</div>
+                    <div style="display:flex; gap:6px;">
+                      <input id="vollmachtAuftraggeberSuche" type="text" placeholder="Ingame-Name…" style="flex:1;" />
+                      <button type="button" id="btnVollmachtAuftraggeberSuchen" class="btn btn-secondary">Suchen</button>
+                    </div>
+                    <div id="vollmachtAuftraggeberErgebnisse" style="margin-top:4px;"></div>
+                    <div class="muted" id="vollmachtAuftraggeberAuswahl" style="color:#27ae60;"></div>
+                  </div>
+                  <div class="feld">
+                    <div class="label">Bevollmächtigter (Ingame-Name)</div>
+                    <div style="display:flex; gap:6px;">
+                      <input id="vollmachtBevollmaechtigterSuche" type="text" placeholder="Ingame-Name…" style="flex:1;" />
+                      <button type="button" id="btnVollmachtBevollmaechtigterSuchen" class="btn btn-secondary">Suchen</button>
+                    </div>
+                    <div id="vollmachtBevollmaechtigterErgebnisse" style="margin-top:4px;"></div>
+                    <div class="muted" id="vollmachtBevollmaechtigterAuswahl" style="color:#27ae60;"></div>
+                  </div>
+                </div>
+                <div class="admin-toolbar" style="margin-top:10px;">
+                  <button type="button" id="btnVollmachtAnlegen" class="btn">Vollmacht anlegen</button>
+                </div>
+                <div class="muted" id="vollmachtAnlegenMeta" style="margin-top:6px;"></div>
+              </div>
+
+              <!-- Vollmacht-Liste -->
+              <div class="admin-toolbar" style="margin-bottom:8px;">
+                <button type="button" id="btnVollmachtenLaden" class="btn btn-secondary">Vollmachten aktualisieren</button>
+                <label style="display:flex; align-items:center; gap:6px; margin-left:12px; cursor:pointer;">
+                  <input type="checkbox" id="vollmachtenNurAktiv" checked />
+                  <span>Nur aktive</span>
+                </label>
+              </div>
+              <div id="vollmachtenListe" class="liste" style="max-height:400px; overflow-y:auto;"></div>
             </div>
 
           </div>
