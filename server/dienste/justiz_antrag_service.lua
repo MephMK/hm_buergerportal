@@ -517,8 +517,20 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     if feeEur > 0 and istUnbezahlt and istTerminal then
       -- Bürger-Spieler-Objekt für Banking ermitteln
       local buergerSource = nil
-      if GetPlayerIdentifier then
-        -- Suche Online-Spieler anhand des Identifiers
+
+      -- Versuche ESX.GetPlayerFromIdentifier (effizient, O(1) lookup)
+      do
+        local ok, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
+        if ok and esx and esx.GetPlayerFromIdentifier then
+          local xPlayer = esx.GetPlayerFromIdentifier(a.citizen_identifier)
+          if xPlayer then
+            buergerSource = tonumber(xPlayer.source)
+          end
+        end
+      end
+
+      -- Fallback: Suche durch alle Online-Spieler
+      if not buergerSource and GetPlayerIdentifier then
         local players = GetPlayers and GetPlayers() or {}
         for _, pid in ipairs(players) do
           local pidN = tonumber(pid)

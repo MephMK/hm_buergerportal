@@ -1641,7 +1641,8 @@ function renderFormEditorHeader() {
     formEditorFormHeader.textContent = `Formular: ${formEditorFormId}`;
     return;
   }
-  const feeStr = (f.fee_eur && f.fee_eur > 0) ? ` <span class="badge badge-warn">${f.fee_eur} €</span>` : "";
+  const feeInt = parseInt(f.fee_eur, 10) || 0;
+  const feeStr = feeInt > 0 ? ` <span class="badge badge-warn">${feeInt} \u20ac</span>` : "";
   formEditorFormHeader.innerHTML =
     `Formular: <b>${escapeHtml(f.title || f.id)}</b> (ID: ${escapeHtml(f.id)}) ${statusBadge(f.status)}${feeStr}`;
 }
@@ -2437,7 +2438,7 @@ window.addEventListener("message", (event) => {
     }
     let statusHtml = `<span class="status-ok">Erfolgreich eingereicht:</span> ${escapeHtml(payload.antrag?.public_id || "")}`;
     if (payload.antrag?.zahlung_hinweis) {
-      statusHtml += `<div class="zahlung-hinweis muted">${escapeHtml(payload.antrag.zahlung_hinweis)}</div>`;
+      statusHtml += `<div class="zahlung-hinweis muted" role="note" aria-label="Zahlungshinweis">${escapeHtml(payload.antrag.zahlung_hinweis)}</div>`;
     }
     einreichenStatus.innerHTML = statusHtml;
     nuiAufruf("hm_bp:meine_antraege_laden", {});

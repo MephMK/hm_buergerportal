@@ -34,8 +34,9 @@ end
 
 --- Hebt `betrag` (EUR, Ganzzahl > 0) vom Bankkonto von `spieler` ab.
 --- Versucht wasabi_banking zuerst, dann esx_banking.
+--- @param societyName  string  – Name des Society-Kontos (für esx_billing-Fallback)
 --- @return ok boolean, fehlertext string|nil
-local function bankAbheben(spieler, betrag, grund)
+local function bankAbheben(spieler, betrag, grund, societyName)
   local identifier = spieler.identifier
   local source      = tonumber(spieler.source)
 
@@ -71,7 +72,8 @@ local function bankAbheben(spieler, betrag, grund)
   -- Wird als Erfolg gewertet, auch wenn die Rechnung intern fehlschlägt.
   -- Nur nutzen wenn kein anderes Banking-System verfügbar ist.
   if ressourceGestartet("esx_billing") then
-    TriggerEvent("esx_billing:addPlayerBill", identifier, "justiz", grund, betrag)
+    local billSociety = societyName or "justiz"
+    TriggerEvent("esx_billing:addPlayerBill", identifier, billSociety, grund, betrag)
     return true, nil
   end
 
@@ -185,7 +187,7 @@ function PaymentService.GebuehrAbbuchen(spieler, betragEur, antragInfo)
   local grund = ("Antrag %s – %s"):format(tostring(publicId or antragId), formTitel)
 
   -- 1) Abhebung vom Bürgerkonto
-  local abOk, abErr = bankAbheben(spieler, betragEur, grund)
+  local abOk, abErr = bankAbheben(spieler, betragEur, grund, societyKonto)
   if not abOk then
     -- Fehler: unzureichendes Guthaben oder kein Banking vorhanden
     auditLoggen("zahlung.fehlgeschlagen", spieler, antragId, {
