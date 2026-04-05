@@ -53,3 +53,28 @@ CreateThread(function()
     end
   end
 end)
+
+-- =============================================================
+-- SLA-Tick: Periodischer Check auf überfällige Anträge (PR7)
+-- =============================================================
+CreateThread(function()
+  -- Kurz warten, bis DB + Services vollständig initialisiert sind
+  Wait(5000)
+
+  while true do
+    local interval = tonumber(
+      Config.Workflow and Config.Workflow.TickIntervalSekunden
+    ) or 30
+
+    Wait(interval * 1000)
+
+    if HM_BP.Server.Dienste.WorkflowService then
+      local ok, err = pcall(function()
+        HM_BP.Server.Dienste.WorkflowService.SlaTick()
+      end)
+      if not ok and Config and Config.Kern and Config.Kern.Debugmodus == true then
+        print(("[hm_buergerportal] WARN: SlaTick fehlgeschlagen: %s"):format(tostring(err)))
+      end
+    end
+  end
+end)

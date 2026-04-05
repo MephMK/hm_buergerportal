@@ -16,13 +16,13 @@ end
 
 function SperrService.SperreHolen(antragId)
   return HM_BP.Server.Datenbank.Einzel([[
-    SELECT submission_id, locked_by_identifier, locked_by_name, locked_at, expires_at
+    SELECT submission_id, locked_by_identifier, locked_by_name, locked_at, expires_at, lock_reason
     FROM hm_bp_submission_locks
     WHERE submission_id = ?
   ]], { antragId })
 end
 
-function SperrService.Sperren(spieler, antragId)
+function SperrService.Sperren(spieler, antragId, grund)
   if not (Config.Workflows and Config.Workflows.Sperren and Config.Workflows.Sperren.Aktiviert) then
     return true, nil
   end
@@ -56,9 +56,9 @@ function SperrService.Sperren(spieler, antragId)
   end
 
   HM_BP.Server.Datenbank.Ausfuehren([[
-    INSERT INTO hm_bp_submission_locks (submission_id, locked_by_identifier, locked_by_name, expires_at)
-    VALUES (?, ?, ?, ?)
-  ]], { antragId, spieler.identifier, spieler.name, expiresAt })
+    INSERT INTO hm_bp_submission_locks (submission_id, locked_by_identifier, locked_by_name, expires_at, lock_reason)
+    VALUES (?, ?, ?, ?, ?)
+  ]], { antragId, spieler.identifier, spieler.name, expiresAt, grund or nil })
 
   return true, nil
 end
@@ -71,11 +71,21 @@ function SperrService.Entsperren(spieler, antragId)
   local bestehend = SperrService.SperreHolen(antragId)
   if not bestehend then return true, nil end
 
-  if bestehend.locked_by_identifier ~= spieler.identifier and not HM_BP.Server.Dienste.AuthService.IstAdmin(spieler) then
-    return false, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Du darfst diese Sperre nicht entfernen." }
+  -- Lock-Owner, Leitung (grade >= LeitungMinGrade) oder Admin dürfen freigeben
+  local istOwner   = bestehend.locked_by_identifier == spieler.identifier
+  local istLeitung = HM_BP.Server.Dienste.WorkflowService
+    and HM_BP.Server.Dienste.WorkflowService.IstLeitung(spieler)
+  local istAdmin   = HM_BP.Server.Dienste.AuthService.IstAdmin(spieler)
+
+  if not istOwner and not istLeitung and not istAdmin then
+    return false, {
+      code     = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG,
+      nachricht = "Du darfst diese Sperre nicht entfernen."
+    }
   end
 
-  HM_BP.Server.Datenbank.Ausfuehren("DELETE FROM hm_bp_submission_locks WHERE submission_id = ?", { antragId })
+  HM_BP.Server.Datenbank.Ausfuehren(
+    "DELETE FROM hm_bp_submission_locks WHERE submission_id = ?", { antragId })
   return true, nil
 end
 

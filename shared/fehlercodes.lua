@@ -10,3 +10,14 @@ HM_BP.Shared.Errors = {
   RATE_LIMITED = "RATE_LIMITED",
   INTERNAL_ERROR = "INTERNAL_ERROR",
 }
+
+-- Deutsche Alias-Fehlercodes (werden von Server-Services als HM_BP.Gemeinsam.Fehlercodes.* genutzt)
+HM_BP.Gemeinsam = HM_BP.Gemeinsam or {}
+HM_BP.Gemeinsam.Fehlercodes = {
+  KEINE_BERECHTIGUNG = "NOT_AUTHORIZED",
+  NICHT_GEFUNDEN     = "NOT_FOUND",
+  UNGUELTIGE_DATEN   = "INVALID_PAYLOAD",
+  KONFLIKT           = "CONFLICT",
+  INTERNER_FEHLER    = "INTERNAL_ERROR",
+  NICHT_AUTHENTIFIZIERT = "NOT_AUTHENTICATED",
+}

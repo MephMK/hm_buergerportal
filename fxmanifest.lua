@@ -56,6 +56,7 @@ server_scripts {
   'server/dienste/oeffentliche_id_service.lua',
   'server/dienste/status_service.lua',
   'server/dienste/spieler_service.lua',
+  'server/dienste/audit_service.lua',
 
   'server/dienste/kategorie_service.lua',
   'server/dienste/formular_service.lua',
@@ -64,6 +65,7 @@ server_scripts {
 
   'server/dienste/justiz_zugriff_service.lua',
   'server/dienste/sperr_service.lua',
+  'server/dienste/workflow_service.lua',
   'server/dienste/justiz_antrag_service.lua',
   'server/dienste/justiz_suche_service.lua',
 
@@ -81,6 +83,7 @@ server_scripts {
 
   'server/api.lua',
   'server/api_justiz.lua',
+  'server/api_workflow.lua',
   'server/api_form_editor.lua',
   'server/api_locations.lua',
   'server/api_admin.lua'
