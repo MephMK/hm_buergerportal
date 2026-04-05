@@ -196,7 +196,7 @@ end
 
 local function loadFormRow(formId)
   return HM_BP.Server.Datenbank.Einzel([[
-    SELECT id, category_id, status, active, title, description, published_version, published_at, created_at, updated_at
+    SELECT id, category_id, status, active, title, description, published_version, published_at, created_at, updated_at, fee_eur
     FROM hm_bp_form_editor_forms
     WHERE id = ?
   ]], { formId })
@@ -300,7 +300,7 @@ function FormularEditorService.FormularListe(kategorieId, spieler)
   if not okR then return nil, errR end
 
   local rows = HM_BP.Server.Datenbank.Alle([[
-    SELECT id, category_id, status, active, title, description, published_version, published_at, created_at, updated_at
+    SELECT id, category_id, status, active, title, description, published_version, published_at, created_at, updated_at, fee_eur
     FROM hm_bp_form_editor_forms
     WHERE category_id = ?
     ORDER BY updated_at DESC
@@ -316,6 +316,8 @@ function FormularEditorService.FormularErstellen(spieler, daten)
   local kategorieId = trim(daten.kategorieId)
   local titel = trim(daten.titel)
   local beschreibung = trim(daten.beschreibung)
+  -- Gebühr (PR14): ganze Euro, Minimum 0
+  local feeEur = math.max(0, math.floor(tonumber(daten.fee_eur) or 0))
 
   if istLeer(formId) then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Formular-ID fehlt." }
@@ -339,14 +341,15 @@ function FormularEditorService.FormularErstellen(spieler, daten)
 
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_form_editor_forms
-      (id, category_id, status, active, title, description, created_by_identifier, created_by_name, updated_by_identifier, updated_by_name)
+      (id, category_id, status, active, title, description, fee_eur, created_by_identifier, created_by_name, updated_by_identifier, updated_by_name)
     VALUES
-      (?, ?, 'draft', 1, ?, ?, ?, ?, ?, ?)
+      (?, ?, 'draft', 1, ?, ?, ?, ?, ?, ?, ?)
   ]], {
     formId,
     kategorieId,
     titel,
     (beschreibung ~= "" and beschreibung or nil),
+    feeEur,
     spieler.identifier,
     spieler.name,
     spieler.identifier,
@@ -360,7 +363,8 @@ function FormularEditorService.FormularErstellen(spieler, daten)
       titel = titel,
       beschreibung = beschreibung,
       kategorieId = kategorieId,
-      version = 1
+      version = 1,
+      fee_eur = feeEur,
     },
     felder = {}
   }
@@ -385,7 +389,7 @@ function FormularEditorService.FormularErstellen(spieler, daten)
     spieler.job and spieler.job.name or nil,
     spieler.job and spieler.job.grade or nil,
     formId,
-    json.encode({ kategorie_id = kategorieId, zeit = utcJetztIso() })
+    json.encode({ kategorie_id = kategorieId, fee_eur = feeEur, zeit = utcJetztIso() })
   })
 
   return loadFormRow(formId), nil
@@ -414,6 +418,9 @@ function FormularEditorService.SchemaHolen(spieler, formId, modus)
     if type(schema) == "string" then
       schema = json.decode(schema)
     end
+    -- Gebühr aus DB in Schema synchronisieren (PR14)
+    schema.formular = schema.formular or {}
+    schema.formular.fee_eur = tonumber(form.fee_eur) or 0
     return schema, nil
   end
 
@@ -430,6 +437,10 @@ function FormularEditorService.SchemaHolen(spieler, formId, modus)
   if type(schema) == "string" then
     schema = json.decode(schema)
   end
+
+  -- Gebühr aus DB in Schema synchronisieren (PR14)
+  schema.formular = schema.formular or {}
+  schema.formular.fee_eur = tonumber(form.fee_eur) or 0
 
   return schema, nil
 end
@@ -466,6 +477,10 @@ function FormularEditorService.SchemaSpeichern(spieler, formId, schema)
   if istLeer(schema.formular.titel) then schema.formular.titel = form.title end
   if schema.formular.beschreibung == nil then schema.formular.beschreibung = form.description or "" end
 
+  -- Gebühr aus Schema übernehmen und in DB-Zeile synchronisieren (PR14)
+  local feeEur = math.max(0, math.floor(tonumber(schema.formular.fee_eur) or 0))
+  schema.formular.fee_eur = feeEur
+
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_form_editor_versions
       (form_id, version, schema_json, created_by_identifier, created_by_name)
@@ -474,9 +489,9 @@ function FormularEditorService.SchemaSpeichern(spieler, formId, schema)
 
   HM_BP.Server.Datenbank.Ausfuehren([[
     UPDATE hm_bp_form_editor_forms
-    SET updated_by_identifier = ?, updated_by_name = ?
+    SET updated_by_identifier = ?, updated_by_name = ?, fee_eur = ?
     WHERE id = ?
-  ]], { spieler.identifier, spieler.name, formId })
+  ]], { spieler.identifier, spieler.name, feeEur, formId })
 
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_audit_logs (action, actor_identifier, actor_name, actor_job, actor_grade, target_type, target_id, data)

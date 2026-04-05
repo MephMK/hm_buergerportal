@@ -45,6 +45,14 @@ local function resolveWebhookUrl(eventName, data)
   if type(c.Urls) == "table" then
     local directUrl = c.Urls[eventName]
     if directUrl and directUrl ~= "" then return directUrl end
+
+    -- Gebühren-Events: alle payment-Events nutzen den gemeinsamen "antrag_payments"-Webhook
+    if eventName == "antrag_payment_abgezogen" or
+       eventName == "antrag_payment_eingezahlt" or
+       eventName == "antrag_payment_society_fehler" then
+      local payUrl = c.Urls["antrag_payments"]
+      if payUrl and payUrl ~= "" then return payUrl end
+    end
   end
 
   local routing = c.Routing or {}
@@ -92,7 +100,10 @@ local EVENT_META = {
   ["form_editor.archived"]   = { farbe = 0x4F4F4F, titel = "📦 Formular archiviert"               },
   ["admin.config.changed"]   = { farbe = 0xEB5757, titel = "⚙️ Admin-Konfiguration geändert"      },
   webhook_test               = { farbe = 0x3447DB, titel = "🔔 Webhook-Test"                       },
-  pdf_export                 = { farbe = 0x1a365d, titel = "📄 PDF-Export erstellt"                 },
+  pdf_export                 = { farbe = 0x1a365d, titel = "📄 PDF-Export erstellt"                },
+  antrag_payment_abgezogen   = { farbe = 0xF2994A, titel = "💳 Gebühr abgebucht"                  },
+  antrag_payment_eingezahlt  = { farbe = 0x27AE60, titel = "🏦 Gebühr auf Society eingezahlt"     },
+  antrag_payment_society_fehler = { farbe = 0xFF0000, titel = "🚨 Society-Einzahlung fehlgeschlagen" },
 }
 
 local function embedColorForEvent(eventName)
@@ -136,8 +147,21 @@ local function makeEmbed(eventName, data)
     add("Bürger", buergerAnzeige, true)
   end
 
-  -- Formular / Kategorie
-  add("Formular",   data and (data.form_id    or data.formular_id),  true)
+  -- Gebühren-spezifische Felder (PR14)
+  if data and data.betrag_eur ~= nil then
+    add("Betrag", ("%d €"):format(tonumber(data.betrag_eur) or 0), true)
+  end
+  if data and data.formular_titel then
+    add("Formular", data.formular_titel, true)
+  elseif data then
+    -- Fallback auf form_id wenn kein Titel vorhanden
+    add("Formular",   data.form_id    or data.formular_id,  true)
+  end
+  if data and data.society then
+    add("Society-Konto", data.society, true)
+  end
+
+  -- Kategorie
   add("Kategorie",  data and (data.category_id or data.kategorie_id), true)
 
   -- Status-Änderung

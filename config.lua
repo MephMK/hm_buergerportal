@@ -49,6 +49,19 @@ Config.Datenbank = {
   }
 }
 
+-- =============================================================
+-- Gebührenzahlung (PR14)
+-- Konfiguration des Payment-Systems für Antragsgebühren.
+-- =============================================================
+Config.Zahlung = {
+  -- Society-Konto, auf das Gebühren eingezahlt werden.
+  SocietyKonto = "society_justiz",
+
+  -- Terminale Status: Bei diesen Statusübergängen wird die Gebühr erhoben.
+  -- Erweiterbar je nach Workflow-Konfiguration des Servers.
+  TerminaleStatus = { "approved", "rejected", "closed", "completed", "archived" },
+}
+
 Config.Standorte = {
   Aktiviert = true,
 
@@ -1344,6 +1357,13 @@ Config.Webhooks = {
     -- Beispiel:
     --   ["antrag_escalation"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
     ["antrag_escalation"] = nil,
+    -- antrag_payments: Gemeinsamer Discord-Webhook-Kanal für Gebührenzahlungen (PR14).
+    -- Wird gesendet wenn ein Betrag vom Bürger-Bankkonto abgezogen wurde und wenn
+    -- das Geld auf das Society-Konto (society_justiz) eingezahlt wurde.
+    -- Embed enthält: Spielername, Charname, Betrag (EUR), Formularname.
+    -- Beispiel:
+    --   ["antrag_payments"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+    ["antrag_payments"] = nil,
   }
 }
 
@@ -1405,8 +1425,11 @@ Config.Module = {
   -- Anhänge: Bild-Links an Anträge anhängen (PR8).
   Anhaenge         = true,
 
-  -- Gebühren: Gebührenkonfiguration an Formularen (Implementierung folgt).
-  Gebuehren        = false,
+  -- Gebühren: Gebührenzahlung bei Formularen (PR14).
+  -- Erhebt konfigurierte Gebühren (fee_eur, ganze Euro) beim Abschluss eines Antrags.
+  -- Abhebung vom Bürger-Bankkonto, Einzahlung auf society_justiz.
+  -- Unterstützt wasabi_banking/wasabi_billing (Primär) und esx_banking/esx_billing (Fallback).
+  Gebuehren        = true,
 
   -- Delegation: Anträge an andere Bearbeiter weiterdelegieren (Implementierung folgt).
   Delegation       = false,

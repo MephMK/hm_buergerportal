@@ -397,4 +397,29 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ALTER TABLE hm_bp_submissions
       ADD INDEX idx_sub_erst_bearbeitung (escalated, created_at, first_staff_comment_at);
   ]])
+
+  -- v12: Gebührenzahlung (PR14)
+  -- fee_eur (forms):    Gebührenbetrag in Euro (Ganzzahl) am Formular
+  -- fee_eur (submissions): Gebührenbetrag in Euro (Snapshot beim Einreichen)
+  -- zahlung_status:     'bezahlt' | 'unbezahlt' | 'fehlgeschlagen'
+  --   DEFAULT 'bezahlt': neue Zeilen ohne explizites Setzen sind implizit bezahlt (Fallback)
+  -- charged_at:         Zeitpunkt der erfolgreichen Abbuchung
+  migrationAnwenden("v12_gebuehren_forms", [[
+    ALTER TABLE hm_bp_form_editor_forms
+      ADD COLUMN IF NOT EXISTS fee_eur INT NOT NULL DEFAULT 0;
+  ]])
+  migrationAnwenden("v12_gebuehren_submissions", [[
+    ALTER TABLE hm_bp_submissions
+      ADD COLUMN IF NOT EXISTS fee_eur INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS zahlung_status VARCHAR(16) NOT NULL DEFAULT 'bezahlt',
+      ADD COLUMN IF NOT EXISTS charged_at DATETIME NULL;
+  ]])
+  -- Backfill: Alle bestehenden Einreichungen hatten fee_eur = 0 → als bezahlt markieren.
+  -- Neue Einreichungen mit fee_eur > 0 werden beim Einreichen explizit auf 'unbezahlt' gesetzt.
+  migrationAnwenden("v12_backfill_zahlung_status", [[
+    UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt' WHERE fee_eur = 0;
+  ]])
+  migrationAnwenden("v12_idx_zahlung_status", [[
+    ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_zahlung_status (zahlung_status, charged_at);
+  ]])
 end

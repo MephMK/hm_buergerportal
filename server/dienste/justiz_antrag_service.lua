@@ -459,7 +459,7 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
 
   local a = HM_BP.Server.Datenbank.Einzel([[
     SELECT id, public_id, category_id, form_id, status, citizen_identifier, citizen_name,
-           archived_at, deleted_at
+           archived_at, deleted_at, fee_eur, zahlung_status
     FROM hm_bp_submissions WHERE id = ?
   ]], { antragId })
   if not a or a.deleted_at ~= nil then
@@ -500,9 +500,127 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     VALUES (?, ?, ?, ?, ?, ?)
   ]], { antragId, a.status, neuerStatus, spieler.identifier, spieler.name, kommentar or "" })
 
+  -- Gebührenabzug bei terminalem Status (PR14)
+  -- Läuft nur wenn: Gebühren-Modul aktiv, Betrag > 0, noch nicht bezahlt, neuer Status ist terminal
+  local zahlungErgebnis = nil
+  if Config.Module and Config.Module.Gebuehren then
+    local feeEur = tonumber(a.fee_eur) or 0
+    local istUnbezahlt = (a.zahlung_status == "unbezahlt")
+    local terminaleStatus = (Config.Zahlung and Config.Zahlung.TerminaleStatus) or
+      { "approved", "rejected", "closed", "completed", "archived" }
+
+    local istTerminal = false
+    for _, ts in ipairs(terminaleStatus) do
+      if neuerStatus == ts then istTerminal = true; break end
+    end
+
+    if feeEur > 0 and istUnbezahlt and istTerminal then
+      -- Bürger-Spieler-Objekt für Banking ermitteln
+      local buergerSource = nil
+
+      -- Versuche ESX.GetPlayerFromIdentifier (effizient, O(1) lookup)
+      do
+        local ok, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
+        if ok and esx and esx.GetPlayerFromIdentifier then
+          local xPlayer = esx.GetPlayerFromIdentifier(a.citizen_identifier)
+          if xPlayer then
+            buergerSource = tonumber(xPlayer.source)
+          end
+        end
+      end
+
+      -- Fallback: Suche durch alle Online-Spieler
+      if not buergerSource and GetPlayerIdentifier then
+        local players = GetPlayers and GetPlayers() or {}
+        for _, pid in ipairs(players) do
+          local pidN = tonumber(pid)
+          if pidN then
+            for i = 0, GetNumPlayerIdentifiers(pidN) - 1 do
+              if GetPlayerIdentifier(pidN, i) == a.citizen_identifier then
+                buergerSource = pidN
+                break
+              end
+            end
+            if buergerSource then break end
+          end
+        end
+      end
+
+      -- Zahlung nur wenn Spieler online ist (Banking-Ressourcen benötigen aktive Source)
+      if not buergerSource then
+        -- Spieler ist offline: als fehlgeschlagen markieren (Staff muss manuell abbuchen)
+        HM_BP.Server.Datenbank.Ausfuehren(
+          "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
+          { antragId })
+
+        if HM_BP.Server.Dienste.WebhookService then
+          pcall(function()
+            HM_BP.Server.Dienste.WebhookService.Senden("antrag_payment_society_fehler", {
+              public_id      = a.public_id,
+              citizen_name   = a.citizen_name,
+              betrag_eur     = feeEur,
+              form_id        = a.form_id,
+              fehler         = "Spieler ist offline – manuelle Abbuchung erforderlich.",
+            })
+          end)
+        end
+
+        zahlungErgebnis = { ok = false, abgezogen = false, eingezahlt = false,
+          fehler = "Spieler ist offline – manuelle Abbuchung erforderlich." }
+      else
+        -- Formular-Titel ermitteln (für Webhook-Log)
+        local formTitel = a.form_id
+        if Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[a.form_id] then
+          formTitel = Config.Formulare.Liste[a.form_id].titel or a.form_id
+        else
+          -- DB-Formular-Titel abrufen
+          local fRow = HM_BP.Server.Datenbank.Einzel(
+            "SELECT title FROM hm_bp_form_editor_forms WHERE id = ?", { a.form_id })
+          if fRow and fRow.title then formTitel = fRow.title end
+        end
+
+        local buergerSpieler = {
+          identifier = a.citizen_identifier,
+          name       = a.citizen_name,
+          source     = buergerSource,
+          job        = { name = "", grade = 0 },
+        }
+
+        if HM_BP.Server.Dienste.PaymentService then
+          local payResult = HM_BP.Server.Dienste.PaymentService.GebuehrAbbuchen(
+            buergerSpieler,
+            feeEur,
+            {
+              antrag_id      = antragId,
+              public_id      = a.public_id,
+              form_id        = a.form_id,
+              formular_titel = formTitel,
+              citizen_name   = a.citizen_name,
+              spieler_name   = a.citizen_name,
+            }
+          )
+          zahlungErgebnis = payResult
+
+          if payResult and payResult.ok and payResult.abgezogen then
+            -- Zahlung erfolgreich: Status auf 'bezahlt' setzen + Zeitstempel
+            HM_BP.Server.Datenbank.Ausfuehren(
+              "UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt', charged_at = UTC_TIMESTAMP() WHERE id = ?",
+              { antragId })
+          elseif payResult and not payResult.ok then
+            -- Zahlung fehlgeschlagen: auf 'fehlgeschlagen' setzen
+            HM_BP.Server.Datenbank.Ausfuehren(
+              "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
+              { antragId })
+          end
+        end
+      end
+    end
+  end
+
   return { ok = true, alt = a.status, neu = neuerStatus,
            public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
-           citizen_name = a.citizen_name, citizen_identifier = a.citizen_identifier }, nil
+           citizen_name = a.citizen_name, citizen_identifier = a.citizen_identifier,
+           zahlung = zahlungErgebnis }, nil
 end
 
 -- NEU: Sperre verlängern (Heartbeat). Nur wenn Spieler Lock-Owner ist.
