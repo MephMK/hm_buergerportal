@@ -126,7 +126,7 @@ function WorkflowService.SlaTick()
       AND archived_at IS NULL
       AND sla_due_at IS NOT NULL
       AND sla_due_at <= UTC_TIMESTAMP()
-      AND (sla_paused_at IS NULL OR sla_paused_at = '')
+      AND (sla_paused_at IS NULL)
       AND (escalated_at IS NULL)
       AND needs_leitung = 0
     LIMIT 50
@@ -152,13 +152,13 @@ function WorkflowService.Eskalieren(antragId, antragInfo)
   -- Antrag nachladen, falls kein antragInfo übergeben
   if not antragInfo then
     antragInfo = HM_BP.Server.Datenbank.Einzel([[
-      SELECT id, category_id, citizen_name, public_id, escalated_at, needs_leitung
+      SELECT id, category_id, status, citizen_name, public_id, escalated_at, needs_leitung
       FROM hm_bp_submissions WHERE id = ? AND deleted_at IS NULL
     ]], { antragId })
   end
 
   if not antragInfo then return end
-  if antragInfo.escalated_at and antragInfo.escalated_at ~= "" then return end
+  if antragInfo.escalated_at then return end  -- bereits eskaliert (DATETIME ist NIL wenn nicht gesetzt)
 
   -- Eskalations-Flag setzen
   HM_BP.Server.Datenbank.Ausfuehren([[
@@ -182,12 +182,13 @@ function WorkflowService.Eskalieren(antragId, antragInfo)
   ]], { lJob, lGrade })
 
   if leitungMitglied then
+    -- Zuweisen, aber nur wenn noch nicht zugewiesen oder bisher keiner übernommen hat
     HM_BP.Server.Datenbank.Ausfuehren([[
       UPDATE hm_bp_submissions
       SET assigned_to_identifier = ?,
           assigned_to_name       = ?
       WHERE id = ?
-        AND (assigned_to_identifier IS NULL OR needs_leitung = 1)
+        AND assigned_to_identifier IS NULL
     ]], {
       leitungMitglied.identifier,
       leitungMitglied.display_name or leitungMitglied.identifier,
@@ -280,7 +281,7 @@ function WorkflowService.SlaPausieren(spieler, antragId, grund)
   if not a then
     return false, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
-  if a.sla_paused_at and a.sla_paused_at ~= "" then
+  if a.sla_paused_at then
     return false, { code = HM_BP.Gemeinsam.Fehlercodes.KONFLIKT, nachricht = "SLA ist bereits pausiert." }
   end
 
@@ -325,7 +326,7 @@ function WorkflowService.SlaFortsetzen(spieler, antragId, grund)
   if not a then
     return false, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Antrag nicht gefunden." }
   end
-  if not a.sla_paused_at or a.sla_paused_at == "" then
+  if not a.sla_paused_at then
     return false, { code = HM_BP.Gemeinsam.Fehlercodes.KONFLIKT, nachricht = "SLA ist nicht pausiert." }
   end
 
