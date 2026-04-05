@@ -381,4 +381,20 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   migrationAnwenden("v10_audit_idx_actor_name", [[
     ALTER TABLE hm_bp_audit_logs ADD INDEX idx_audit_actor_name (actor_name(64));
   ]])
+
+  -- v11: SLA Erste-Bearbeitung (PR13)
+  -- Neue Felder für die 24h-Erst-Bearbeitungs-SLA:
+  --   first_staff_comment_at  – Zeitstempel des ersten Justiz/Admin-Kommentars oder Rückfrage
+  --   escalated               – Boolean-Flag: wurde die Eskalation bereits ausgelöst?
+  --   last_escalation_reminder_at – Zeitstempel der letzten Reminder-Benachrichtigung (Rate-Limiting)
+  migrationAnwenden("v11_sla_erst_bearbeitung", [[
+    ALTER TABLE hm_bp_submissions
+      ADD COLUMN IF NOT EXISTS first_staff_comment_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS escalated TINYINT(1) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS last_escalation_reminder_at DATETIME NULL;
+  ]])
+  migrationAnwenden("v11_idx_sla_erst_bearbeitung", [[
+    ALTER TABLE hm_bp_submissions
+      ADD INDEX idx_sub_erst_bearbeitung (escalated, created_at, first_staff_comment_at);
+  ]])
 end

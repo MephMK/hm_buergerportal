@@ -355,4 +355,197 @@ function WorkflowService.SlaFortsetzen(spieler, antragId, grund)
   return true, nil
 end
 
+-- -------------------------------------------------------
+-- SLA Erste-Bearbeitung – Tick (PR13)
+-- -------------------------------------------------------
+
+---Konfigurationshelfer: Frist bis erste Bearbeitung in Stunden.
+local function erstBearbeitungStunden()
+  return tonumber(Config.SLA and Config.SLA.ErsteBearbeitungStunden) or 24
+end
+
+---Konfigurationshelfer: Reminder-Intervall in Stunden.
+local function reminderIntervalStunden()
+  return tonumber(Config.SLA and Config.SLA.ReminderIntervalStunden) or 6
+end
+
+---System-Spieler-Kontext für Audit-Logs (SLA-System).
+local function systemSpieler()
+  return {
+    identifier = "system",
+    name       = "System (SLA)",
+    job        = nil,
+    quelle     = nil,
+  }
+end
+
+---Sendet den antrag_escalated-Webhook für einen Antrag (Eskalation oder Reminder).
+local function eskalationsWebhookSenden(antragInfo, istReminder)
+  if not HM_BP.Server.Dienste.WebhookService then return end
+  HM_BP.Server.Dienste.WebhookService.Emit("antrag_escalated", {
+    public_id    = antragInfo.public_id,
+    aktenzeichen = antragInfo.public_id,
+    akteur_name  = "System (SLA)",
+    category_id  = antragInfo.category_id,
+    citizen_name = antragInfo.citizen_name,
+    text         = istReminder
+      and ("Erinnerung: Antrag %s wartet seit mehr als %dh auf erste Bearbeitung."):format(
+            tostring(antragInfo.public_id or antragInfo.id), erstBearbeitungStunden())
+      or  ("Antrag %s hat die %dh-Frist für die erste Bearbeitung überschritten."):format(
+            tostring(antragInfo.public_id or antragInfo.id), erstBearbeitungStunden()),
+  })
+end
+
+---Prüft Anträge auf Überschreitung der Erste-Bearbeitungs-SLA und
+---löst Eskalation oder Reminder aus.
+---
+--- Eskalation (einmalig):
+---   TIMESTAMPDIFF(HOUR, created_at, UTC_TIMESTAMP()) >= ErsteBearbeitungStunden
+---   AND first_staff_comment_at IS NULL
+---   AND escalated = 0
+---
+--- Reminder (periodisch):
+---   escalated = 1
+---   AND first_staff_comment_at IS NULL
+---   AND TIMESTAMPDIFF(HOUR, last_escalation_reminder_at, UTC_TIMESTAMP()) >= ReminderIntervalStunden
+function WorkflowService.SlaErstBearbeitungTick()
+  local slaCfg = Config.SLA
+  if not slaCfg or slaCfg.Aktiviert == false then return end
+
+  local fristStunden    = erstBearbeitungStunden()
+  local reminderStunden = reminderIntervalStunden()
+
+  -- 1. Neue Eskalationen: Frist überschritten, noch nicht eskaliert
+  local neueEskalationen = HM_BP.Server.Datenbank.Alle([[
+    SELECT id, public_id, category_id, citizen_name
+    FROM hm_bp_submissions
+    WHERE deleted_at IS NULL
+      AND archived_at IS NULL
+      AND first_staff_comment_at IS NULL
+      AND escalated = 0
+      AND TIMESTAMPDIFF(HOUR, created_at, UTC_TIMESTAMP()) >= ?
+    LIMIT 50
+  ]], { fristStunden })
+
+  for _, a in ipairs(neueEskalationen or {}) do
+    local ok, err = pcall(function()
+      -- Eskalations-Flag setzen
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        UPDATE hm_bp_submissions
+        SET escalated = 1,
+            escalated_at = UTC_TIMESTAMP(),
+            last_escalation_reminder_at = UTC_TIMESTAMP()
+        WHERE id = ? AND escalated = 0
+      ]], { a.id })
+
+      -- Timeline-Eintrag (intern)
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        INSERT INTO hm_bp_submission_timeline
+          (submission_id, entry_type, visibility, author_identifier, author_name, content)
+        VALUES (?, 'system', 'internal', 'system', 'System (SLA)', ?)
+      ]], {
+        a.id,
+        json.encode({
+          text      = ("SLA-Eskalation: Antrag hat die %dh-Frist für die erste Bearbeitung überschritten."):format(fristStunden),
+          frist_h   = fristStunden,
+          zeit      = utcJetztIso(),
+        })
+      })
+
+      -- Discord-Webhook (separater antrag_escalation-Key)
+      eskalationsWebhookSenden(a, false)
+
+      -- Audit-Log
+      local reqId = HM_BP.Server.Dienste.AuditService.GenerateRequestId()
+      HM_BP.Server.Dienste.AuditService.Log(
+        "sla.erst_bearbeitung.eskaliert",
+        nil,
+        "submission",
+        tostring(a.id),
+        {
+          frist_stunden = fristStunden,
+          public_id     = a.public_id,
+          zeit          = utcJetztIso(),
+        },
+        {
+          request_id         = reqId,
+          actor_source       = "sla",
+          actor_display_name = "System (SLA)",
+          target_public_id   = a.public_id,
+          target_category_id = a.category_id,
+        }
+      )
+    end)
+    if not ok then
+      print(("[hm_buergerportal][WorkflowService] SlaErstBearbeitungTick Eskalationsfehler Antrag %s: %s"):format(
+        tostring(a.id), tostring(err)))
+    end
+  end
+
+  -- 2. Reminder: bereits eskaliert, aber immer noch keine erste Bearbeitung
+  local reminders = HM_BP.Server.Datenbank.Alle([[
+    SELECT id, public_id, category_id, citizen_name
+    FROM hm_bp_submissions
+    WHERE deleted_at IS NULL
+      AND archived_at IS NULL
+      AND first_staff_comment_at IS NULL
+      AND escalated = 1
+      AND TIMESTAMPDIFF(HOUR, last_escalation_reminder_at, UTC_TIMESTAMP()) >= ?
+    LIMIT 50
+  ]], { reminderStunden })
+
+  for _, a in ipairs(reminders or {}) do
+    local ok, err = pcall(function()
+      -- Reminder-Zeitstempel aktualisieren
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        UPDATE hm_bp_submissions
+        SET last_escalation_reminder_at = UTC_TIMESTAMP()
+        WHERE id = ?
+      ]], { a.id })
+
+      -- Timeline-Eintrag (intern)
+      HM_BP.Server.Datenbank.Ausfuehren([[
+        INSERT INTO hm_bp_submission_timeline
+          (submission_id, entry_type, visibility, author_identifier, author_name, content)
+        VALUES (?, 'system', 'internal', 'system', 'System (SLA)', ?)
+      ]], {
+        a.id,
+        json.encode({
+          text        = "SLA-Erinnerung: Antrag wartet weiterhin auf erste Bearbeitung.",
+          reminder_h  = reminderStunden,
+          zeit        = utcJetztIso(),
+        })
+      })
+
+      -- Discord-Webhook (Reminder)
+      eskalationsWebhookSenden(a, true)
+
+      -- Audit-Log
+      local reqId = HM_BP.Server.Dienste.AuditService.GenerateRequestId()
+      HM_BP.Server.Dienste.AuditService.Log(
+        "sla.erst_bearbeitung.reminder",
+        nil,
+        "submission",
+        tostring(a.id),
+        {
+          reminder_intervall_h = reminderStunden,
+          public_id            = a.public_id,
+          zeit                 = utcJetztIso(),
+        },
+        {
+          request_id         = reqId,
+          actor_source       = "sla",
+          actor_display_name = "System (SLA)",
+          target_public_id   = a.public_id,
+          target_category_id = a.category_id,
+        }
+      )
+    end)
+    if not ok then
+      print(("[hm_buergerportal][WorkflowService] SlaErstBearbeitungTick Reminder-Fehler Antrag %s: %s"):format(
+        tostring(a.id), tostring(err)))
+    end
+  end
+end
+
 HM_BP.Server.Dienste.WorkflowService = WorkflowService

@@ -83,6 +83,13 @@ function RueckfrageService.JustizRueckfrageStellen(spieler, antragId, text)
     VALUES (?, 'request_info', 'citizen', ?, ?, ?)
   ]], { antragId, spieler.identifier, spieler.name, json.encode({ text = text }) })
 
+  -- SLA Erste-Bearbeitung: Zeitstempel des ersten Justiz-Kommentars/Rückfrage setzen (PR13)
+  HM_BP.Server.Datenbank.Ausfuehren([[
+    UPDATE hm_bp_submissions
+    SET first_staff_comment_at = UTC_TIMESTAMP()
+    WHERE id = ? AND first_staff_comment_at IS NULL
+  ]], { antragId })
+
   -- Statuswechsel auf question_open (1A)
   local neuerStatus = "question_open"
   if not statusErlaubt(a.category_id, neuerStatus) then

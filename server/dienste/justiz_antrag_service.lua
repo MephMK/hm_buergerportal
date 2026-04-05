@@ -441,6 +441,13 @@ function JustizAntragService.OeffentlicheAntwort(spieler, antragId, text)
     VALUES (?, 'public_message', 'citizen', ?, ?, ?)
   ]], { antragId, spieler.identifier, spieler.name, json.encode({ text = text }) })
 
+  -- SLA Erste-Bearbeitung: Zeitstempel des ersten Justiz-Kommentars setzen (PR13)
+  HM_BP.Server.Datenbank.Ausfuehren([[
+    UPDATE hm_bp_submissions
+    SET first_staff_comment_at = UTC_TIMESTAMP()
+    WHERE id = ? AND first_staff_comment_at IS NULL
+  ]], { antragId })
+
   return { ok = true, public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
            citizen_identifier = a.citizen_identifier }, nil
 end
