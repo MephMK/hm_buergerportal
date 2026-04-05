@@ -24,6 +24,8 @@ shared_scripts {
   'shared/hilfsfunktionen.lua',
   'shared/fehlercodes.lua',
   'shared/texte.lua',
+  'shared/field_types.lua',
+  'shared/validation.lua',
   'shared/location_schema.lua',
   'shared/permission_actions.lua'
 }

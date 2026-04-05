@@ -2,113 +2,112 @@ HM_BP = HM_BP or {}
 HM_BP.Server = HM_BP.Server or {}
 HM_BP.Server.Dienste = HM_BP.Server.Dienste or {}
 
+-- =============================================================
+-- FeldValidierungService
+-- Server-seitige Feldvalidierung (Source of Truth).
+-- Delegiert an HM_BP.Shared.Validation (shared/validation.lua)
+-- und fügt Koerzionsregeln + Fehlerformatierung hinzu.
+-- =============================================================
 local FeldValidierungService = {}
 
-local function istString(v) return type(v) == "string" end
-local function istZahl(v) return type(v) == "number" end
-local function trim(s) return (tostring(s):gsub("^%s+", ""):gsub("%s+$", "")) end
-
-local function regexPruefen(text, muster)
-  if not muster or muster == "" then return true end
-  local ok, res = pcall(function()
-    return string.match(text, muster) ~= nil
-  end)
-  if not ok then return false end
-  return res == true
+local function trim(s)
+  return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function validiereText(feld, wert)
-  if wert == nil then return true end
-  if not istString(wert) then return false, "muss Text sein" end
+-- -------------------------------------------------------
+-- Typ-Koerzion: Wandelt Rohwerte aus JSON-Payloads in den
+-- erwarteten Lua-Typ um, bevor die Validierung läuft.
+-- -------------------------------------------------------
+local function koerzieren(typ, wert)
+  local FT = HM_BP.Shared.FieldTypes
+  local kanon = FT and FT.Kanonisch(typ) or typ
 
-  local t = trim(wert)
-  if feld.minLaenge and #t < tonumber(feld.minLaenge) then
-    return false, ("muss mindestens %d Zeichen haben"):format(tonumber(feld.minLaenge))
-  end
-  if feld.maxLaenge and #t > tonumber(feld.maxLaenge) then
-    return false, ("darf maximal %d Zeichen haben"):format(tonumber(feld.maxLaenge))
-  end
-  if feld.regex and not regexPruefen(t, feld.regex) then
-    return false, "hat ein ungültiges Format"
-  end
-  return true
-end
-
-local function validiereZahl(feld, wert)
-  if wert == nil then return true end
-  if istString(wert) then
-    local n = tonumber(wert)
-    wert = n
-  end
-  if not istZahl(wert) then return false, "muss eine Zahl sein" end
-
-  if feld.min and wert < tonumber(feld.min) then
-    return false, ("muss mindestens %s sein"):format(tostring(feld.min))
-  end
-  if feld.max and wert > tonumber(feld.max) then
-    return false, ("darf maximal %s sein"):format(tostring(feld.max))
-  end
-  return true
-end
-
-local function validiereCheckbox(_, wert)
-  if wert == nil then return true end
-  if type(wert) ~= "boolean" then return false, "muss wahr/falsch sein" end
-  return true
-end
-
-local function validiereDropdown(feld, wert)
-  if wert == nil then return true end
-  if not istString(wert) then return false, "muss Text sein" end
-  if type(feld.optionen) ~= "table" or #feld.optionen == 0 then
-    return true
-  end
-  for _, opt in ipairs(feld.optionen) do
-    if opt.value == wert or opt == wert then
-      return true
+  if kanon == "number" or kanon == "amount" then
+    if type(wert) == "string" then
+      local n = tonumber(wert)
+      if n ~= nil then return n end
     end
+    return wert
+
+  elseif kanon == "checkbox" then
+    if wert == "true" or wert == 1 then return true end
+    if wert == "false" or wert == 0 then return false end
+    return wert
+
+  elseif kanon == "multiselect" then
+    -- JSON-Array kommt manchmal als Lua-Table, manchmal als String
+    if type(wert) == "string" and wert ~= "" then
+      local ok, parsed = pcall(json.decode, wert)
+      if ok and type(parsed) == "table" then return parsed end
+    end
+    return wert
+
+  elseif kanon == "date" or kanon == "time" or kanon == "datetime" then
+    if type(wert) == "string" then return trim(wert) end
+    return wert
   end
-  return false, "hat eine ungültige Auswahl"
+
+  return wert
 end
 
+-- -------------------------------------------------------
+-- Öffentliche API
+-- -------------------------------------------------------
+
+--- Validiert alle Felder eines Schemas gegen die übergebenen
+--- Antworten. Gibt bei Fehlern einen strukturierten Fehler
+--- mit feldFehler-Tabelle zurück (id → Meldung).
+---@param schema table  { felder = [...] }
+---@param antworten table { feldKey = wert }
+---@return boolean, table|nil
 function FeldValidierungService.ValidiereSchemaUndAntworten(schema, antworten)
   if type(schema) ~= "table" or type(schema.felder) ~= "table" then
-    return false, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Formularschema ist ungültig." }
+    return false, {
+      code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+      nachricht = "Formularschema ist ungültig."
+    }
   end
   if type(antworten) ~= "table" then
-    return false, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Antworten sind ungültig." }
+    return false, {
+      code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+      nachricht = "Antworten sind ungültig."
+    }
+  end
+
+  -- Antworten erst koerzieren
+  local koerziert = {}
+  for k, v in pairs(antworten) do
+    koerziert[k] = v
+  end
+  for _, feld in ipairs(schema.felder) do
+    if feld.key and koerziert[feld.key] ~= nil then
+      koerziert[feld.key] = koerzieren(feld.typ, koerziert[feld.key])
+    end
+  end
+
+  -- Validierung via shared Modul
+  local Validation = HM_BP.Shared.Validation
+  local FT = HM_BP.Shared.FieldTypes
+
+  if not Validation then
+    return false, {
+      code = HM_BP.Gemeinsam.Fehlercodes.INTERNER_FEHLER,
+      nachricht = "Validierungsmodul nicht geladen."
+    }
   end
 
   local fehler = {}
 
   for _, feld in ipairs(schema.felder) do
-    local wert = antworten[feld.key]
+    if not feld.key then goto weiter end
 
-    if feld.pflicht == true then
-      if wert == nil or (type(wert) == "string" and trim(wert) == "") then
-        fehler[feld.key] = "Pflichtfeld"
-        goto weiter
-      end
-    end
+    -- Dekorative Felder überspringen
+    if FT and not FT.IstEingabe(feld.typ) then goto weiter end
 
-    if feld.typ == "shorttext" or feld.typ == "longtext" then
-      local ok, msg = validiereText(feld, wert)
-      if not ok then fehler[feld.key] = msg end
-
-    elseif feld.typ == "number" then
-      local ok, msg = validiereZahl(feld, wert)
-      if not ok then fehler[feld.key] = msg end
-
-    elseif feld.typ == "checkbox" then
-      local ok, msg = validiereCheckbox(feld, wert)
-      if not ok then fehler[feld.key] = msg end
-
-    elseif feld.typ == "dropdown" or feld.typ == "radio" then
-      local ok, msg = validiereDropdown(feld, wert)
-      if not ok then fehler[feld.key] = msg end
-
-    else
-      fehler[feld.key] = ("Feldtyp '%s' wird aktuell nicht unterstützt."):format(tostring(feld.typ))
+    local wert = koerziert[feld.key]
+    local ok, msg = Validation.FeldValidieren(feld, wert)
+    if not ok then
+      fehler[feld.key] = msg or "Ungültiger Wert."
     end
 
     ::weiter::
