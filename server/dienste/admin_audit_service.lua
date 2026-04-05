@@ -81,6 +81,18 @@ local function logPersistieren()
   SaveResourceFile(RESOURCE_NAME, AUDIT_FILE, inhalt, #inhalt)
 end
 
+-- Gepuffertes Schreiben: max. einmal alle 5 Sekunden persistieren
+local schreibAusstehend = false
+
+local function logPersistierenGepuffert()
+  if schreibAusstehend then return end
+  schreibAusstehend = true
+  SetTimeout(5000, function()
+    schreibAusstehend = false
+    logPersistieren()
+  end)
+end
+
 -- ----------------------------------------------------------------
 -- Öffentliche API
 -- ----------------------------------------------------------------
@@ -128,10 +140,8 @@ function AdminAuditService.Log(aktion, spieler, grund, sektion, altDaten, neuDat
     table.remove(eintraege, 1)
   end
 
-  -- Asynchron in Datei schreiben (kein Blockieren)
-  SetTimeout(0, function()
-    logPersistieren()
-  end)
+  -- Asynchron in Datei schreiben (gepuffert: max. 1x alle 5 Sekunden)
+  logPersistierenGepuffert()
 
   if Config and Config.Kern and Config.Kern.Debugmodus then
     print(("[AdminAudit] %s von %s – %s"):format(

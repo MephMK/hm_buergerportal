@@ -28,19 +28,26 @@ HM_BP.Server = HM_BP.Server or {}
 local function cfgSvc()  return HM_BP.Server.Dienste.AdminConfigService  end
 local function audSvc()  return HM_BP.Server.Dienste.AdminAuditService   end
 
--- Prüft Admin-Berechtigung: Rolle + Permission
+-- Prüft Admin-Berechtigung mit zwei unabhängigen Schichten:
+--   1) Rate-Limit + Permission-Check via Middleware
+--   2) Direkte Job+Grade-Prüfung gegen Config.Kern.Admin (NICHT überschreibbar via Overrides)
+-- Dadurch kann kein Angreifer durch Manipulation der Config.Permissions-Sektion
+-- Zugriff auf den Admin-Bereich erhalten.
 local function pruefeAdmin(quelle, aktion)
   local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, aktion or HM_BP.Shared.Actions.ADMIN_PANEL_OPEN, {})
   if not spieler then return nil, err end
 
-  -- Explizit Rolle prüfen (PermissionService könnte durch Config-Override umgehbar sein)
-  local rolle = spieler.rolle or HM_BP.Server.Dienste.AuthService.RolleErmitteln(spieler)
+  -- Hardcoded Job+Grade-Prüfung gegen Config.Kern.Admin (dieser Abschnitt liegt
+  -- NICHT im Verwaltungsbereich der Overrides und kann nicht per Admin-Panel geändert werden).
+  -- AuthService.RolleErmitteln liest ausschließlich Config.Kern.Admin/Jobs.
+  local rolle = HM_BP.Server.Dienste.AuthService.RolleErmitteln(spieler)
   if rolle ~= "admin" then
     return nil, {
       code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
       nachricht = "Nur Administratoren dürfen auf den Adminbereich zugreifen."
     }
   end
+  spieler.rolle = rolle
   return spieler, nil
 end
 
