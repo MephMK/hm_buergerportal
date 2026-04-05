@@ -310,6 +310,10 @@ Config.Permissions = {
         "question.ask",
         "notes.internal.read",
         "form_editor.use",
+        -- Workflow/Locks (PR7): alle Justiz-Bearbeiter dürfen Locks anfordern/freigeben
+        "workflow.lock.request",
+        "workflow.lock.release",
+        -- SLA-Pause und Lock-Override nur per Kategorie/Grade-Override für Leitung
       },
       deny  = {},
     },
@@ -320,6 +324,28 @@ Config.Permissions = {
       allow = { "*" },
       deny  = {},
     },
+  },
+}
+
+-- =============================================================
+-- Config.Workflow
+-- Workflow-Engine: SLA/Fristen, Leitung-Erkennung, Eskalierung,
+-- Soft-Locks und erlaubte Statusübergänge (PR7).
+-- =============================================================
+Config.Workflow = {
+  -- Standard-SLA in Stunden, wenn für eine Kategorie nichts definiert.
+  DefaultSlaHours = 48,
+
+  -- Ab welchem DOJ-Jobgrad gilt jemand als "Leitung"
+  -- (SLA pausieren/übersteuern, Lock-Override, Eskalierungs-Empfänger).
+  LeitungMinGrade = 29,
+
+  -- Periodischer SLA-Check-Intervall in Sekunden (30–60 empfohlen).
+  TickIntervalSekunden = 30,
+
+  -- Eskalierung bei SLA-Ablauf
+  Eskalierung = {
+    Aktiviert = true,
   },
 }
 
@@ -455,6 +481,26 @@ Config.Kategorien = {
         },
       },
 
+      -- Workflow-Regeln: SLA, erlaubte Statusübergänge, SLA-Pause-Statuses
+      workflow = {
+        -- SLA in Stunden; Fallback: Config.Workflow.DefaultSlaHours
+        sla_hours = 48,
+
+        -- Statuses, in denen der SLA-Countdown pausiert
+        pause_sla_in_statuses = { "question_open" },
+
+        -- Erlaubte Folge-Statuses pro Ausgangs-Status.
+        -- Wenn definiert, werden Übergänge serverseitig strikt erzwungen.
+        erlaubteFolgeStatus = {
+          ["draft"]         = { "submitted" },
+          ["submitted"]     = { "in_review", "rejected" },
+          ["in_review"]     = { "question_open", "approved", "rejected" },
+          ["question_open"] = { "in_review", "rejected" },
+          ["approved"]      = { "archived" },
+          ["rejected"]      = { "archived" },
+        },
+      },
+
       webhooks = {}
     },
 
@@ -546,6 +592,19 @@ Config.Kategorien = {
             "form_editor.archive",
           },
           deny = { "question.ask" },
+        },
+      },
+
+      -- Workflow-Regeln für "gewerbe": kürzere SLA, keine Rückfragen
+      workflow = {
+        sla_hours = 96,
+        pause_sla_in_statuses = {},
+        erlaubteFolgeStatus = {
+          ["draft"]     = { "submitted" },
+          ["submitted"] = { "in_review", "rejected" },
+          ["in_review"] = { "approved", "rejected" },
+          ["approved"]  = { "archived" },
+          ["rejected"]  = { "archived" },
         },
       },
 
@@ -1154,9 +1213,13 @@ Config.Workflows = {
   Aktiviert = true,
 
   Sperren = {
+    -- Soft-Locks: Server blockiert Schreibzugriffe wenn ein anderer Bearbeiter
+    -- die Sperre hält. Leitung (Grade >= Config.Workflow.LeitungMinGrade) und
+    -- Admin können Sperren immer überschreiben.
     Aktiviert = true,
     ExklusiveBearbeitung = true,
-    TimeoutSekunden = 300,
+    -- Ablauf-Timeout in Sekunden (default: 10 min = 600s).
+    TimeoutSekunden = 600,
     HeartbeatSekunden = 45,
   },
 

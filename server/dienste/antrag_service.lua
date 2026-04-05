@@ -190,6 +190,13 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten)
     })
   })
 
+  -- SLA-Frist initialisieren (PR7 WorkflowService)
+  if HM_BP.Server.Dienste.WorkflowService then
+    pcall(function()
+      HM_BP.Server.Dienste.WorkflowService.SlaInitialisieren(antragId, fConfig.kategorieId)
+    end)
+  end
+
   return {
     id = antragId,
     public_id = publicId,

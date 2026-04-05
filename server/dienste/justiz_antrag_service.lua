@@ -28,7 +28,44 @@ local function prioritaetErlaubt(prio)
 end
 
 local function sperreNoetigUndSetzen(spieler, antragId)
-  -- Setzt/verlängert Sperre; wenn anderer Bearbeiter -> Konflikt mit Name
+  -- Setzt/verlängert Sperre. Wenn ein anderer Bearbeiter die Sperre hält:
+  --   - Leitung (grade >= LeitungMinGrade) und Admin dürfen ohne Übernahme schreiben.
+  --   - Alle anderen bekommen einen Konflikt-Fehler.
+  if not (Config.Workflows and Config.Workflows.Sperren and Config.Workflows.Sperren.Aktiviert) then
+    return true, nil
+  end
+
+  HM_BP.Server.Dienste.SperrService.AblaufeneSperrenAufraeumen()
+  local lock = HM_BP.Server.Dienste.SperrService.SperreHolen(antragId)
+
+  if lock then
+    -- Eigene Sperre → verlängern
+    if lock.locked_by_identifier == spieler.identifier then
+      return HM_BP.Server.Dienste.SperrService.Sperren(spieler, antragId)
+    end
+
+    -- Leitung / Admin → darf auch ohne Übernahme schreiben
+    local istLeitung = HM_BP.Server.Dienste.WorkflowService
+      and HM_BP.Server.Dienste.WorkflowService.IstLeitung(spieler)
+    local istAdmin = HM_BP.Server.Dienste.AuthService.IstAdmin(spieler)
+    if istLeitung or istAdmin then
+      return true, nil
+    end
+
+    -- Fremde Sperre → Konflikt
+    return false, {
+      code     = HM_BP.Gemeinsam.Fehlercodes.KONFLIKT,
+      nachricht = ("Dieser Antrag wird gerade von %s bearbeitet."):format(
+        lock.locked_by_name or "einem Bearbeiter"),
+      sperre = {
+        von        = lock.locked_by_name or "Unbekannt",
+        identifier = lock.locked_by_identifier,
+        expires_at = lock.expires_at,
+      }
+    }
+  end
+
+  -- Keine Sperre → setzen
   return HM_BP.Server.Dienste.SperrService.Sperren(spieler, antragId)
 end
 
@@ -411,10 +448,22 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Dieser Status ist für die Kategorie nicht erlaubt." }
   end
 
+  -- Statusübergang-Prüfung (erlaubteFolgeStatus)
+  if HM_BP.Server.Dienste.WorkflowService then
+    if not HM_BP.Server.Dienste.WorkflowService.UebergangErlaubt(a.category_id, a.status, neuerStatus) then
+      return nil, {
+        code     = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN,
+        nachricht = ("Ungültiger Statusübergang: %s → %s"):format(tostring(a.status), tostring(neuerStatus))
+      }
+    end
+  end
+
   local okS, errS = sperreNoetigUndSetzen(spieler, antragId)
   if not okS then return nil, errS end
 
-  HM_BP.Server.Datenbank.Ausfuehren("UPDATE hm_bp_submissions SET status = ? WHERE id = ?", { neuerStatus, antragId })
+  HM_BP.Server.Datenbank.Ausfuehren(
+    "UPDATE hm_bp_submissions SET status = ?, last_status_change_at = UTC_TIMESTAMP() WHERE id = ?",
+    { neuerStatus, antragId })
 
   HM_BP.Server.Datenbank.Ausfuehren([[
     INSERT INTO hm_bp_submission_status_history (submission_id, old_status, new_status, changed_by_identifier, changed_by_name, comment)

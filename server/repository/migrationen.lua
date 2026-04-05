@@ -290,4 +290,21 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_fe_perm_grade (min_grade, max_grade)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
+
+  -- v6: SLA/Workflow-Spalten für Anträge (PR7)
+  migrationAnwenden("v6_workflow_sla", [[
+    ALTER TABLE hm_bp_submissions
+      ADD COLUMN IF NOT EXISTS last_status_change_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS sla_due_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS sla_paused_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS sla_paused_by VARCHAR(128) NULL,
+      ADD COLUMN IF NOT EXISTS escalated_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS needs_leitung TINYINT(1) NOT NULL DEFAULT 0;
+  ]])
+
+  -- v7: lock_reason für Bearbeitungssperren (PR7)
+  migrationAnwenden("v7_lock_reason", [[
+    ALTER TABLE hm_bp_submission_locks
+      ADD COLUMN IF NOT EXISTS lock_reason VARCHAR(128) NULL;
+  ]])
 end

@@ -118,4 +118,18 @@ HM_BP.Shared.Actions = {
   FORM_EDITOR_PUBLISH = "form_editor.publish",
   -- Formular archivieren
   FORM_EDITOR_ARCHIVE = "form_editor.archive",
+
+  -- -------------------------------------------------------
+  -- Workflow / Locks / SLA (PR7)
+  -- -------------------------------------------------------
+  -- Bearbeitungssperre anfordern (jeder Justiz-Bearbeiter)
+  WORKFLOW_LOCK_REQUEST  = "workflow.lock.request",
+  -- Eigene Sperre freigeben
+  WORKFLOW_LOCK_RELEASE  = "workflow.lock.release",
+  -- Fremde Sperre überschreiben/aufheben (nur Leitung ≥ Grade 29)
+  WORKFLOW_LOCK_OVERRIDE = "workflow.lock.override",
+  -- SLA pausieren (nur Leitung ≥ Grade 29)
+  WORKFLOW_SLA_PAUSE     = "workflow.sla.pause",
+  -- Pausierte SLA fortsetzen (nur Leitung ≥ Grade 29)
+  WORKFLOW_SLA_RESUME    = "workflow.sla.resume",
 }
