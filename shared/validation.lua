@@ -36,8 +36,8 @@ local MUSTER = {
   datetime     = "^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d",
   -- URL: muss mit http:// oder https:// beginnen
   url          = "^https?://",
-  -- Kennzeichen: z.B. "AB 1234" oder "AB-1234" oder "B AB 123"
-  license_plate = "^[A-Za-z%-]+ ?%d+$",
+  -- Kennzeichen: z.B. "AB 1234" oder "B-AB 1234" (ein optionaler Bindestrich zwischen Buchstabengruppen)
+  license_plate = "^[A-Za-z]+%-?[A-Za-z]* ?%d+$",
   -- Aktenzeichen: z.B. "DOJ-2024-000123"
   case_number  = "^[A-Za-z0-9%-_]+$",
 }

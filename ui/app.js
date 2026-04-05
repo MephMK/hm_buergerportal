@@ -561,7 +561,7 @@ function clientFeldValidieren(feld, wert) {
   } else if (typ === "url") {
     if (wert && !/^https?:\/\//.test(String(wert))) return "Muss mit http:// oder https:// beginnen";
   } else if (typ === "license_plate") {
-    if (wert && !/^[A-Za-z\-]+ ?\d+$/.test(String(wert).trim())) return "Ungültiges Kennzeichen";
+    if (wert && !/^[A-Za-z]+[-]?[A-Za-z]* ?\d+$/.test(String(wert).trim())) return "Ungültiges Kennzeichen";
   } else if (typ === "case_number") {
     if (wert && !/^[A-Za-z0-9\-_]+$/.test(String(wert).trim())) return "Ungültiges Aktenzeichen";
   }
@@ -1610,7 +1610,7 @@ function buildFieldFromInputs() {
     if (max !== null && !Number.isNaN(max)) feld.max = max;
   } else if (FELD_TYP_MIT_OPTIONEN.has(typ)) {
     feld.optionen = optionen;
-    if (optionen.length === 0 && !istDekorativ) {
+    if (optionen.length === 0) {
       return { ok: false, msg: `Typ '${typ}' benötigt mindestens eine Option (eine pro Zeile im Optionen-Feld).` };
     }
   }

@@ -262,17 +262,6 @@ local function validateSchema(schema)
         end
       end
     end
-
-    -- select/multiselect/radio müssen Optionen haben (bei Veröffentlichung streng prüfen)
-    if FT and f.typ then
-      local meta = FT.Meta(f.typ)
-      if meta and meta.hatOptionen and meta.isInput then
-        if type(f.optionen) ~= "table" or #f.optionen == 0 then
-          -- Nur Warnung im Entwurf – beim Veröffentlichen wird diese Prüfung als Fehler behandelt
-          -- (siehe validateSchemaFuerVeroeffentlichung weiter unten)
-        end
-      end
-    end
   end
 
   return true, nil
