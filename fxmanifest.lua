@@ -4,7 +4,7 @@ game 'gta5'
 name 'hm_buergerportal'
 author 'HM Training - Felix Hoffmann'
 description 'Modulares Bürgerportal/Antragssystem für Justizzentrum (ESX, oxmysql, NUI) – deutsch'
-version '0.6.0'
+version '0.7.0'
 
 lua54 'yes'
 
