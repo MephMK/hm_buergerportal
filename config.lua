@@ -553,7 +553,9 @@ Config.JustizFallback = {
     eingang = true,
     zugewiesen = true,
     alleKategorie = false,
-    archiv = false
+    archiv = false,
+    genehmigt = false,
+    abgelehnt = false
   },
   aktionen = {
     antragUebernehmen = false,
@@ -639,7 +641,7 @@ Config.Kategorien = {
             },
             -- Grade 30: Vollzugriff (identisch mit Grade 31)
             [30] = {
-              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true, genehmigt = true, abgelehnt = true },
               aktionen = {
                 antragUebernehmen = true,
                 statusAendern = true,
@@ -658,7 +660,7 @@ Config.Kategorien = {
             },
             -- Grade 31: Vollzugriff
             [31] = {
-              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true, genehmigt = true, abgelehnt = true },
               aktionen = {
                 antragUebernehmen = true,
                 statusAendern = true,
@@ -794,7 +796,7 @@ Config.Kategorien = {
             -- Grade 30: Vollzugriff (identisch mit Grade 31).
             -- In der Kategorie "gewerbe" ist rueckfrageStellen=false (Gewerbeanträge direkt entscheiden).
             [30] = {
-              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true, genehmigt = true, abgelehnt = true },
               aktionen = {
                 antragUebernehmen = true,
                 statusAendern = true,
@@ -813,7 +815,7 @@ Config.Kategorien = {
             },
             -- Grade 31: Vollzugriff (kein rueckfrageStellen – identisch mit Grade 30 für "gewerbe")
             [31] = {
-              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true, genehmigt = true, abgelehnt = true },
               aktionen = {
                 antragUebernehmen = true,
                 statusAendern = true,

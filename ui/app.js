@@ -51,6 +51,8 @@ const justizKategorienListe = document.getElementById("justizKategorienListe");
 const tabEingang = document.getElementById("tabEingang");
 const tabZugewiesen = document.getElementById("tabZugewiesen");
 const tabAlleKategorie = document.getElementById("tabAlleKategorie");
+const tabGenehmigt = document.getElementById("tabGenehmigt");
+const tabAbgelehnt = document.getElementById("tabAbgelehnt");
 const tabArchiv = document.getElementById("tabArchiv");
 const justizAntraegeListe = document.getElementById("justizAntraegeListe");
 
@@ -1351,27 +1353,51 @@ function setQueueTabsEnabled(sehen) {
   tabEingang.disabled = !(s.eingang === true);
   tabZugewiesen.disabled = !(s.zugewiesen === true);
   tabAlleKategorie.disabled = !(s.alleKategorie === true);
+  tabGenehmigt.disabled = !(s.genehmigt === true);
+  tabAbgelehnt.disabled = !(s.abgelehnt === true);
   tabArchiv.disabled = !(s.archiv === true);
 
   if (ausgewaehlteQueue === "eingang" && tabEingang.disabled) {
     if (!tabZugewiesen.disabled) queueTabSetzen("zugewiesen");
     else if (!tabAlleKategorie.disabled) queueTabSetzen("alle");
+    else if (!tabGenehmigt.disabled) queueTabSetzen("genehmigt");
+    else if (!tabAbgelehnt.disabled) queueTabSetzen("abgelehnt");
     else if (!tabArchiv.disabled) queueTabSetzen("archiv");
   }
   if (ausgewaehlteQueue === "zugewiesen" && tabZugewiesen.disabled) {
     if (!tabEingang.disabled) queueTabSetzen("eingang");
     else if (!tabAlleKategorie.disabled) queueTabSetzen("alle");
+    else if (!tabGenehmigt.disabled) queueTabSetzen("genehmigt");
+    else if (!tabAbgelehnt.disabled) queueTabSetzen("abgelehnt");
     else if (!tabArchiv.disabled) queueTabSetzen("archiv");
   }
   if (ausgewaehlteQueue === "alle" && tabAlleKategorie.disabled) {
     if (!tabEingang.disabled) queueTabSetzen("eingang");
     else if (!tabZugewiesen.disabled) queueTabSetzen("zugewiesen");
+    else if (!tabGenehmigt.disabled) queueTabSetzen("genehmigt");
+    else if (!tabAbgelehnt.disabled) queueTabSetzen("abgelehnt");
+    else if (!tabArchiv.disabled) queueTabSetzen("archiv");
+  }
+  if (ausgewaehlteQueue === "genehmigt" && tabGenehmigt.disabled) {
+    if (!tabEingang.disabled) queueTabSetzen("eingang");
+    else if (!tabZugewiesen.disabled) queueTabSetzen("zugewiesen");
+    else if (!tabAlleKategorie.disabled) queueTabSetzen("alle");
+    else if (!tabAbgelehnt.disabled) queueTabSetzen("abgelehnt");
+    else if (!tabArchiv.disabled) queueTabSetzen("archiv");
+  }
+  if (ausgewaehlteQueue === "abgelehnt" && tabAbgelehnt.disabled) {
+    if (!tabEingang.disabled) queueTabSetzen("eingang");
+    else if (!tabZugewiesen.disabled) queueTabSetzen("zugewiesen");
+    else if (!tabAlleKategorie.disabled) queueTabSetzen("alle");
+    else if (!tabGenehmigt.disabled) queueTabSetzen("genehmigt");
     else if (!tabArchiv.disabled) queueTabSetzen("archiv");
   }
   if (ausgewaehlteQueue === "archiv" && tabArchiv.disabled) {
     if (!tabEingang.disabled) queueTabSetzen("eingang");
     else if (!tabZugewiesen.disabled) queueTabSetzen("zugewiesen");
     else if (!tabAlleKategorie.disabled) queueTabSetzen("alle");
+    else if (!tabGenehmigt.disabled) queueTabSetzen("genehmigt");
+    else if (!tabAbgelehnt.disabled) queueTabSetzen("abgelehnt");
   }
 }
 
@@ -1380,6 +1406,8 @@ function queueTabSetzen(queue) {
   tabEingang.classList.toggle("active", queue === "eingang");
   tabZugewiesen.classList.toggle("active", queue === "zugewiesen");
   tabAlleKategorie.classList.toggle("active", queue === "alle");
+  tabGenehmigt.classList.toggle("active", queue === "genehmigt");
+  tabAbgelehnt.classList.toggle("active", queue === "abgelehnt");
   tabArchiv.classList.toggle("active", queue === "archiv");
 }
 
@@ -1396,6 +1424,12 @@ function justizQueueLaden() {
   } else if (ausgewaehlteQueue === "alle") {
     if (tabAlleKategorie.disabled) return;
     nuiAufruf("hm_bp:justiz_alle_kategorie_laden", { kategorieId: ausgewaehlteJustizKategorieId, limit: 100 });
+  } else if (ausgewaehlteQueue === "genehmigt") {
+    if (tabGenehmigt.disabled) return;
+    nuiAufruf("hm_bp:justiz_genehmigt_laden", { kategorieId: ausgewaehlteJustizKategorieId, limit: 100 });
+  } else if (ausgewaehlteQueue === "abgelehnt") {
+    if (tabAbgelehnt.disabled) return;
+    nuiAufruf("hm_bp:justiz_abgelehnt_laden", { kategorieId: ausgewaehlteJustizKategorieId, limit: 100 });
   } else if (ausgewaehlteQueue === "archiv") {
     if (tabArchiv.disabled) return;
     justizSearchMeta.textContent = "Archiv wird geladen…";
@@ -1486,8 +1520,8 @@ function justizBuergerAngabenRendern(payloadRaw) {
     }
 
     const el = document.createElement("div");
-    el.style.cssText = "padding:6px 0; border-bottom:1px solid #eee;";
-    el.innerHTML = `<span style="font-weight:600; color:#555; font-size:11px;">${escapeHtml(label)}:</span> <span style="color:#222;">${escapeHtml(wertText)}</span>`;
+    el.style.cssText = "padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.1);";
+    el.innerHTML = `<span style="font-weight:600; color:rgba(255,255,255,0.75); font-size:11px;">${escapeHtml(label)}:</span> <span style="color:#fff;">${escapeHtml(wertText)}</span>`;
     justizBuergerAngaben.appendChild(el);
   }
 }
@@ -2507,6 +2541,26 @@ tabArchiv.addEventListener("click", () => {
     justizQueueLaden();
   }
 });
+tabGenehmigt.addEventListener("click", () => {
+  if (!tabGenehmigt.disabled) {
+    queueTabSetzen("genehmigt");
+    justizSuchModusAktiv = false;
+    justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
+    justizQueueLaden();
+  }
+});
+tabAbgelehnt.addEventListener("click", () => {
+  if (!tabAbgelehnt.disabled) {
+    queueTabSetzen("abgelehnt");
+    justizSuchModusAktiv = false;
+    justizSearchMeta.textContent = "";
+    justizSuchLetztesPayload = null;
+    if (justizPaginierung) justizPaginierung.style.display = "none";
+    justizQueueLaden();
+  }
+});
 
 btnJustizBearbeiterRefresh.addEventListener("click", async () => {
   if (btnJustizBearbeiterRefresh.disabled) return;
@@ -2999,7 +3053,7 @@ window.addEventListener("message", (event) => {
     bearbeiterSelectFuellen(null);
   }
 
-  if (msg.typ === "hm_bp:justiz:eingang_antwort" || msg.typ === "hm_bp:justiz:zugewiesen_antwort" || msg.typ === "hm_bp:justiz:alle_kategorie_antwort") {
+  if (msg.typ === "hm_bp:justiz:eingang_antwort" || msg.typ === "hm_bp:justiz:zugewiesen_antwort" || msg.typ === "hm_bp:justiz:alle_kategorie_antwort" || msg.typ === "hm_bp:justiz:genehmigt_antwort" || msg.typ === "hm_bp:justiz:abgelehnt_antwort") {
     const payload = msg.payload || {};
     if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Justiz-Liste konnte nicht geladen werden.");
     justizAntraegeRendern(payload.liste);

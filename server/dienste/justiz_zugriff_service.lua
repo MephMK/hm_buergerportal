@@ -30,7 +30,7 @@ function JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
   if HM_BP.Server.Dienste.AuthService.IstAdmin(spieler) then
     return {
       erlaubt = true,
-      sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+      sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true, genehmigt = true, abgelehnt = true },
       aktionen = {
         antragUebernehmen = true,
         statusAendern = true,
