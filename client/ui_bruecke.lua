@@ -290,6 +290,8 @@ RegisterNetEvent("hm_bp:form_editor:schema_holen_antwort")
 RegisterNetEvent("hm_bp:form_editor:schema_speichern_antwort")
 RegisterNetEvent("hm_bp:form_editor:veroeffentlichen_antwort")
 RegisterNetEvent("hm_bp:form_editor:archivieren_antwort")
+RegisterNetEvent("hm_bp:form_editor:config_liste_antwort")
+RegisterNetEvent("hm_bp:form_editor:config_export_antwort")
 
 -- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
 local function formEditorAufruf(serverEvent, daten, antwortEvent)
@@ -357,6 +359,22 @@ RegisterNUICallback("hm_bp:form_editor_archivieren", function(daten, cb)
     "hm_bp:form_editor:archivieren",
     daten or {},
     "hm_bp:form_editor:archivieren_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_config_liste_laden", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:config_liste_anfordern",
+    daten or {},
+    "hm_bp:form_editor:config_liste_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:form_editor_config_export", function(daten, cb)
+  cb(formEditorAufruf(
+    "hm_bp:form_editor:config_export_anfordern",
+    daten or {},
+    "hm_bp:form_editor:config_export_antwort"
   ))
 end)
 

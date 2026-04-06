@@ -487,6 +487,14 @@
 
           <div class="trenner"></div>
 
+          <!-- Angaben des Bürgers: Formularfelder und Antworten (read-only) -->
+          <div id="justizBuergerAngabenSection" style="display:none;">
+            <div class="box-title">Angaben des Bürgers</div>
+            <div id="justizBuergerAngaben" class="verlauf"></div>
+          </div>
+
+          <div class="trenner"></div>
+
           <!-- NEU: Formular-Editor (Unterbereich im Justiz-Tab) -->
           <div class="box-title">Formular-Editor (Entwurf / Veröffentlichung)</div>
           <div class="muted" id="formEditorMeta">Lade Rechte…</div>
@@ -500,8 +508,24 @@
 
                 <div class="trenner"></div>
 
-                <div class="label">Formulare (DB)</div>
-                <div id="formEditorFormListe" class="liste"></div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+                  <div class="label" style="margin:0;">Quelle:</div>
+                  <select id="formEditorQuelleSelect" style="flex:1;">
+                    <option value="db">DB-Formulare</option>
+                    <option value="config">Config-Formulare</option>
+                  </select>
+                </div>
+
+                <div id="formEditorDBSektion">
+                  <div class="label">Formulare (DB)</div>
+                  <div id="formEditorFormListe" class="liste"></div>
+                </div>
+
+                <div id="formEditorConfigSektion" style="display:none;">
+                  <div class="label">Formulare (Config)</div>
+                  <div class="muted" style="font-size:11px; margin-bottom:4px;">Config-Formulare sind read-only. Du kannst die Formulardaten als JSON exportieren und manuell in config.lua übertragen.</div>
+                  <div id="formEditorConfigFormListe" class="liste"></div>
+                </div>
               </div>
 
               <div class="feld">
@@ -648,6 +672,15 @@ Option B'></textarea>
                   <div class="muted" id="formEditorActionMeta"></div>
                 </div>
               </div>
+            </div>
+
+            <!-- Config-Formular Export -->
+            <div id="formEditorConfigExportBereich" style="display:none; margin-top:16px; padding:12px; border:1px solid #2f80ed; border-radius:6px; background:#f0f8ff;">
+              <div class="label">Config-Formular: <span id="formEditorConfigFormTitel">–</span></div>
+              <div class="muted" style="margin-bottom:8px; font-size:11px;">Config-Formulare können nicht direkt gespeichert werden. Exportiere die Formulardaten als JSON und übertrage die Änderungen manuell in config.lua (Lua-Tabellen-Syntax).</div>
+              <button id="btnFormEditorConfigExport" class="btn btn-secondary" type="button">JSON exportieren</button>
+              <div class="muted" id="formEditorConfigExportMeta" style="margin-top:4px;"></div>
+              <textarea id="formEditorConfigExportOutput" style="display:none; width:100%; height:200px; font-family:monospace; font-size:11px; margin-top:8px;" readonly placeholder="Snippet erscheint hier…"></textarea>
             </div>
           </div>
 

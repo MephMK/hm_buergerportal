@@ -658,4 +658,91 @@ function FormularEditorService.RechteDBSetzen(spieler, kategorieId, liste)
   return { ok = true }, nil
 end
 
+
+-- ==========================
+-- Config-Formulare (Lesen + Export)
+-- ==========================
+
+---Liefert die Liste der Config-Formulare für eine Kategorie.
+---Nur Admins und Benutzer mit form_editor.use können diese Funktion nutzen.
+function FormularEditorService.ConfigFormularListe(kategorieId, spieler)
+  kategorieId = trim(tostring(kategorieId or ""))
+  if istLeer(kategorieId) then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Kategorie-ID fehlt." }
+  end
+
+  -- Zugriffsprüfung: Admin hat immer Zugriff, andere über Rechte
+  local rolle = rolleErmitteln(spieler)
+  if rolle ~= "admin" then
+    local r = FormularEditorService.RechteFuerKategorie(kategorieId, spieler)
+    if not (r.create or r.edit or r.publish or r.archive) then
+      return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf Config-Formulare für diese Kategorie." }
+    end
+  end
+
+  local ergebnis = {}
+  if not (Config.Formulare and Config.Formulare.Liste) then
+    return ergebnis, nil
+  end
+
+  for formId, f in pairs(Config.Formulare.Liste) do
+    if f and (f.kategorieId == kategorieId or f.category_id == kategorieId) then
+      table.insert(ergebnis, {
+        id          = formId,
+        titel       = f.titel or f.title or formId,
+        beschreibung = f.beschreibung or f.description or "",
+        aktiv       = f.aktiv ~= false,
+        fee_eur     = (f.gebuehren and tonumber(f.gebuehren.betrag)) or 0,
+        quelle      = "config",
+        feldAnzahl  = (type(f.felder) == "table") and #f.felder or 0,
+      })
+    end
+  end
+
+  table.sort(ergebnis, function(a, b) return tostring(a.id) < tostring(b.id) end)
+  return ergebnis, nil
+end
+
+---Liefert die Formulardaten eines Config-Formulars als JSON für den Export.
+function FormularEditorService.ConfigSchemaExportieren(spieler, formId)
+  formId = trim(tostring(formId or ""))
+  if istLeer(formId) then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Formular-ID fehlt." }
+  end
+
+  if not (Config.Formulare and Config.Formulare.Liste) then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Keine Config-Formulare vorhanden." }
+  end
+
+  local f = Config.Formulare.Liste[formId]
+  if not f then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.NICHT_GEFUNDEN, nachricht = "Config-Formular nicht gefunden: " .. formId }
+  end
+
+  -- Zugriffsprüfung
+  local kategorieId = f.kategorieId or f.category_id or ""
+  local rolle = rolleErmitteln(spieler)
+  if rolle ~= "admin" then
+    local r = FormularEditorService.RechteFuerKategorie(kategorieId, spieler)
+    if not (r.create or r.edit or r.publish or r.archive) then
+      return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff." }
+    end
+  end
+
+  -- JSON-Repräsentation des Formulars exportieren (als editierbares Snippet)
+  local exportData = {
+    id          = formId,
+    titel       = f.titel or f.title or formId,
+    beschreibung = f.beschreibung or f.description or "",
+    kategorieId = kategorieId,
+    aktiv       = f.aktiv ~= false,
+    gebuehren   = f.gebuehren or { aktiv = false, betrag = 0, erstattbar = false },
+    felder      = f.felder or {},
+    quelle      = "config",
+    hinweis     = "Dieses Formular stammt aus Config.Formulare.Liste. Aenderungen muessen manuell als Lua-Tabelle in config.lua eingetragen werden.",
+  }
+
+  return { ok = true, daten = exportData, snippet = json.encode(exportData) }, nil
+end
+
 HM_BP.Server.Dienste.FormularEditorService = FormularEditorService
