@@ -4987,7 +4987,7 @@ function buergerSuchErgebnisseRendern(liste) {
       <strong>${escapeHtml(a.public_id || a.id)}</strong>
       <span class="muted" style="margin-left:8px;">${escapeHtml(a.form_id || "")}</span><br>
       <span class="muted">Status: ${escapeHtml(a.status || "")}</span>
-      <span class="muted" style="margin-left:8px;">Erstellt: ${escapeHtml((a.created_at || "").substring(0, 10))}</span>
+      <span class="muted" style="margin-left:8px;">Erstellt: ${escapeHtml(String(a.created_at || "").substring(0, 10))}</span>
     `;
     div.addEventListener("click", () => {
       ausgewaehlterBuergerAntragId = a.id;
@@ -5113,7 +5113,7 @@ function opsSuchErgebnisseRendern(liste) {
       <span class="muted" style="margin-left:6px;">Kat: ${escapeHtml(a.category_id || "")}</span><br>
       <span class="muted">Bürger: ${escapeHtml(a.citizen_name || "")}</span>
       <span class="muted" style="margin-left:8px;">Status: ${escapeHtml(a.status || "")}</span>
-      <span class="muted" style="margin-left:8px;">${escapeHtml((a.created_at || "").substring(0, 10))}</span>
+      <span class="muted" style="margin-left:8px;">${escapeHtml(String(a.created_at || "").substring(0, 10))}</span>
     `;
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
