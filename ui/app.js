@@ -5038,23 +5038,29 @@ function opsSuchErgebnisseRendern(liste) {
     const div = document.createElement("div");
     div.className = "liste-eintrag";
     div.style.cssText = "padding:8px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:12px;";
-    div.innerHTML = `
-      <div style="flex:1;">
-        <strong>${escapeHtml(a.public_id || String(a.id))}</strong>
-        <span class="muted" style="margin-left:6px;">${escapeHtml(a.form_id || "")}</span>
-        <span class="muted" style="margin-left:6px;">Kat: ${escapeHtml(a.category_id || "")}</span><br>
-        <span class="muted">Bürger: ${escapeHtml(a.citizen_name || "")}</span>
-        <span class="muted" style="margin-left:8px;">Status: ${escapeHtml(a.status || "")}</span>
-        <span class="muted" style="margin-left:8px;">${escapeHtml((a.created_at || "").substring(0, 10))}</span>
-      </div>
-      <button class="btn btn-secondary" data-antrag-id="${a.id}" style="font-size:0.85em; padding:4px 8px;">ID kopieren</button>
+    const infoDiv = document.createElement("div");
+    infoDiv.style.flex = "1";
+    infoDiv.innerHTML = `
+      <strong>${escapeHtml(a.public_id || String(a.id))}</strong>
+      <span class="muted" style="margin-left:6px;">${escapeHtml(a.form_id || "")}</span>
+      <span class="muted" style="margin-left:6px;">Kat: ${escapeHtml(a.category_id || "")}</span><br>
+      <span class="muted">Bürger: ${escapeHtml(a.citizen_name || "")}</span>
+      <span class="muted" style="margin-left:8px;">Status: ${escapeHtml(a.status || "")}</span>
+      <span class="muted" style="margin-left:8px;">${escapeHtml((a.created_at || "").substring(0, 10))}</span>
     `;
-    div.querySelector("button").addEventListener("click", (ev) => {
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "btn btn-secondary";
+    copyBtn.style.cssText = "font-size:0.85em; padding:4px 8px;";
+    copyBtn.textContent = "ID übernehmen";
+    copyBtn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const antragIdEl = document.getElementById("opsAntragId");
       if (antragIdEl) antragIdEl.value = a.id;
       opsSubtabSetzen("aktionen");
     });
+    div.appendChild(infoDiv);
+    div.appendChild(copyBtn);
     el.appendChild(div);
   });
 }
@@ -5173,7 +5179,8 @@ if (btnOpsHartLoeschen) {
     const metaEl = document.getElementById("opsHartLoeschenMeta");
     if (!antragId) { if (metaEl) metaEl.textContent = "Antrags-ID fehlt."; return; }
     if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
-    if (!confirm(`Antrag "${antragId}" wirklich ENDGÜLTIG löschen? Diese Aktion kann NICHT rückgängig gemacht werden!\n\nBegründung: ${grund}`)) return;
+    // Sicherheits-Bestätigung ohne direkte Eingabe im Dialog-Text
+    if (!confirm("Antrag wirklich ENDGÜLTIG löschen? Diese Aktion kann NICHT rückgängig gemacht werden!")) return;
     if (metaEl) metaEl.textContent = "Wird verarbeitet…";
     const res = await nuiAufruf("hm_bp:admin_ops_hartloeschen", { antragId, grund });
     if (metaEl) metaEl.textContent = res.ok ? "✓ Antrag endgültig gelöscht." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
@@ -5252,10 +5259,18 @@ if (opsImAuftragFormularInput && opsImAuftragFormularInput.parentNode) {
 }
 btnOpsImAuftragSchema.addEventListener("click", async () => {
   const formularId = opsImAuftragFormularInput.value.trim();
-  if (!formularId) { alert("Bitte Formular-ID eingeben."); return; }
+  const metaEl = document.getElementById("opsImAuftragErstellenMeta");
+  if (!formularId) {
+    if (metaEl) metaEl.textContent = "Bitte Formular-ID eingeben.";
+    return;
+  }
   const res = await nuiAufruf("hm_bp:formular_schema_laden", { formularId });
-  if (!res.ok || !res.schema) { alert("Formular nicht gefunden oder Schema konnte nicht geladen werden."); return; }
+  if (!res.ok || !res.schema) {
+    if (metaEl) metaEl.textContent = "Formular nicht gefunden oder Schema konnte nicht geladen werden.";
+    return;
+  }
   opsImAuftragAusgewaehlterFormularId = formularId;
+  if (metaEl) metaEl.textContent = "";
   const felderEl = document.getElementById("opsImAuftragFelder");
   const containerEl = document.getElementById("opsImAuftragFelderContainer");
   if (felderEl) felderEl.style.display = "";
