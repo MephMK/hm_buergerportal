@@ -920,6 +920,67 @@ function buergerVerlaufRendern(timeline) {
   }
 }
 
+// Zeigt die eingereichten Antworten des Bürgers als Lesemodus an.
+function buergerEingereichtAntwortRendern(payload) {
+  const container = document.getElementById("buergerEingereichtAntworten");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (!payload) {
+    container.innerHTML = `<div class="muted">Keine eingereichten Daten verfügbar.</div>`;
+    return;
+  }
+
+  let felder = [];
+  try {
+    felder = Array.isArray(payload.fields_snapshot)
+      ? payload.fields_snapshot
+      : JSON.parse(payload.fields_snapshot || "[]");
+  } catch { felder = []; }
+
+  let antworten = {};
+  try {
+    antworten = (typeof payload.answers === "object" && payload.answers !== null)
+      ? payload.answers
+      : JSON.parse(payload.answers || "{}");
+  } catch { antworten = {}; }
+
+  if (felder.length === 0 && Object.keys(antworten).length === 0) {
+    container.innerHTML = `<div class="muted">Keine Formulardaten gespeichert.</div>`;
+    return;
+  }
+
+  // Felder aus fields_snapshot in Reihenfolge anzeigen
+  const anzeigeFelder = felder.filter(f => f.key && FELD_TYP_DEKORATIV && !FELD_TYP_DEKORATIV.has(normalisiereFeldTyp(f.typ)));
+
+  if (anzeigeFelder.length > 0) {
+    for (const feld of anzeigeFelder) {
+      const wert = antworten[feld.key];
+      const wertText = wert === undefined || wert === null
+        ? "–"
+        : (Array.isArray(wert) ? wert.join(", ") : String(wert));
+
+      const row = document.createElement("div");
+      row.style.cssText = "margin-bottom:6px;";
+      row.innerHTML =
+        `<span style="font-weight:600;">${escapeHtml(feld.label || feld.key)}:</span> ` +
+        `<span>${escapeHtml(wertText)}</span>`;
+      container.appendChild(row);
+    }
+  } else {
+    // Fallback: alle Antworten ohne Schema anzeigen
+    for (const [key, val] of Object.entries(antworten)) {
+      const wertText = Array.isArray(val) ? val.join(", ") : String(val ?? "–");
+      const row = document.createElement("div");
+      row.style.cssText = "margin-bottom:6px;";
+      row.innerHTML =
+        `<span style="font-weight:600;">${escapeHtml(key)}:</span> ` +
+        `<span>${escapeHtml(wertText)}</span>`;
+      container.appendChild(row);
+    }
+  }
+}
+
 function buergerAntwortUiSetzen(erlaubt, metaText) {
   buergerRueckfrageOffen = !!erlaubt;
   btnBuergerAntwortSenden.disabled = !buergerRueckfrageOffen;
@@ -2675,13 +2736,19 @@ window.addEventListener("message", (event) => {
     jobGrad.textContent = `${sp.jobLabel || sp.job || "-"} (Grad: ${sp.gradLabel || sp.grad || 0})`;
     standortName.textContent = st?.name || "-";
 
-    // Admin-Tab sichtbar/unsichtbar je nach Rolle (Admin oder Justiz-Leitung)
+    // Justiz-Tab: nur für Justiz und Admin sichtbar (niemals für Bürger)
+    if (tabJustiz) {
+      tabJustiz.style.display = (sp.rolle === "justiz" || sp.rolle === "admin") ? "" : "none";
+    }
+
+    // Admin-Tab: nur für Admins sichtbar (nicht für Justiz oder Bürger)
     const adminTabEl = document.getElementById("tabAdmin");
     if (adminTabEl) {
-      const darfAdmin = (sp.rolle === "admin") || (sp.ist_leitung === true);
+      const darfAdmin = sp.rolle === "admin";
       adminTabEl.style.display = darfAdmin ? "" : "none";
-      // Merke ob Spieler nur Leitung ist (kein voller Admin)
-      adminIstNurLeitung = darfAdmin && (sp.rolle !== "admin");
+      // adminIstNurLeitung wird nicht mehr für Tab-Sichtbarkeit benötigt,
+      // Leitung-Prüfung bleibt für SLA/Lock-Funktionen erhalten.
+      adminIstNurLeitung = false;
     }
 
     // PR3: Delegation aktiviert? Bereich anzeigen wenn Spieler Berechtigung hat
@@ -2697,11 +2764,10 @@ window.addEventListener("message", (event) => {
         (sp.rolle === "admin" || sp.rolle === "justiz");
       hilfsantragBereich.style.display = darfHilfsantrag ? "" : "none";
     }
-    // Vollmachten-Tab für Leitung/Admin anzeigen
+    // Vollmachten-Tab für Admin anzeigen
     const vollmachtenTab = document.getElementById("adminSubtabVollmachten");
     if (vollmachtenTab) {
-      const darfVollmacht = delegationAktiviert &&
-        ((sp.rolle === "admin") || (sp.ist_leitung === true));
+      const darfVollmacht = delegationAktiviert && (sp.rolle === "admin");
       vollmachtenTab.style.display = darfVollmacht ? "" : "none";
     }
   }
@@ -2926,6 +2992,7 @@ if (msg.typ === "hm_bp:antrag:details_mein_antwort") {
 
     window.__hm_bp_aktuellerStatus = a.status; // PR8: wird für Anhang-Status-Check benötigt
     buergerDetailsHeader.textContent = `Antrag: ${a.public_id} | Status: ${statusIdZuLabel(a.status)} | Priorität: ${a.priority}`;
+    buergerEingereichtAntwortRendern(d.payload || null);
     buergerVerlaufRendern(d.timeline || []);
     buergerAntwortUiSetzen(!!d.rueckfrageOffen, null);
     buergerNachreichenUiSetzen(!!d.nachreichungErlaubt, d.payload || null);

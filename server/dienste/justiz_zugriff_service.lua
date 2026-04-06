@@ -68,22 +68,54 @@ function JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
     return { erlaubt = false, grund = "Falscher Job für diese Kategorie." }
   end
 
-  local grad = spieler.job.grade
-  if not gradeInListe(grad, zugriff.erlaubteGrade) then
-    return { erlaubt = false, grund = "Dein Jobgrad hat keinen Zugriff auf diese Kategorie." }
+  -- Grad sicher als Zahl (ESX gibt je nach Version string oder number zurück)
+  local grad = tonumber(spieler.job.grade) or 0
+
+  -- Zugriffsprüfung: Spieler muss mindestens den kleinsten erlaubten Grad haben.
+  -- Statt exakter Liste wird der Mindest-Grad ermittelt (range-basiert).
+  if type(zugriff.erlaubteGrade) == "table" and #zugriff.erlaubteGrade > 0 then
+    local minErlaubt = nil
+    for _, g in ipairs(zugriff.erlaubteGrade) do
+      local gn = tonumber(g)
+      if gn and (not minErlaubt or gn < minErlaubt) then
+        minErlaubt = gn
+      end
+    end
+    if not minErlaubt or grad < minErlaubt then
+      print(("[JustizZugriffService] Zugriff verweigert: Kategorie=%s, grad=%d, minErlaubt=%s"):format(
+        tostring(kategorieId), grad, tostring(minErlaubt)))
+      return { erlaubt = false, grund = "Dein Jobgrad hat keinen Zugriff auf diese Kategorie." }
+    end
   end
 
   -- Fallback-Regeln anwenden
   local basis = tiefKopie(Config.JustizFallback or { sehen = {}, aktionen = {} })
 
-  -- Grade-spezifisch überschreiben, wenn vorhanden
-  if zugriff.aktionenProGrade and zugriff.aktionenProGrade[grad] then
-    local gRegel = zugriff.aktionenProGrade[grad]
-    if gRegel.sehen then
-      for k2, v2 in pairs(gRegel.sehen) do basis.sehen[k2] = v2 end
+  -- Grade-spezifisch überschreiben: höchsten konfigurierten Grad <= Spielergrad verwenden.
+  -- Dies ermöglicht range-basierte Staffelung (z.B. Grade 30 nutzt Grade-31-Regeln wenn 31 nicht konfiguriert).
+  if type(zugriff.aktionenProGrade) == "table" then
+    local bestGrade = nil
+    for configGrade, _ in pairs(zugriff.aktionenProGrade) do
+      local gn = tonumber(configGrade)
+      if gn and gn <= grad then
+        if not bestGrade or gn > bestGrade then
+          bestGrade = gn
+        end
+      end
     end
-    if gRegel.aktionen then
-      for k2, v2 in pairs(gRegel.aktionen) do basis.aktionen[k2] = v2 end
+    if bestGrade then
+      -- AdminConfigService.tiefKopie() kann numerische Schlüssel in Strings umwandeln.
+      -- Beide Schlüsseltypen prüfen.
+      local gRegel = zugriff.aktionenProGrade[bestGrade]
+                  or zugriff.aktionenProGrade[tostring(bestGrade)]
+      if gRegel then
+        if gRegel.sehen then
+          for k2, v2 in pairs(gRegel.sehen) do basis.sehen[k2] = v2 end
+        end
+        if gRegel.aktionen then
+          for k2, v2 in pairs(gRegel.aktionen) do basis.aktionen[k2] = v2 end
+        end
+      end
     end
   end
 

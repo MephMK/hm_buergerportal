@@ -111,7 +111,12 @@ local function jobSettingsGradeRegel(jobName, gradeNum)
   if not js or not js.Jobs then return nil end
   local jobDef = js.Jobs[jobName]
   if not jobDef or not jobDef.gradPermissions then return nil end
-  return jobDef.gradPermissions[gradeNum] or nil
+  -- AdminConfigService.tiefKopie() serialisiert Lua-Tabellen über JSON, was numerische
+  -- Schlüssel ([15], [31]) in String-Schlüssel ("15", "31") umwandelt.
+  -- Daher beide Schlüsseltypen prüfen (numerisch und als String).
+  return jobDef.gradPermissions[gradeNum]
+      or jobDef.gradPermissions[tostring(gradeNum)]
+      or nil
 end
 
 -- Wertet eine einzelne Regel-Ebene aus.
