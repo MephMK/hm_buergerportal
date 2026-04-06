@@ -282,6 +282,15 @@ end)
 -- ==========================
 -- Formular-Editor (Direkte NUI-Callbacks mit Promise/Await)
 -- ==========================
+-- Antwort-Events als netzwerksicher registrieren (TriggerClientEvent vom Server).
+RegisterNetEvent("hm_bp:form_editor:rechte_antwort")
+RegisterNetEvent("hm_bp:form_editor:liste_antwort")
+RegisterNetEvent("hm_bp:form_editor:formular_erstellen_antwort")
+RegisterNetEvent("hm_bp:form_editor:schema_holen_antwort")
+RegisterNetEvent("hm_bp:form_editor:schema_speichern_antwort")
+RegisterNetEvent("hm_bp:form_editor:veroeffentlichen_antwort")
+RegisterNetEvent("hm_bp:form_editor:archivieren_antwort")
+
 -- Hilfsfunktion: Server-Event auslösen und synchron auf die Antwort warten.
 local function formEditorAufruf(serverEvent, daten, antwortEvent)
   local p = promise.new()
