@@ -542,4 +542,23 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       CONSTRAINT fk_ledger_submission FOREIGN KEY (antrag_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
+
+  -- v18: PR5 – Integrations-Flags (set_db_flag Aktion)
+  -- Speichert pro (submission_id, schluessel) einen Wert.
+  -- Wird durch die Folgeaktionen-Engine (IntegrationService) befüllt.
+  migrationAnwenden("v18_integration_flags", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_integration_flags (
+      id            BIGINT NOT NULL AUTO_INCREMENT,
+      submission_id BIGINT NOT NULL,
+      schluessel    VARCHAR(128) NOT NULL,
+      wert          TEXT NOT NULL DEFAULT '',
+      gesetzt_am    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uq_flag (submission_id, schluessel),
+      INDEX idx_flag_submission (submission_id),
+      INDEX idx_flag_schluessel (schluessel),
+      CONSTRAINT fk_flag_submission FOREIGN KEY (submission_id)
+        REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 end

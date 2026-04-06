@@ -55,6 +55,12 @@ local function resolveWebhookUrl(eventName, data)
       local payUrl = c.Urls["antrag_payments"]
       if payUrl and payUrl ~= "" then return payUrl end
     end
+
+    -- Integrations-Events: nutzen den gemeinsamen "integrationen"-Webhook (PR5)
+    if eventName == "integration_failed" or eventName == "integration_succeeded" then
+      local intUrl = c.Urls["integrationen"]
+      if intUrl and intUrl ~= "" then return intUrl end
+    end
   end
 
   local routing = c.Routing or {}
@@ -108,6 +114,8 @@ local EVENT_META = {
   antrag_payment_society_fehler = { farbe = 0xFF0000, titel = "🚨 Society-Einzahlung fehlgeschlagen" },
   antrag_payment_refund      = { farbe = 0x9B51E0, titel = "↩️ Gebühr rückerstattet"              },
   antrag_payment_befreit     = { farbe = 0x6FCF97, titel = "✅ Gebührenbefreiung"                  },
+  integration_failed         = { farbe = 0xFF0000, titel = "⚠️ Folgeaktion fehlgeschlagen"         },
+  integration_succeeded      = { farbe = 0x27AE60, titel = "✅ Folgeaktion erfolgreich"             },
 }
 
 local function embedColorForEvent(eventName)
@@ -181,6 +189,15 @@ local function makeEmbed(eventName, data)
     add("Bearbeiter", bearbeiterAnzeige, true)
   end
   add("Priorität",   data and data.priority,  true)
+
+  -- Integrations-spezifische Felder (PR5)
+  add("Hook",         data and data.hook,        true)
+  add("Aktionstyp",   data and data.aktion_typ,  true)
+  if data and data.fehler then
+    local f = tostring(data.fehler)
+    if #f > 500 then f = f:sub(1, 500) .. "…" end
+    add("Fehlermeldung", f, false)
+  end
 
   -- Freitext (kurz)
   if data and data.text then

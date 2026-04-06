@@ -815,6 +815,23 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     end
   end
 
+  -- Folgeaktionen-Engine (PR5): Integrationen nach Statuswechsel ausführen
+  -- Läuft nur wenn: Config.Module.Integrationen = true + Config.Integrationen.Aktiviert = true
+  if HM_BP.Server.Dienste.IntegrationService then
+    pcall(function()
+      HM_BP.Server.Dienste.IntegrationService.AktionenAusfuehren(
+        {
+          id          = antragId,
+          public_id   = a.public_id,
+          form_id     = a.form_id,
+          category_id = a.category_id,
+        },
+        neuerStatus,
+        spieler
+      )
+    end)
+  end
+
   return { ok = true, alt = a.status, neu = neuerStatus,
            public_id = a.public_id, category_id = a.category_id, form_id = a.form_id,
            citizen_name = a.citizen_name, citizen_identifier = a.citizen_identifier,

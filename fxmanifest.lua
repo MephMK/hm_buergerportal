@@ -81,6 +81,7 @@ server_scripts {
   'server/dienste/benachrichtigung_service.lua',
   'server/dienste/ledger_service.lua',
   'server/dienste/payment_service.lua',
+  'server/dienste/integration_service.lua',
   'server/dienste/formular_editor_service.lua',
   'server/dienste/location_service.lua',
 
