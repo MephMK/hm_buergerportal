@@ -951,7 +951,7 @@ function buergerEingereichtAntwortRendern(payload) {
   }
 
   // Felder aus fields_snapshot in Reihenfolge anzeigen
-  const anzeigeFelder = felder.filter(f => f.key && FELD_TYP_DEKORATIV && !FELD_TYP_DEKORATIV.has(normalisiereFeldTyp(f.typ)));
+  const anzeigeFelder = felder.filter(f => f.key && !FELD_TYP_DEKORATIV.has(normalisiereFeldTyp(f.typ)));
 
   if (anzeigeFelder.length > 0) {
     for (const feld of anzeigeFelder) {
@@ -2746,9 +2746,9 @@ window.addEventListener("message", (event) => {
     if (adminTabEl) {
       const darfAdmin = sp.rolle === "admin";
       adminTabEl.style.display = darfAdmin ? "" : "none";
-      // adminIstNurLeitung wird nicht mehr für Tab-Sichtbarkeit benötigt,
-      // Leitung-Prüfung bleibt für SLA/Lock-Funktionen erhalten.
-      adminIstNurLeitung = false;
+      // Leadership-Status für interne Prüfungen (SLA/Lock) erhalten,
+      // aber Admin-Tab wird nur für echte Admins angezeigt.
+      adminIstNurLeitung = (sp.ist_leitung === true) && (sp.rolle !== "admin");
     }
 
     // PR3: Delegation aktiviert? Bereich anzeigen wenn Spieler Berechtigung hat

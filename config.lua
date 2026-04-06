@@ -789,7 +789,8 @@ Config.Kategorien = {
                 loeschen = false
               }
             },
-            -- Grade 30: Vollzugriff (identisch mit Grade 31, kein rueckfrageStellen)
+            -- Grade 30: Vollzugriff (identisch mit Grade 31).
+            -- In der Kategorie "gewerbe" ist rueckfrageStellen=false (Gewerbeanträge direkt entscheiden).
             [30] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
               aktionen = {
@@ -808,7 +809,7 @@ Config.Kategorien = {
                 loeschen = false
               }
             },
-            -- Grade 31: Vollzugriff (kein rueckfrageStellen – wie oben)
+            -- Grade 31: Vollzugriff (kein rueckfrageStellen – identisch mit Grade 30 für "gewerbe")
             [31] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
               aktionen = {

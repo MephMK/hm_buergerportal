@@ -82,8 +82,10 @@ function JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
       end
     end
     if not minErlaubt or grad < minErlaubt then
-      print(("[JustizZugriffService] Zugriff verweigert: Kategorie=%s, grad=%d, minErlaubt=%s"):format(
-        tostring(kategorieId), grad, tostring(minErlaubt)))
+      if Config and Config.Kern and Config.Kern.Debugmodus then
+        print(("[JustizZugriffService] Zugriff verweigert: Kategorie=%s, grad=%d, minErlaubt=%s"):format(
+          tostring(kategorieId), grad, tostring(minErlaubt)))
+      end
       return { erlaubt = false, grund = "Dein Jobgrad hat keinen Zugriff auf diese Kategorie." }
     end
   end
