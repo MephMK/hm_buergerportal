@@ -111,6 +111,7 @@ Config.JobSettings = {
       grades = {
         { grade = 1,  name = "Mitarbeiter"      },
         { grade = 15, name = "Bearbeiter"        },
+        { grade = 30, name = "Abteilungsleiter"  },
         { grade = 31, name = "Abteilungsleiter"  },
       },
       gradPermissions = {
@@ -134,6 +135,42 @@ Config.JobSettings = {
             "delegate.submit_for_company",
             "delegate.justice_create_for_citizen",
             "vollmacht.view",
+            "export.pdf",
+          },
+          deny = {},
+        },
+
+        -- Grade 30: Vollzugriff (identisch mit Grade 31)
+        [30] = {
+          allow = {
+            "submissions.take",
+            "submissions.change_status",
+            "submissions.approve",
+            "submissions.reject",
+            "submissions.view_all",
+            "submissions.view_archive",
+            "submissions.archive",
+            "submissions.assign",
+            "submissions.set_priority",
+            "submissions.delete",
+            "message.public.write",
+            "notes.internal.read",
+            "notes.internal.write",
+            "attachment.add",
+            "attachment.remove",
+            "form_editor.use",
+            "form_editor.publish",
+            "form_editor.archive",
+            "workflow.lock.request",
+            "workflow.lock.release",
+            "workflow.lock.override",
+            "workflow.sla.pause",
+            "workflow.sla.resume",
+            "delegate.submit_for_citizen",
+            "delegate.submit_for_company",
+            "delegate.justice_create_for_citizen",
+            "vollmacht.view",
+            "vollmacht.manage",
             "export.pdf",
           },
           deny = {},
@@ -557,7 +594,7 @@ Config.Kategorien = {
       zugriff = {
         justiz = {
           job = "doj",
-          erlaubteGrade = { 1, 15, 31 },
+          erlaubteGrade = { 1, 15, 30, 31 },
 
           aktionenProGrade = {
             -- Grade 1: Lesen (Eingang + Zugewiesene anschauen, keine Aktionen)
@@ -595,6 +632,25 @@ Config.Kategorien = {
                 weiterleiten = true,
                 eskalieren = true,
                 archivieren = false,
+                loeschen = false
+              }
+            },
+            -- Grade 30: Vollzugriff (identisch mit Grade 31)
+            [30] = {
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              aktionen = {
+                antragUebernehmen = true,
+                statusAendern = true,
+                prioritaetAendern = true,
+                interneNotizSchreiben = true,
+                oeffentlicheAntwortSchreiben = true,
+                rueckfrageStellen = true,
+                zuweisen = true,
+                genehmigen = true,
+                ablehnen = true,
+                weiterleiten = true,
+                eskalieren = true,
+                archivieren = true,
                 loeschen = false
               }
             },
@@ -692,7 +748,7 @@ Config.Kategorien = {
       zugriff = {
         justiz = {
           job = "doj",
-          erlaubteGrade = { 1, 15, 31 },
+          erlaubteGrade = { 1, 15, 30, 31 },
 
           aktionenProGrade = {
             -- Grade 1: Lesen (Eingang + Zugewiesene anschauen, keine Aktionen)
@@ -733,7 +789,27 @@ Config.Kategorien = {
                 loeschen = false
               }
             },
-            -- Grade 31: Vollzugriff (kein rueckfrageStellen – wie oben)
+            -- Grade 30: Vollzugriff (identisch mit Grade 31).
+            -- In der Kategorie "gewerbe" ist rueckfrageStellen=false (Gewerbeanträge direkt entscheiden).
+            [30] = {
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
+              aktionen = {
+                antragUebernehmen = true,
+                statusAendern = true,
+                prioritaetAendern = true,
+                interneNotizSchreiben = true,
+                oeffentlicheAntwortSchreiben = true,
+                rueckfrageStellen = false,
+                zuweisen = true,
+                genehmigen = true,
+                ablehnen = true,
+                weiterleiten = true,
+                eskalieren = true,
+                archivieren = true,
+                loeschen = false
+              }
+            },
+            -- Grade 31: Vollzugriff (kein rueckfrageStellen – identisch mit Grade 30 für "gewerbe")
             [31] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
               aktionen = {
