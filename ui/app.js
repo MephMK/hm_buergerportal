@@ -3329,6 +3329,19 @@ function pdfExportGenerierenUndDrucken(daten) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
+  // Datum/Zeit-Formatierung: Timestamps >= 1e12 werden als Millisekunden behandelt,
+  // kleinere Werte als Sekunden (Unix-Epoch). Ausgabe im deutschen Datumsformat.
+  const formatDeDateTime = (ts) => {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "–";
+    const ms = n >= 1e12 ? n : n * 1000; // >= 1e12 → ms, sonst Sekunden
+    const d = new Date(ms);
+    return d.toLocaleString("de-DE", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit"
+    });
+  };
+
   // Timeline-Einträge (alle Sichtbarkeitsstufen – Justiz/Admin sieht alles)
   let verlaufHtml = "";
   for (const eintrag of timeline) {
@@ -3341,13 +3354,76 @@ function pdfExportGenerierenUndDrucken(daten) {
     }
     const vis   = eintrag.visibility === "internal" ? " (intern)" : "";
     const autor = esc(eintrag.author_name || "System");
-    const datum = esc(eintrag.created_at || "");
+    const datum = esc(formatDeDateTime(eintrag.created_at));
     verlaufHtml += `<div class="verlauf-item">
       <div class="verlauf-meta">${esc(eintragtypLabel(eintrag.entry_type))}${vis} – ${autor} – ${datum}</div>
       <div>${inhalt}</div>
     </div>`;
   }
   if (!verlaufHtml) verlaufHtml = "<p>Kein Verlauf vorhanden.</p>";
+
+  // Angaben des Bürgers (fields_snapshot + answers)
+  let buergerAngabenHtml = "";
+  const payloadRaw = daten.payload || null;
+  if (payloadRaw) {
+    let felder = [];
+    let antworten = {};
+    try {
+      felder = Array.isArray(payloadRaw.fields_snapshot)
+        ? payloadRaw.fields_snapshot
+        : JSON.parse(payloadRaw.fields_snapshot || "[]");
+    } catch (_) { felder = []; }
+    try {
+      antworten = (typeof payloadRaw.answers === "object" && payloadRaw.answers !== null)
+        ? payloadRaw.answers
+        : JSON.parse(payloadRaw.answers || "{}");
+    } catch (_) { antworten = {}; }
+
+    const DEKORATIV = new Set(["divider", "heading", "info"]);
+    const anzeigeFelder = felder.filter(f => f.key && !DEKORATIV.has(normalisiereFeldTyp(f.typ)));
+
+    if (anzeigeFelder.length > 0) {
+      buergerAngabenHtml = "<table>";
+      for (const f of anzeigeFelder) {
+        const wert = antworten[f.key];
+        const wertText = (() => {
+          if (wert === undefined || wert === null || wert === "") return "–";
+          if (typeof wert === "boolean") return wert ? "Ja" : "Nein";
+          if (Array.isArray(wert)) return wert.join(", ");
+          return String(wert);
+        })();
+        buergerAngabenHtml += `<tr><td class="k">${esc(f.label || f.key)}:</td><td>${esc(wertText)}</td></tr>`;
+      }
+      buergerAngabenHtml += "</table>";
+    } else if (Object.keys(antworten).length > 0) {
+      // Fallback: Antworten ohne Schema
+      buergerAngabenHtml = "<table>";
+      for (const [key, val] of Object.entries(antworten)) {
+        const wertText = Array.isArray(val) ? val.join(", ") : String(val ?? "–");
+        buergerAngabenHtml += `<tr><td class="k">${esc(key)}:</td><td>${esc(wertText)}</td></tr>`;
+      }
+      buergerAngabenHtml += "</table>";
+    } else {
+      buergerAngabenHtml = "<p>Keine Formulardaten gespeichert.</p>";
+    }
+  } else {
+    buergerAngabenHtml = "<p>Keine Angaben verfügbar.</p>";
+  }
+
+  // Anhänge
+  let anhaengeHtml = "";
+  const anhaengeListe = Array.isArray(daten.anhaenge) ? daten.anhaenge : [];
+  if (anhaengeListe.length === 0) {
+    anhaengeHtml = "<p>Keine Anhänge vorhanden.</p>";
+  } else {
+    anhaengeHtml = "<ul style=\"padding-left:18px;\">";
+    for (const a of anhaengeListe) {
+      const titel = esc(a.title || a.titel || "Anhang");
+      const url   = esc(a.url || "");
+      anhaengeHtml += `<li style="margin:4px 0;">${titel}${url ? ` – <span style="font-size:9pt;color:#555;">${url}</span>` : ""}</li>`;
+    }
+    anhaengeHtml += "</ul>";
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -3387,9 +3463,15 @@ function pdfExportGenerierenUndDrucken(daten) {
     <tr><td class="k">Zugewiesener Bearbeiter:</td><td>${esc(antrag.assigned_to_name)}</td></tr>
     <tr><td class="k">Kategorie:</td><td>${esc(antrag.category_id)}</td></tr>
     <tr><td class="k">Formular:</td><td>${esc(antrag.form_id)}</td></tr>
-    <tr><td class="k">Eingereicht am:</td><td>${esc(antrag.created_at)}</td></tr>
-    <tr><td class="k">Zuletzt geändert:</td><td>${esc(antrag.updated_at)}</td></tr>
+    <tr><td class="k">Eingereicht am:</td><td>${esc(formatDeDateTime(antrag.created_at))}</td></tr>
+    <tr><td class="k">Zuletzt geändert:</td><td>${esc(formatDeDateTime(antrag.updated_at))}</td></tr>
   </table>
+
+  <h2>Angaben des Bürgers</h2>
+  ${buergerAngabenHtml}
+
+  <h2>Anhänge</h2>
+  ${anhaengeHtml}
 
   <h2>Verlauf</h2>
   ${verlaufHtml}

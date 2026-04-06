@@ -80,6 +80,13 @@ RegisterNetEvent("hm_bp:export:pdf_daten_anfordern", function(payload)
 
   local antrag = details.antrag or {}
 
+  -- Anhänge laden (best-effort; bei Fehler leere Liste)
+  local anhaenge = {}
+  if Config.Module == nil or Config.Module.Anhaenge ~= false then
+    local anhaengeListe, _ = HM_BP.Server.Dienste.AttachmentService.Liste(spieler, antragId)
+    if anhaengeListe then anhaenge = anhaengeListe end
+  end
+
   -- Sanitisierte Export-Daten zusammenstellen
   local exportDaten = {
     antrag = {
@@ -94,6 +101,10 @@ RegisterNetEvent("hm_bp:export:pdf_daten_anfordern", function(payload)
       created_at      = antrag.created_at,
       updated_at      = antrag.updated_at,
     },
+    -- Bürgereingaben (fields_snapshot + answers)
+    payload = details.payload or nil,
+    -- Anhänge
+    anhaenge = anhaenge,
     -- Nur öffentliche und interne (Justiz-sichtbare) Timeline-Einträge
     timeline  = details.timeline or {},
     akteur_name = anzeigeNameAuflosen(quelle, spieler.name or "Unbekannt"),
