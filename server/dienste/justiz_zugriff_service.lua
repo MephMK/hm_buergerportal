@@ -13,7 +13,16 @@ local function gradeInListe(grad, liste)
 end
 
 local function tiefKopie(t)
-  return HM_BP.Gemeinsam.Hilfsfunktionen.TiefKopie(t)
+  if HM_BP.Gemeinsam and HM_BP.Gemeinsam.Hilfsfunktionen and HM_BP.Gemeinsam.Hilfsfunktionen.TiefKopie then
+    return HM_BP.Gemeinsam.Hilfsfunktionen.TiefKopie(t)
+  end
+  -- Fallback: lokale Tiefkopie, falls das gemeinsame Hilfsmodul noch nicht geladen ist
+  if type(t) ~= "table" then return t end
+  local kopie = {}
+  for k, v in pairs(t) do
+    kopie[tiefKopie(k)] = tiefKopie(v)
+  end
+  return setmetatable(kopie, getmetatable(t))
 end
 
 function JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
