@@ -3329,6 +3329,27 @@ function pdfExportGenerierenUndDrucken(daten) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
+  // Datum formatieren: MySQL-String ("YYYY-MM-DD HH:MM:SS"), ISO-String oder
+  // Unix-Timestamp (Sekunden als Zahl) → deutsches Format "DD.MM.YYYY, HH:MM"
+  const datumFormatieren = (v) => {
+    if (v == null || v === "") return "–";
+    let d;
+    if (typeof v === "number") {
+      // Unix-Timestamp: < 1e10 → Sekunden, sonst Millisekunden
+      d = new Date(v < 1e10 ? v * 1000 : v);
+    } else {
+      // MySQL-TIMESTAMP "YYYY-MM-DD HH:MM:SS" – ersetze Trennzeichen durch "T"
+      // damit Safari/Firefox es korrekt parsen
+      const s = String(v).replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T");
+      d = new Date(s);
+    }
+    if (isNaN(d.getTime())) return esc(v);
+    return d.toLocaleString("de-DE", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  };
+
   // Timeline-Einträge (alle Sichtbarkeitsstufen – Justiz/Admin sieht alles)
   let verlaufHtml = "";
   for (const eintrag of timeline) {
@@ -3341,13 +3362,72 @@ function pdfExportGenerierenUndDrucken(daten) {
     }
     const vis   = eintrag.visibility === "internal" ? " (intern)" : "";
     const autor = esc(eintrag.author_name || "System");
-    const datum = esc(eintrag.created_at || "");
+    const datum = datumFormatieren(eintrag.created_at);
     verlaufHtml += `<div class="verlauf-item">
       <div class="verlauf-meta">${esc(eintragtypLabel(eintrag.entry_type))}${vis} – ${autor} – ${datum}</div>
       <div>${inhalt}</div>
     </div>`;
   }
   if (!verlaufHtml) verlaufHtml = "<p>Kein Verlauf vorhanden.</p>";
+
+  // Angaben des Bürgers (Formulareingaben)
+  const DEKORATIV = new Set(["divider", "heading", "info"]);
+  let buergerAngabenHtml = "";
+  try {
+    const payloadRaw = daten.payload || null;
+    if (payloadRaw) {
+      let felder = [];
+      let antworten = {};
+      try {
+        felder = Array.isArray(payloadRaw.fields_snapshot)
+          ? payloadRaw.fields_snapshot
+          : JSON.parse(payloadRaw.fields_snapshot || "[]");
+      } catch (_) { felder = []; }
+      try {
+        antworten = (typeof payloadRaw.answers === "object" && payloadRaw.answers !== null)
+          ? payloadRaw.answers
+          : JSON.parse(payloadRaw.answers || "{}");
+      } catch (_) { antworten = {}; }
+
+      const anzeigeFelder = felder.filter(f => !DEKORATIV.has(f.typ));
+      for (const f of anzeigeFelder) {
+        const key = f.key || f.id || "";
+        const label = f.label || key;
+        const wert = antworten[key];
+        let wertText = "–";
+        if (wert !== undefined && wert !== null && wert !== "") {
+          if (typeof wert === "boolean") {
+            wertText = wert ? "Ja" : "Nein";
+          } else if (Array.isArray(wert)) {
+            wertText = wert.join(", ");
+          } else {
+            wertText = String(wert);
+          }
+        }
+        buergerAngabenHtml += `<tr><td class="k">${esc(label)}:</td><td>${esc(wertText)}</td></tr>`;
+      }
+    }
+  } catch (_) { buergerAngabenHtml = ""; }
+  if (!buergerAngabenHtml) {
+    buergerAngabenHtml = `<tr><td colspan="2"><em>Keine Formulareingaben vorhanden.</em></td></tr>`;
+  }
+
+  // Anhänge
+  let anhaengeHtml = "";
+  const anhaengeListe = Array.isArray(daten.anhaenge) ? daten.anhaenge : [];
+  if (anhaengeListe.length === 0) {
+    anhaengeHtml = "<p>Keine Anhänge vorhanden.</p>";
+  } else {
+    for (const a of anhaengeListe) {
+      const titel  = esc(a.title || a.url || "–");
+      const rolle  = esc(a.created_by_role || "");
+      const datum  = datumFormatieren(a.created_at);
+      anhaengeHtml += `<div class="anhang-item">
+        <span class="anhang-titel">${titel}</span>
+        <span class="anhang-meta">${datum}${rolle ? " | " + rolle : ""}</span>
+      </div>`;
+    }
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -3367,6 +3447,9 @@ function pdfExportGenerierenUndDrucken(daten) {
     td.k { font-weight: bold; width: 38%; color: #444; }
     .verlauf-item { margin: 6px 0; padding: 7px 10px; border-left: 3px solid #2f80ed; background: #f5f7fa; font-size: 10pt; }
     .verlauf-meta { font-size: 9pt; color: #666; margin-bottom: 2px; font-weight: bold; }
+    .anhang-item { margin: 4px 0; padding: 5px 8px; border-left: 3px solid #38a169; background: #f0fff4; font-size: 10pt; display: flex; flex-direction: column; gap: 2px; }
+    .anhang-titel { font-weight: bold; word-break: break-all; }
+    .anhang-meta { font-size: 9pt; color: #666; }
     .fusszeile { margin-top: 28px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9pt; color: #888; }
     @media print { @page { margin: 12mm; size: A4; } body { padding: 0; } }
   </style>
@@ -3387,9 +3470,17 @@ function pdfExportGenerierenUndDrucken(daten) {
     <tr><td class="k">Zugewiesener Bearbeiter:</td><td>${esc(antrag.assigned_to_name)}</td></tr>
     <tr><td class="k">Kategorie:</td><td>${esc(antrag.category_id)}</td></tr>
     <tr><td class="k">Formular:</td><td>${esc(antrag.form_id)}</td></tr>
-    <tr><td class="k">Eingereicht am:</td><td>${esc(antrag.created_at)}</td></tr>
-    <tr><td class="k">Zuletzt geändert:</td><td>${esc(antrag.updated_at)}</td></tr>
+    <tr><td class="k">Eingereicht am:</td><td>${datumFormatieren(antrag.created_at)}</td></tr>
+    <tr><td class="k">Zuletzt geändert:</td><td>${datumFormatieren(antrag.updated_at)}</td></tr>
   </table>
+
+  <h2>Angaben des Bürgers</h2>
+  <table>
+    ${buergerAngabenHtml}
+  </table>
+
+  <h2>Anhänge</h2>
+  ${anhaengeHtml}
 
   <h2>Verlauf</h2>
   ${verlaufHtml}

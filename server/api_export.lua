@@ -80,6 +80,24 @@ RegisterNetEvent("hm_bp:export:pdf_daten_anfordern", function(payload)
 
   local antrag = details.antrag or {}
 
+  -- Anhänge laden (Justiz/Admin darf alle sehen)
+  local anhaenge = {}
+  local as = HM_BP.Server.Dienste.AttachmentService
+  if as and as.Liste then
+    local liste, _ = as.Liste(spieler, antragId)
+    anhaenge = liste or {}
+  end
+
+  -- Payload (Formulareingaben des Bürgers) für den Export aufbereiten
+  local payloadExport = nil
+  if details.payload then
+    local p = details.payload
+    payloadExport = {
+      fields_snapshot = p.fields_snapshot,
+      answers         = p.answers,
+    }
+  end
+
   -- Sanitisierte Export-Daten zusammenstellen
   local exportDaten = {
     antrag = {
@@ -95,8 +113,12 @@ RegisterNetEvent("hm_bp:export:pdf_daten_anfordern", function(payload)
       updated_at      = antrag.updated_at,
     },
     -- Nur öffentliche und interne (Justiz-sichtbare) Timeline-Einträge
-    timeline  = details.timeline or {},
+    timeline    = details.timeline or {},
     akteur_name = anzeigeNameAuflosen(quelle, spieler.name or "Unbekannt"),
+    -- Formulareingaben des Bürgers
+    payload     = payloadExport,
+    -- Anhänge des Antrags
+    anhaenge    = anhaenge,
   }
 
   -- Discord-Webhook: Exportereignis asynchron melden
