@@ -49,7 +49,9 @@ local function resolveWebhookUrl(eventName, data)
     -- Gebühren-Events: alle payment-Events nutzen den gemeinsamen "antrag_payments"-Webhook
     if eventName == "antrag_payment_abgezogen" or
        eventName == "antrag_payment_eingezahlt" or
-       eventName == "antrag_payment_society_fehler" then
+       eventName == "antrag_payment_society_fehler" or
+       eventName == "antrag_payment_refund" or
+       eventName == "antrag_payment_befreit" then
       local payUrl = c.Urls["antrag_payments"]
       if payUrl and payUrl ~= "" then return payUrl end
     end
@@ -104,6 +106,8 @@ local EVENT_META = {
   antrag_payment_abgezogen   = { farbe = 0xF2994A, titel = "💳 Gebühr abgebucht"                  },
   antrag_payment_eingezahlt  = { farbe = 0x27AE60, titel = "🏦 Gebühr auf Society eingezahlt"     },
   antrag_payment_society_fehler = { farbe = 0xFF0000, titel = "🚨 Society-Einzahlung fehlgeschlagen" },
+  antrag_payment_refund      = { farbe = 0x9B51E0, titel = "↩️ Gebühr rückerstattet"              },
+  antrag_payment_befreit     = { farbe = 0x6FCF97, titel = "✅ Gebührenbefreiung"                  },
 }
 
 local function embedColorForEvent(eventName)
