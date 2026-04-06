@@ -624,8 +624,11 @@ Config.Kategorien = {
       },
 
       -- PermissionService-Override für Kategorie "general":
-      -- Grade 15+: dürfen Rückfragen stellen.
-      -- Archivieren/Zuweisen/Vollzugriff kommt über gradPermissions[31].
+      -- Grade 15+: dürfen Rückfragen stellen (question.ask).
+      -- Hinweis: Das Feld "rueckfrageStellen" in aktionenProGrade[15] steuert dasselbe Recht
+      -- im parallelen JustizZugriffService (API-Aktions-UI), während dieser permissions-Eintrag
+      -- das neue PermissionService-System (Middleware.PruefeRecht) steuert. Beide müssen konsistent
+      -- gesetzt sein, da beide Systeme unabhängig voneinander geprüft werden.
       permissions = {
         justiz = {
           grade = { min = 15 },
@@ -757,7 +760,10 @@ Config.Kategorien = {
 
       -- PermissionService-Override für Kategorie "gewerbe":
       -- question.ask ist für alle Justiz-Grades verboten (Gewerbeanträge direkt genehmigen/ablehnen).
-      -- Bearbeiter-/Vollzugriff-Aktionen kommen über gradPermissions[15/31] im JobSettings.
+      -- Hinweis: Das Feld "rueckfrageStellen = false" in aktionenProGrade[15/31] setzt dasselbe Verbot
+      -- im parallelen JustizZugriffService, während dieser permissions-Eintrag das PermissionService-
+      -- System (Middleware.PruefeRecht) steuert. Beide Einstellungen sind notwendig, da beide
+      -- Systeme unabhängig voneinander prüfen.
       permissions = {
         justiz = {
           grade = { min = 1 },
