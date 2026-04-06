@@ -50,7 +50,8 @@ end
 
 local function validateQueue(queue)
   queue = tostring(queue or "eingang")
-  if queue ~= "eingang" and queue ~= "zugewiesen" and queue ~= "alle" and queue ~= "archiv" then
+  if queue ~= "eingang" and queue ~= "zugewiesen" and queue ~= "alle" and queue ~= "archiv"
+     and queue ~= "genehmigt" and queue ~= "abgelehnt" then
     queue = "eingang"
   end
   return queue
@@ -88,14 +89,14 @@ local function statusErlaubtFuerKategorie(kategorieId, status)
   return false
 end
 
--- Baut WHERE-Teil abhängig von Queue (eingang/zugewiesen/alle/archiv)
+-- Baut WHERE-Teil abhängig von Queue (eingang/zugewiesen/alle/archiv/genehmigt/abgelehnt)
 local function queueWhere(queue, spieler)
   if queue == "eingang" then
-    return "archived_at IS NULL AND deleted_at IS NULL", {}
+    return "archived_at IS NULL AND deleted_at IS NULL AND status NOT IN ('approved','rejected','withdrawn','closed','archived')", {}
   end
 
   if queue == "zugewiesen" then
-    return "archived_at IS NULL AND deleted_at IS NULL AND assigned_to_identifier = ?", { spieler.identifier }
+    return "archived_at IS NULL AND deleted_at IS NULL AND assigned_to_identifier = ? AND status NOT IN ('approved','rejected','withdrawn','closed','archived')", { spieler.identifier }
   end
 
   if queue == "alle" then
@@ -106,7 +107,15 @@ local function queueWhere(queue, spieler)
     return "archived_at IS NOT NULL AND deleted_at IS NULL", {}
   end
 
-  return "archived_at IS NULL AND deleted_at IS NULL", {}
+  if queue == "genehmigt" then
+    return "deleted_at IS NULL AND status = 'approved'", {}
+  end
+
+  if queue == "abgelehnt" then
+    return "deleted_at IS NULL AND status = 'rejected'", {}
+  end
+
+  return "archived_at IS NULL AND deleted_at IS NULL AND status NOT IN ('approved','rejected','withdrawn','closed','archived')", {}
 end
 
 -- ----------------------------------------------------------------
@@ -162,6 +171,12 @@ function JustizSucheService.Suchen(spieler, payload)
   end
   if queue == "archiv" and regeln.sehen.archiv ~= true then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf Archiv." }
+  end
+  if queue == "genehmigt" and regeln.sehen.genehmigt ~= true then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf genehmigte Anträge." }
+  end
+  if queue == "abgelehnt" and regeln.sehen.abgelehnt ~= true then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf abgelehnte Anträge." }
   end
 
   -- Seitenparameter aus Config.Suche

@@ -86,6 +86,7 @@ function JustizAntragService.EingangListe(spieler, kategorieId, limit)
     WHERE category_id = ?
       AND deleted_at IS NULL
       AND archived_at IS NULL
+      AND status NOT IN ('approved','rejected','withdrawn','closed','archived')
     ORDER BY created_at DESC
     LIMIT ?
   ]], { kategorieId, limit })
@@ -111,9 +112,58 @@ function JustizAntragService.ZugewiesenListe(spieler, kategorieId, limit)
       AND assigned_to_identifier = ?
       AND deleted_at IS NULL
       AND archived_at IS NULL
+      AND status NOT IN ('approved','rejected','withdrawn','closed','archived')
     ORDER BY updated_at DESC
     LIMIT ?
   ]], { kategorieId, spieler.identifier, limit })
+
+  return rows or {}, nil
+end
+
+function JustizAntragService.GenehmigtListe(spieler, kategorieId, limit)
+  limit = tonumber(limit or 50) or 50
+  if limit > 200 then limit = 200 end
+
+  local regeln = HM_BP.Server.Dienste.JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
+  if not regeln or regeln.erlaubt ~= true or regeln.sehen.genehmigt ~= true then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf genehmigte Anträge dieser Kategorie." }
+  end
+
+  local rows = HM_BP.Server.Datenbank.Alle([[
+    SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
+           created_at, updated_at, assigned_to_name,
+           due_state, sla_due_at, needs_leitung, escalated_at
+    FROM hm_bp_submissions
+    WHERE category_id = ?
+      AND deleted_at IS NULL
+      AND status = 'approved'
+    ORDER BY updated_at DESC
+    LIMIT ?
+  ]], { kategorieId, limit })
+
+  return rows or {}, nil
+end
+
+function JustizAntragService.AbgelehntListe(spieler, kategorieId, limit)
+  limit = tonumber(limit or 50) or 50
+  if limit > 200 then limit = 200 end
+
+  local regeln = HM_BP.Server.Dienste.JustizZugriffService.KategorieRegelnFuer(spieler, kategorieId)
+  if not regeln or regeln.erlaubt ~= true or regeln.sehen.abgelehnt ~= true then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Kein Zugriff auf abgelehnte Anträge dieser Kategorie." }
+  end
+
+  local rows = HM_BP.Server.Datenbank.Alle([[
+    SELECT id, public_id, citizen_name, citizen_identifier, category_id, form_id, status, priority,
+           created_at, updated_at, assigned_to_name,
+           due_state, sla_due_at, needs_leitung, escalated_at
+    FROM hm_bp_submissions
+    WHERE category_id = ?
+      AND deleted_at IS NULL
+      AND status = 'rejected'
+    ORDER BY updated_at DESC
+    LIMIT ?
+  ]], { kategorieId, limit })
 
   return rows or {}, nil
 end

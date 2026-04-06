@@ -114,6 +114,46 @@ RegisterNetEvent("hm_bp:justiz:alle_kategorie_anfordern", function(payload)
   TriggerClientEvent("hm_bp:justiz:alle_kategorie_antwort", quelle, { ok = true, liste = liste })
 end)
 
+RegisterNetEvent("hm_bp:justiz:genehmigt_anfordern", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:justiz:genehmigt_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local kategorieId = payload.kategorieId
+  local liste, err2 = HM_BP.Server.Dienste.JustizAntragService.GenehmigtListe(spieler, kategorieId, payload.limit or 50)
+  if not liste then
+    TriggerClientEvent("hm_bp:justiz:genehmigt_antwort", quelle, { ok = false, fehler = err2 })
+    return
+  end
+
+  TriggerClientEvent("hm_bp:justiz:genehmigt_antwort", quelle, { ok = true, liste = liste })
+end)
+
+RegisterNetEvent("hm_bp:justiz:abgelehnt_anfordern", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:justiz:abgelehnt_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local kategorieId = payload.kategorieId
+  local liste, err2 = HM_BP.Server.Dienste.JustizAntragService.AbgelehntListe(spieler, kategorieId, payload.limit or 50)
+  if not liste then
+    TriggerClientEvent("hm_bp:justiz:abgelehnt_antwort", quelle, { ok = false, fehler = err2 })
+    return
+  end
+
+  TriggerClientEvent("hm_bp:justiz:abgelehnt_antwort", quelle, { ok = true, liste = liste })
+end)
+
 RegisterNetEvent("hm_bp:justiz:details_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
