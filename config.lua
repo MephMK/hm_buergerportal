@@ -109,45 +109,68 @@ Config.JobSettings = {
       anzeigeName      = "Justiz (DoJ)",
       globalDefaultRolle = "justiz",   -- Globale Defaults-Rolle, auf der diese Einstellungen aufbauen
       grades = {
-        { grade = 0, name = "Mitarbeiter"          },
-        { grade = 1, name = "Senior Mitarbeiter"   },
-        { grade = 2, name = "Leitender Mitarbeiter" },
-        { grade = 3, name = "Abteilungsleiter"     },
+        { grade = 1,  name = "Mitarbeiter"      },
+        { grade = 15, name = "Bearbeiter"        },
+        { grade = 31, name = "Abteilungsleiter"  },
       },
       gradPermissions = {
-        -- Grade 0 & 1: nur globale Justiz-Defaults (kein extra Eintrag nötig)
-        -- Grade 2+: Leitungs-Aktionen freischalten
-        [2] = {
+        -- Grade 1: nur Leserechte – erbt die minimalen globalen Justiz-Defaults.
+        --          Kein eigener Eintrag nötig; Fallback auf Defaults.
+
+        -- Grade 15: Bearbeiterrechte
+        [15] = {
           allow = {
-            "workflow.lock.override",
-            "workflow.sla.pause",
-            "workflow.sla.resume",
-            "submissions.view_all",
-            "submissions.view_archive",
-            "submissions.archive",
-            "submissions.assign",
-            "submissions.set_priority",
-            "notes.internal.write",
-            "form_editor.publish",
-            "form_editor.archive",
+            "submissions.take",
+            "submissions.change_status",
+            "submissions.approve",
+            "submissions.reject",
+            "message.public.write",
+            "attachment.add",
+            "attachment.remove",
+            "form_editor.use",
+            "workflow.lock.request",
+            "workflow.lock.release",
+            "delegate.submit_for_citizen",
+            "delegate.submit_for_company",
+            "delegate.justice_create_for_citizen",
+            "vollmacht.view",
+            "export.pdf",
           },
           deny = {},
         },
-        -- Grade 3 (Abteilungsleiter): gleiche Basis wie Grade 2.
-        -- Im Admin-Panel (JobSettings-Tab) können diese Berechtigungen pro Grade individuell angepasst werden.
-        [3] = {
+
+        -- Grade 31: Vollzugriff (Abteilungsleiter)
+        [31] = {
           allow = {
-            "workflow.lock.override",
-            "workflow.sla.pause",
-            "workflow.sla.resume",
+            "submissions.take",
+            "submissions.change_status",
+            "submissions.approve",
+            "submissions.reject",
             "submissions.view_all",
             "submissions.view_archive",
             "submissions.archive",
             "submissions.assign",
             "submissions.set_priority",
+            "submissions.delete",
+            "message.public.write",
+            "notes.internal.read",
             "notes.internal.write",
+            "attachment.add",
+            "attachment.remove",
+            "form_editor.use",
             "form_editor.publish",
             "form_editor.archive",
+            "workflow.lock.request",
+            "workflow.lock.release",
+            "workflow.lock.override",
+            "workflow.sla.pause",
+            "workflow.sla.resume",
+            "delegate.submit_for_citizen",
+            "delegate.submit_for_company",
+            "delegate.justice_create_for_citizen",
+            "vollmacht.view",
+            "vollmacht.manage",
+            "export.pdf",
           },
           deny = {},
         },
@@ -414,14 +437,15 @@ Config.Permissions = {
       deny  = {},
     },
 
-    -- Justiz: mind. Job "doj", Grade 0+.
-    -- Grundrechte für alle DoJ-Mitglieder; erweiterte Aktionen
-    -- (archivieren, interne Notizen, etc.) können per Kategorie-
-    -- oder Formular-Override für bestimmte Grades freigeschaltet
-    -- werden (siehe Beispiel-Override weiter unten).
+    -- Justiz: mind. Job "doj", Grade 1+.
+    -- Basis-Leserechte für alle DoJ-Grades (Grade 1 = Mitarbeiter).
+    -- Bearbeiterrechte (Grade 15) und Vollzugriff (Grade 31) werden über
+    -- Config.JobSettings.Jobs["doj"].gradPermissions gestaffelt.
+    -- Kategorie-spezifische Erweiterungen (z.B. question.ask in "general")
+    -- können über permissions-Overrides in der Kategorie-Config gewährt werden.
     justiz = {
       jobs  = { "doj" },
-      grade = { min = 0 },
+      grade = { min = 1 },
       allow = {
         "system.open",
         "justice.view",
@@ -429,31 +453,9 @@ Config.Permissions = {
         "forms.view",
         "submissions.view_inbox",
         "submissions.view_assigned",
-        "submissions.take",
-        "submissions.change_status",
-        "submissions.approve",
-        "submissions.reject",
         "message.public.read",
-        "message.public.write",
-        "question.ask",
         "notes.internal.read",
-        "form_editor.use",
-        -- Workflow/Locks (PR7): alle Justiz-Bearbeiter dürfen Locks anfordern/freigeben
-        "workflow.lock.request",
-        "workflow.lock.release",
-        -- SLA-Pause und Lock-Override nur per Kategorie/Grade-Override für Leitung
-        -- Anhänge: Justiz darf immer ansehen und entfernen (PR8)
-        "attachment.add",
         "attachment.view",
-        "attachment.remove",
-        -- Export: Justiz darf PDFs exportieren (PR11)
-        "export.pdf",
-        -- Delegation (PR3): Justiz darf Hilfsantrag erstellen + im Auftrag einreichen
-        "delegate.submit_for_citizen",
-        "delegate.submit_for_company",
-        "delegate.justice_create_for_citizen",
-        -- Vollmacht ansehen (Leitung/Admin über Grade-Override schreiben)
-        "vollmacht.view",
       },
       deny  = {},
     },
@@ -505,6 +507,8 @@ Config.Permissions = {
 --   },
 -- }
 
+-- Fallback-Rechte für Justiz-Grades, die in keiner Kategorie ein aktionenProGrade-Eintrag haben.
+-- Minimal gehalten (nur Lesen); Bearbeiter-/Vollzugriff wird über aktionenProGrade[15/31] vergeben.
 Config.JustizFallback = {
   sehen = {
     eingang = true,
@@ -513,12 +517,12 @@ Config.JustizFallback = {
     archiv = false
   },
   aktionen = {
-    antragUebernehmen = true,
-    statusAendern = true,
+    antragUebernehmen = false,
+    statusAendern = false,
     prioritaetAendern = false,
     interneNotizSchreiben = false,
-    oeffentlicheAntwortSchreiben = true,
-    rueckfrageStellen = true,
+    oeffentlicheAntwortSchreiben = false,
+    rueckfrageStellen = false,
     zuweisen = false,
     genehmigen = false,
     ablehnen = false,
@@ -553,10 +557,49 @@ Config.Kategorien = {
       zugriff = {
         justiz = {
           job = "doj",
-          erlaubteGrade = { 0, 1, 2, 3, 4, 5 },
+          erlaubteGrade = { 1, 15, 31 },
 
           aktionenProGrade = {
-            [2] = {
+            -- Grade 1: Lesen (Eingang + Zugewiesene anschauen, keine Aktionen)
+            [1] = {
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = false, archiv = false },
+              aktionen = {
+                antragUebernehmen = false,
+                statusAendern = false,
+                prioritaetAendern = false,
+                interneNotizSchreiben = false,
+                oeffentlicheAntwortSchreiben = false,
+                rueckfrageStellen = false,
+                zuweisen = false,
+                genehmigen = false,
+                ablehnen = false,
+                weiterleiten = false,
+                eskalieren = false,
+                archivieren = false,
+                loeschen = false
+              }
+            },
+            -- Grade 15: Bearbeiterrechte
+            [15] = {
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = false, archiv = false },
+              aktionen = {
+                antragUebernehmen = true,
+                statusAendern = true,
+                prioritaetAendern = false,
+                interneNotizSchreiben = false,
+                oeffentlicheAntwortSchreiben = true,
+                rueckfrageStellen = true,
+                zuweisen = false,
+                genehmigen = true,
+                ablehnen = true,
+                weiterleiten = true,
+                eskalieren = true,
+                archivieren = false,
+                loeschen = false
+              }
+            },
+            -- Grade 31: Vollzugriff
+            [31] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
               aktionen = {
                 antragUebernehmen = true,
@@ -581,21 +624,13 @@ Config.Kategorien = {
       },
 
       -- PermissionService-Override für Kategorie "general":
-      -- Justiz-Mitglieder mit Grade >= 2 dürfen archivieren, zuweisen,
-      -- interne Notizen schreiben sowie den Formular-Editor vollständig nutzen.
-      -- Grade 0–1 bleiben auf die globalen Justiz-Defaults beschränkt.
+      -- Grade 15+: dürfen Rückfragen stellen.
+      -- Archivieren/Zuweisen/Vollzugriff kommt über gradPermissions[31].
       permissions = {
         justiz = {
-          grade = { min = 2 },
+          grade = { min = 15 },
           allow = {
-            "submissions.archive",
-            "submissions.assign",
-            "submissions.set_priority",
-            "submissions.view_all",
-            "submissions.view_archive",
-            "notes.internal.write",
-            "form_editor.publish",
-            "form_editor.archive",
+            "question.ask",
           },
           deny = {},
         },
@@ -654,18 +689,19 @@ Config.Kategorien = {
       zugriff = {
         justiz = {
           job = "doj",
-          erlaubteGrade = { 0, 1, 2, 3, 4, 5 },
+          erlaubteGrade = { 1, 15, 31 },
 
           aktionenProGrade = {
+            -- Grade 1: Lesen (Eingang + Zugewiesene anschauen, keine Aktionen)
             [1] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = false, archiv = false },
               aktionen = {
-                antragUebernehmen = true,
-                statusAendern = true,
+                antragUebernehmen = false,
+                statusAendern = false,
                 prioritaetAendern = false,
                 interneNotizSchreiben = false,
-                oeffentlicheAntwortSchreiben = true,
-                rueckfrageStellen = true,
+                oeffentlicheAntwortSchreiben = false,
+                rueckfrageStellen = false,
                 zuweisen = false,
                 genehmigen = false,
                 ablehnen = false,
@@ -675,7 +711,27 @@ Config.Kategorien = {
                 loeschen = false
               }
             },
-            [3] = {
+            -- Grade 15: Bearbeiterrechte (kein rueckfrageStellen – Gewerbeanträge direkt entscheiden)
+            [15] = {
+              sehen = { eingang = true, zugewiesen = true, alleKategorie = false, archiv = false },
+              aktionen = {
+                antragUebernehmen = true,
+                statusAendern = true,
+                prioritaetAendern = false,
+                interneNotizSchreiben = false,
+                oeffentlicheAntwortSchreiben = true,
+                rueckfrageStellen = false,
+                zuweisen = false,
+                genehmigen = true,
+                ablehnen = true,
+                weiterleiten = true,
+                eskalieren = true,
+                archivieren = false,
+                loeschen = false
+              }
+            },
+            -- Grade 31: Vollzugriff (kein rueckfrageStellen – wie oben)
+            [31] = {
               sehen = { eingang = true, zugewiesen = true, alleKategorie = true, archiv = true },
               aktionen = {
                 antragUebernehmen = true,
@@ -683,7 +739,7 @@ Config.Kategorien = {
                 prioritaetAendern = true,
                 interneNotizSchreiben = true,
                 oeffentlicheAntwortSchreiben = true,
-                rueckfrageStellen = true,
+                rueckfrageStellen = false,
                 zuweisen = true,
                 genehmigen = true,
                 ablehnen = true,
@@ -700,23 +756,12 @@ Config.Kategorien = {
       },
 
       -- PermissionService-Override für Kategorie "gewerbe":
-      -- Grade 0–1 dürfen nur Status ändern und öffentlich antworten.
-      -- Grade 3+ erhalten erweiterte Aktionen inkl. Archivieren und interne Notizen.
-      -- question.ask ist für alle Justiz-Grades in dieser Kategorie verboten
-      -- (Gewerbeanträge sollen direkt genehmigt/abgelehnt werden).
+      -- question.ask ist für alle Justiz-Grades verboten (Gewerbeanträge direkt genehmigen/ablehnen).
+      -- Bearbeiter-/Vollzugriff-Aktionen kommen über gradPermissions[15/31] im JobSettings.
       permissions = {
         justiz = {
-          grade = { min = 3 },
-          allow = {
-            "submissions.archive",
-            "submissions.assign",
-            "submissions.set_priority",
-            "submissions.view_all",
-            "submissions.view_archive",
-            "notes.internal.write",
-            "form_editor.publish",
-            "form_editor.archive",
-          },
+          grade = { min = 1 },
+          allow = {},
           deny = { "question.ask" },
         },
       },

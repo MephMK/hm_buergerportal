@@ -231,50 +231,46 @@ function PermissionService.Hat(spieler, aktion, ctx)
   end
 
   -- 6) Kategorie-Override (höchste kontextuelle Spezifizität nach Formular)
+  --    Wenn Job/Grade-Constraint des Overrides NICHT erfüllt ist → Override überspringen
+  --    (kein hartes Deny; ermöglicht Grade-Staffelung über gradPermissions + Defaults).
   local kategorieId = ctx.kategorieId
   if kategorieId then
     local catRegel = overrideRegel("kategorie", kategorieId, rolle)
     if catRegel then
-      -- Job/Grade-Constraints des Overrides prüfen
-      if not jobPasst(spieler, catRegel) or not gradePasst(spieler, catRegel) then
-        debug("Kategorie-Override Job/Grade-Constraint verletzt →", aktion, "verweigert")
-        return false, {
-          code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
-          nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
-        }
-      end
-      local erg = ebeneAuswerten(catRegel, aktion)
-      if erg ~= nil then
-        debug("Kategorie-Override entscheidet:", erg, "für", aktion)
-        if erg then return true, nil end
-        return false, {
-          code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
-          nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
-        }
+      if jobPasst(spieler, catRegel) and gradePasst(spieler, catRegel) then
+        local erg = ebeneAuswerten(catRegel, aktion)
+        if erg ~= nil then
+          debug("Kategorie-Override entscheidet:", erg, "für", aktion)
+          if erg then return true, nil end
+          return false, {
+            code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
+            nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
+          }
+        end
+      else
+        debug("Kategorie-Override Job/Grade-Constraint nicht erfüllt – überspringe Override für", aktion)
       end
     end
   end
 
   -- 7) Formular-Override
+  --    Gleiche Logik: Constraint nicht erfüllt → überspringen statt hartem Deny.
   local formularId = ctx.formularId
   if formularId then
     local frmRegel = overrideRegel("formular", formularId, rolle)
     if frmRegel then
-      if not jobPasst(spieler, frmRegel) or not gradePasst(spieler, frmRegel) then
-        debug("Formular-Override Job/Grade-Constraint verletzt →", aktion, "verweigert")
-        return false, {
-          code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
-          nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
-        }
-      end
-      local erg = ebeneAuswerten(frmRegel, aktion)
-      if erg ~= nil then
-        debug("Formular-Override entscheidet:", erg, "für", aktion)
-        if erg then return true, nil end
-        return false, {
-          code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
-          nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
-        }
+      if jobPasst(spieler, frmRegel) and gradePasst(spieler, frmRegel) then
+        local erg = ebeneAuswerten(frmRegel, aktion)
+        if erg ~= nil then
+          debug("Formular-Override entscheidet:", erg, "für", aktion)
+          if erg then return true, nil end
+          return false, {
+            code = HM_BP.Shared.Errors.NOT_AUTHORIZED,
+            nachricht = HM_BP.Shared.Texts.Errors.NOT_AUTHORIZED
+          }
+        end
+      else
+        debug("Formular-Override Job/Grade-Constraint nicht erfüllt – überspringe Override für", aktion)
       end
     end
   end
