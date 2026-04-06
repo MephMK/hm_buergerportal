@@ -1540,9 +1540,9 @@ Config.Webhooks = {
     -- Beispiel:
     --   ["antrag_escalation"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
     ["antrag_escalation"] = nil,
-    -- antrag_payments: Gemeinsamer Discord-Webhook-Kanal für Gebührenzahlungen (PR14).
-    -- Wird gesendet wenn ein Betrag vom Bürger-Bankkonto abgezogen wurde und wenn
-    -- das Geld auf das Society-Konto (society_justiz) eingezahlt wurde.
+    -- antrag_payments: Gemeinsamer Discord-Webhook-Kanal für alle Gebührenereignisse (PR4).
+    -- Events: antrag_payment_abgezogen, antrag_payment_eingezahlt,
+    --         antrag_payment_refund, antrag_payment_befreit, antrag_payment_society_fehler.
     -- Embed enthält: Spielername, Charname, Betrag (EUR), Formularname.
     -- Beispiel:
     --   ["antrag_payments"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
