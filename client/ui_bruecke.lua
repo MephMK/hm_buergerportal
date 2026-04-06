@@ -36,6 +36,7 @@ RegisterNUICallback("hm_bp:ui_schliessen", function(_, cb)
 
   uiOffen = false
   SetNuiFocus(false, false)
+  SendNUIMessage({ typ = "hm_bp:ui_schliessen" })
   cb({ ok = true })
 end)
 

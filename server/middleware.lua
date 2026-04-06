@@ -14,6 +14,13 @@ function Middleware.SpielerKontext(quelle)
 end
 
 function Middleware.PruefeRecht(quelle, aktion, kontext)
+  if not HM_BP.Server.Ready then
+    return nil, {
+      code = "SERVER_NOT_READY",
+      nachricht = "System startet gerade. Bitte versuche es in ein paar Sekunden erneut."
+    }
+  end
+
   local spieler, err = Middleware.SpielerKontext(quelle)
   if not spieler then return nil, err end
 

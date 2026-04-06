@@ -44,6 +44,7 @@ CreateThread(function()
       if not ok then
         print(("[hm_buergerportal] FEHLER: Migrationen konnten nicht ausgeführt werden: %s"):format(tostring(err)))
       else
+        HM_BP.Server.Ready = true
         if Config and Config.Kern and Config.Kern.Debugmodus == true then
           print("[hm_buergerportal] Migrationen ausgeführt.")
         end
@@ -51,6 +52,11 @@ CreateThread(function()
     else
       print("[hm_buergerportal] WARN: Migrationen aktiviert, aber HM_BP.Server.Migrationen ist nicht verfügbar.")
     end
+  else
+    -- Migrationen deaktiviert: Server gilt als bereit.
+    -- Hinweis: Es wird vorausgesetzt, dass die DB-Tabellen bereits existieren.
+    -- Falls die Tabellen fehlen, können API-Aufrufe zu DB-Fehlern führen.
+    HM_BP.Server.Ready = true
   end
 end)
 
