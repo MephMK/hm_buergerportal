@@ -186,3 +186,56 @@ RegisterNUICallback("hm_bp:admin_job_settings_zuruecksetzen", function(daten, cb
   ))
 end)
 
+
+-- -------------------------------------------------------
+-- PR6: Admin-Ops (Suche, Verschieben, Wiederherstellen,
+--       Hartlöschen, Status-Override, Im-Auftrag-Erstellen)
+-- -------------------------------------------------------
+
+RegisterNUICallback("hm_bp:admin_ops_suchen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:suchen",
+    daten or {},
+    "hm_bp:admin_ops:suchen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_ops_verschieben", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:verschieben",
+    daten or {},
+    "hm_bp:admin_ops:verschieben_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_ops_wiederherstellen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:wiederherstellen",
+    daten or {},
+    "hm_bp:admin_ops:wiederherstellen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_ops_hartloeschen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:hartloeschen",
+    daten or {},
+    "hm_bp:admin_ops:hartloeschen_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_ops_status_override", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:status_override",
+    daten or {},
+    "hm_bp:admin_ops:status_override_antwort"
+  ))
+end)
+
+RegisterNUICallback("hm_bp:admin_ops_im_auftrag_erstellen", function(daten, cb)
+  cb(adminAufruf(
+    "hm_bp:admin_ops:im_auftrag_erstellen",
+    daten or {},
+    "hm_bp:admin_ops:im_auftrag_erstellen_antwort"
+  ))
+end)

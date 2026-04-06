@@ -307,6 +307,15 @@ function JustizSucheService.Suchen(spieler, payload)
     table.insert(params, zahlungStatusFilter)
   end
 
+  -- Formular-ID-Filter (exakter Match, wenn gesetzt)
+  if not istLeer(payload.formularId) then
+    local fid = tostring(payload.formularId):gsub("^%s+", ""):gsub("%s+$", "")
+    if fid ~= "" then
+      table.insert(whereParts, "form_id = ?")
+      table.insert(params, fid)
+    end
+  end
+
   -- ----------------------------------------------------------------
   -- SQL ausführen
   -- ----------------------------------------------------------------

@@ -104,6 +104,8 @@ const justizFilterStatus = document.getElementById("justizFilterStatus");
 const justizFilterPrio = document.getElementById("justizFilterPrio");
 const justizFilterDateFrom = document.getElementById("justizFilterDateFrom");
 const justizFilterDateTo = document.getElementById("justizFilterDateTo");
+const justizFilterGebuehr = document.getElementById("justizFilterGebuehr");
+const justizFilterFormular = document.getElementById("justizFilterFormular");
 const justizSortBy = document.getElementById("justizSortBy");
 const justizSortDir = document.getElementById("justizSortDir");
 const btnJustizSuchen = document.getElementById("btnJustizSuchen");
@@ -122,6 +124,24 @@ const btnJustizSeiteZurueck = document.getElementById("btnJustizSeiteZurueck");
 const btnJustizSeiteWeiter = document.getElementById("btnJustizSeiteWeiter");
 const justizSeiteInfo = document.getElementById("justizSeiteInfo");
 const justizGesamtInfo = document.getElementById("justizGesamtInfo");
+
+// Bürger-Suche UI (PR6)
+const buergerSucheQuery    = document.getElementById("buergerSucheQuery");
+const buergerSucheStatus   = document.getElementById("buergerSucheStatus");
+const buergerSucheDateFrom = document.getElementById("buergerSucheDateFrom");
+const buergerSucheDateTo   = document.getElementById("buergerSucheDateTo");
+const buergerSucheSortBy   = document.getElementById("buergerSucheSortBy");
+const buergerSucheSortDir  = document.getElementById("buergerSucheSortDir");
+const btnBuergerSuchen     = document.getElementById("btnBuergerSuchen");
+const btnBuergerSucheReset = document.getElementById("btnBuergerSucheReset");
+const buergerSucheMeta     = document.getElementById("buergerSucheMeta");
+const buergerSuchePaginierung = document.getElementById("buergerSuchePaginierung");
+const btnBuergerSeiteZurueck  = document.getElementById("btnBuergerSeiteZurueck");
+const btnBuergerSeiteWeiter   = document.getElementById("btnBuergerSeiteWeiter");
+const buergerSeiteInfo        = document.getElementById("buergerSeiteInfo");
+const buergerGesamtInfo       = document.getElementById("buergerGesamtInfo");
+const buergerSuchErgebnisse   = document.getElementById("buergerSuchErgebnisse");
+
 
 // Bürger Details UI
 const buergerDetailsHeader = document.getElementById("buergerDetailsHeader");
@@ -219,6 +239,19 @@ let justizSuchModusAktiv = false;
 let justizSuchAktuelleSeite = 1;
 let justizSuchGesamtSeiten = 1;
 let justizSuchLetztesPayload = null; // wird für Seitenblättern wiederverwendet
+
+// PR6: Bürger-Suche State
+let buergerSucheAktuelleSeite = 1;
+let buergerSucheGesamtSeiten = 1;
+let buergerSucheLetztesPayload = null;
+
+// PR6: Admin-Ops State
+let opsAktuellerSubtab = "suche";
+let opsSucheAktuelleSeite = 1;
+let opsSucheGesamtSeiten = 1;
+let opsSucheLetztesPayload = null;
+let opsImAuftragAusgewaehlterSpieler = null; // { source, name }
+let opsImAuftragAusgewaehlterFormularId = null;
 
 let ausgewaehlterBuergerAntragId = null;
 let buergerRueckfrageOffen = false;
@@ -1352,6 +1385,49 @@ function filterSelectsInitialisieren() {
     o.textContent = p.label || p.id;
     justizFilterPrio.appendChild(o);
   }
+
+  // PR6: Bürger-Suche Status-Select befüllen
+  if (buergerSucheStatus) {
+    buergerSucheStatus.innerHTML = "";
+    const sb0 = document.createElement("option");
+    sb0.value = "";
+    sb0.textContent = "Alle Status";
+    buergerSucheStatus.appendChild(sb0);
+    for (const s of statusListeAktuell) {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.label || s.id;
+      buergerSucheStatus.appendChild(o);
+    }
+  }
+
+  // PR6: Ops-Suche Status-Select befüllen
+  const opsSearchStatusEl = document.getElementById("opsSearchStatus");
+  if (opsSearchStatusEl) {
+    opsSearchStatusEl.innerHTML = "";
+    const so0 = document.createElement("option");
+    so0.value = "";
+    so0.textContent = "Alle Status";
+    opsSearchStatusEl.appendChild(so0);
+    for (const s of statusListeAktuell) {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.label || s.id;
+      opsSearchStatusEl.appendChild(o);
+    }
+  }
+
+  // PR6: Ops Status-Override Select befüllen
+  const opsStatusOverrideEl = document.getElementById("opsStatusOverrideSelect");
+  if (opsStatusOverrideEl && opsStatusOverrideEl.options.length <= 1) {
+    opsStatusOverrideEl.innerHTML = "<option value=\"\">– Bitte Status wählen –</option>";
+    for (const s of statusListeAktuell) {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.label || s.id;
+      opsStatusOverrideEl.appendChild(o);
+    }
+  }
 }
 
 // -------------------------------------------------------
@@ -1387,6 +1463,8 @@ async function justizSuchen(seite) {
     query: (justizSearchQuery.value || "").trim(),
     status: justizFilterStatus.value || "",
     prio: justizFilterPrio.value || "",
+    zahlungStatus: (justizFilterGebuehr && justizFilterGebuehr.value) || "",
+    formularId: (justizFilterFormular && justizFilterFormular.value.trim()) || "",
 
     dateFrom: justizFilterDateFrom.value || "",
     dateTo: justizFilterDateTo.value || "",
@@ -2160,6 +2238,8 @@ btnJustizFilterReset.addEventListener("click", () => {
   justizSearchQuery.value = "";
   justizFilterStatus.value = "";
   justizFilterPrio.value = "";
+  if (justizFilterGebuehr) justizFilterGebuehr.value = "";
+  if (justizFilterFormular) justizFilterFormular.value = "";
   justizFilterDateFrom.value = "";
   justizFilterDateTo.value = "";
   justizSortBy.value = "updated_at";
@@ -3169,30 +3249,43 @@ function adminSubtabSetzen(sektion) {
 
   // PR3: Vollmachten-Panel
   const vollmachtenPanelEl = document.getElementById("adminVollmachtenPanel");
+  // PR6: Ops-Panel
+  const opsPanelEl = document.getElementById("adminOpsPanel");
 
   if (sektion === "Audit") {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "block";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
     if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
+    if (opsPanelEl)             opsPanelEl.style.display             = "none";
     auditListeLaden(1);
   } else if (sektion === "JobSettings") {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "block";
     if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
+    if (opsPanelEl)             opsPanelEl.style.display             = "none";
     adminJobSettingsLaden();
   } else if (sektion === "Vollmachten") {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
     if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "block";
+    if (opsPanelEl)             opsPanelEl.style.display             = "none";
     vollmachtenListeLaden();
+  } else if (sektion === "Ops") {
+    if (adminCrudPanel)         adminCrudPanel.style.display         = "none";
+    if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
+    if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
+    if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
+    if (opsPanelEl)             opsPanelEl.style.display             = "block";
+    opsSubtabSetzen("suche");
   } else {
     if (adminCrudPanel)         adminCrudPanel.style.display         = "block";
     if (adminAuditPanel)        adminAuditPanel.style.display        = "none";
     if (adminJobSettingsPanel)  adminJobSettingsPanel.style.display  = "none";
     if (vollmachtenPanelEl)     vollmachtenPanelEl.style.display     = "none";
+    if (opsPanelEl)             opsPanelEl.style.display             = "none";
     adminFormularAusblenden();
     adminModusSetzen(adminModus);
     if (adminAktiveSektionflag) adminAktiveSektionflag.textContent = sektion;
@@ -4760,8 +4853,466 @@ window.addEventListener("message", function(e) {
     if (delegationSuchergebnisse) delegationSuchergebnisse.innerHTML = "";
     if (hilfsantragAuswahlAnzeige) hilfsantragAuswahlAnzeige.textContent = "";
     if (hilfsantragSuchergebnisse) hilfsantragSuchergebnisse.innerHTML = "";
+    // PR6: Ops-State zurücksetzen
+    opsImAuftragAusgewaehlterSpieler = null;
+    opsImAuftragAusgewaehlterFormularId = null;
   }
 });
+
+// ==========================
+// PR6: Bürger-Suche (eigene Anträge)
+// ==========================
+
+function buergerSucheStatusListeFuellen() {
+  if (!buergerSucheStatus) return;
+  buergerSucheStatus.innerHTML = "<option value=\"\">Alle Status</option>";
+  for (const s of statusListeAktuell) {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.label || s.id;
+    buergerSucheStatus.appendChild(o);
+  }
+}
+
+async function buergerSuchen(seite) {
+  if (!buergerSucheMeta) return;
+  seite = seite || 1;
+  const payload = {
+    query: (buergerSucheQuery && buergerSucheQuery.value.trim()) || "",
+    status: (buergerSucheStatus && buergerSucheStatus.value) || "",
+    dateFrom: (buergerSucheDateFrom && buergerSucheDateFrom.value) || "",
+    dateTo: (buergerSucheDateTo && buergerSucheDateTo.value) || "",
+    sortBy: (buergerSucheSortBy && buergerSucheSortBy.value) || "updated_at",
+    sortDir: (buergerSucheSortDir && buergerSucheSortDir.value) || "DESC",
+    page: seite,
+  };
+  buergerSucheAktuelleSeite = seite;
+  buergerSucheLetztesPayload = payload;
+  buergerSucheMeta.textContent = "Suche läuft…";
+  await nuiAufruf("hm_bp:buerger_suchen", payload);
+}
+
+function buergerSuchePaginierungAktualisieren(total, seite, gesamtSeiten) {
+  if (!buergerSuchePaginierung) return;
+  if (!total || gesamtSeiten <= 1) {
+    buergerSuchePaginierung.style.display = "none";
+    return;
+  }
+  buergerSuchePaginierung.style.display = "flex";
+  if (buergerSeiteInfo) buergerSeiteInfo.textContent = `Seite ${seite} von ${gesamtSeiten}`;
+  if (buergerGesamtInfo) buergerGesamtInfo.textContent = `${total} Ergebnis${total === 1 ? "" : "se"}`;
+  if (btnBuergerSeiteZurueck) btnBuergerSeiteZurueck.disabled = seite <= 1;
+  if (btnBuergerSeiteWeiter) btnBuergerSeiteWeiter.disabled = seite >= gesamtSeiten;
+}
+
+function buergerSuchErgebnisseRendern(liste) {
+  if (!buergerSuchErgebnisse) return;
+  if (!liste || liste.length === 0) {
+    buergerSuchErgebnisse.innerHTML = "<div class='muted'>Keine Anträge gefunden.</div>";
+    return;
+  }
+  buergerSuchErgebnisse.innerHTML = "";
+  liste.forEach(a => {
+    const div = document.createElement("div");
+    div.className = "liste-eintrag";
+    div.style.cssText = "padding:8px; border-bottom:1px solid #eee; cursor:pointer;";
+    div.innerHTML = `
+      <strong>${escapeHtml(a.public_id || a.id)}</strong>
+      <span class="muted" style="margin-left:8px;">${escapeHtml(a.form_id || "")}</span><br>
+      <span class="muted">Status: ${escapeHtml(a.status || "")}</span>
+      <span class="muted" style="margin-left:8px;">Erstellt: ${escapeHtml((a.created_at || "").substring(0, 10))}</span>
+    `;
+    div.addEventListener("click", () => {
+      ausgewaehlterBuergerAntragId = a.id;
+      nuiAufruf("hm_bp:antrag_details_mein_laden", { antragId: a.id });
+    });
+    buergerSuchErgebnisse.appendChild(div);
+  });
+}
+
+// Antwort vom Server für Bürger-Suche
+window.addEventListener("message", function(e) {
+  const d = e.data || {};
+  if (d.typ !== "hm_bp:antraege:suchen_antwort") return;
+  const payload = d.payload || {};
+  if (!payload.ok) {
+    if (buergerSucheMeta) buergerSucheMeta.textContent = "Fehler: " + (payload.fehler?.nachricht || "Suche fehlgeschlagen.");
+    return;
+  }
+  const res = payload.res || {};
+  if (buergerSucheMeta) buergerSucheMeta.textContent = `${res.total || 0} Ergebnis${(res.total || 0) === 1 ? "" : "se"} gefunden.`;
+  buergerSucheGesamtSeiten = res.gesamtSeiten || 1;
+  buergerSuchePaginierungAktualisieren(res.total || 0, buergerSucheAktuelleSeite, buergerSucheGesamtSeiten);
+  buergerSuchErgebnisseRendern(res.liste || []);
+});
+
+// Bürger-Suche: Event-Listener
+if (btnBuergerSuchen) btnBuergerSuchen.addEventListener("click", () => buergerSuchen(1));
+if (btnBuergerSucheReset) {
+  btnBuergerSucheReset.addEventListener("click", () => {
+    if (buergerSucheQuery) buergerSucheQuery.value = "";
+    if (buergerSucheStatus) buergerSucheStatus.value = "";
+    if (buergerSucheDateFrom) buergerSucheDateFrom.value = "";
+    if (buergerSucheDateTo) buergerSucheDateTo.value = "";
+    if (buergerSucheSortBy) buergerSucheSortBy.value = "updated_at";
+    if (buergerSucheSortDir) buergerSucheSortDir.value = "DESC";
+    if (buergerSucheMeta) buergerSucheMeta.textContent = "Filter zurückgesetzt.";
+    if (buergerSuchErgebnisse) buergerSuchErgebnisse.innerHTML = "";
+    if (buergerSuchePaginierung) buergerSuchePaginierung.style.display = "none";
+    buergerSucheLetztesPayload = null;
+  });
+}
+if (btnBuergerSeiteZurueck) {
+  btnBuergerSeiteZurueck.addEventListener("click", async () => {
+    if (buergerSucheAktuelleSeite > 1) await buergerSuchen(buergerSucheAktuelleSeite - 1);
+  });
+}
+if (btnBuergerSeiteWeiter) {
+  btnBuergerSeiteWeiter.addEventListener("click", async () => {
+    if (buergerSucheAktuelleSeite < buergerSucheGesamtSeiten) await buergerSuchen(buergerSucheAktuelleSeite + 1);
+  });
+}
+
+// ==========================
+// PR6: Admin-Ops Panel
+// ==========================
+
+function opsSubtabSetzen(tab) {
+  opsAktuellerSubtab = tab;
+  document.querySelectorAll(".ops-subtab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.opstab === tab);
+  });
+  const bereiche = {
+    suche: document.getElementById("opsBereichSuche"),
+    aktionen: document.getElementById("opsBereichAktionen"),
+    imauftrag: document.getElementById("opsBereichImAuftrag"),
+  };
+  for (const [key, el] of Object.entries(bereiche)) {
+    if (el) el.style.display = key === tab ? "" : "none";
+  }
+}
+
+// Ops-Suche
+async function opsSuchen(seite) {
+  const metaEl = document.getElementById("opsSucheMeta");
+  if (metaEl) metaEl.textContent = "Suche läuft…";
+  seite = seite || 1;
+  const payload = {
+    query: (document.getElementById("opsSearchQuery")?.value || "").trim(),
+    kategorieId: (document.getElementById("opsSearchKategorie")?.value || "").trim(),
+    formularId: (document.getElementById("opsSearchFormular")?.value || "").trim(),
+    status: document.getElementById("opsSearchStatus")?.value || "",
+    zahlungStatus: document.getElementById("opsSearchGebuehr")?.value || "",
+    dateFrom: document.getElementById("opsSearchDateFrom")?.value || "",
+    dateTo: document.getElementById("opsSearchDateTo")?.value || "",
+    sortBy: document.getElementById("opsSearchSortBy")?.value || "updated_at",
+    sortDir: document.getElementById("opsSearchSortDir")?.value || "DESC",
+    page: seite,
+  };
+  opsSucheAktuelleSeite = seite;
+  opsSucheLetztesPayload = payload;
+  await nuiAufruf("hm_bp:admin_ops_suchen", payload);
+}
+
+function opsPaginierungAktualisieren(total, seite, gesamtSeiten) {
+  const pagEl = document.getElementById("opsPaginierung");
+  if (!pagEl) return;
+  if (!total || gesamtSeiten <= 1) { pagEl.style.display = "none"; return; }
+  pagEl.style.display = "flex";
+  const seiteInfoEl = document.getElementById("opsSeiteInfo");
+  const gesamtInfoEl = document.getElementById("opsGesamtInfo");
+  if (seiteInfoEl) seiteInfoEl.textContent = `Seite ${seite} von ${gesamtSeiten}`;
+  if (gesamtInfoEl) gesamtInfoEl.textContent = `${total} Ergebnis${total === 1 ? "" : "se"}`;
+  const btnZurueck = document.getElementById("btnOpsSeiteZurueck");
+  const btnWeiter = document.getElementById("btnOpsSeiteWeiter");
+  if (btnZurueck) btnZurueck.disabled = seite <= 1;
+  if (btnWeiter) btnWeiter.disabled = seite >= gesamtSeiten;
+}
+
+function opsSuchErgebnisseRendern(liste) {
+  const el = document.getElementById("opsSuchErgebnisse");
+  if (!el) return;
+  if (!liste || liste.length === 0) { el.innerHTML = "<div class='muted'>Keine Anträge gefunden.</div>"; return; }
+  el.innerHTML = "";
+  liste.forEach(a => {
+    const div = document.createElement("div");
+    div.className = "liste-eintrag";
+    div.style.cssText = "padding:8px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:12px;";
+    div.innerHTML = `
+      <div style="flex:1;">
+        <strong>${escapeHtml(a.public_id || String(a.id))}</strong>
+        <span class="muted" style="margin-left:6px;">${escapeHtml(a.form_id || "")}</span>
+        <span class="muted" style="margin-left:6px;">Kat: ${escapeHtml(a.category_id || "")}</span><br>
+        <span class="muted">Bürger: ${escapeHtml(a.citizen_name || "")}</span>
+        <span class="muted" style="margin-left:8px;">Status: ${escapeHtml(a.status || "")}</span>
+        <span class="muted" style="margin-left:8px;">${escapeHtml((a.created_at || "").substring(0, 10))}</span>
+      </div>
+      <button class="btn btn-secondary" data-antrag-id="${a.id}" style="font-size:0.85em; padding:4px 8px;">ID kopieren</button>
+    `;
+    div.querySelector("button").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const antragIdEl = document.getElementById("opsAntragId");
+      if (antragIdEl) antragIdEl.value = a.id;
+      opsSubtabSetzen("aktionen");
+    });
+    el.appendChild(div);
+  });
+}
+
+// Ops-Suche: NUI-Antwort
+window.addEventListener("message", function(e) {
+  const d = e.data || {};
+  if (d.typ !== "hm_bp:admin_ops:suchen_antwort") return;
+  const payload = d.payload || {};
+  const metaEl = document.getElementById("opsSucheMeta");
+  if (!payload.ok) {
+    if (metaEl) metaEl.textContent = "Fehler: " + (payload.fehler?.nachricht || "Suche fehlgeschlagen.");
+    return;
+  }
+  const res = payload.res || {};
+  if (metaEl) metaEl.textContent = `${res.total || 0} Ergebnis${(res.total || 0) === 1 ? "" : "se"} gefunden.`;
+  opsSucheGesamtSeiten = res.gesamtSeiten || 1;
+  opsPaginierungAktualisieren(res.total || 0, opsSucheAktuelleSeite, opsSucheGesamtSeiten);
+  opsSuchErgebnisseRendern(res.liste || []);
+});
+
+// Ops-Suche: Buttons
+const btnOpsSuchen = document.getElementById("btnOpsSuchen");
+const btnOpsSucheReset = document.getElementById("btnOpsSucheReset");
+const btnOpsSeiteZurueck = document.getElementById("btnOpsSeiteZurueck");
+const btnOpsSeiteWeiter = document.getElementById("btnOpsSeiteWeiter");
+if (btnOpsSuchen) btnOpsSuchen.addEventListener("click", () => opsSuchen(1));
+if (btnOpsSucheReset) {
+  btnOpsSucheReset.addEventListener("click", () => {
+    ["opsSearchQuery","opsSearchKategorie","opsSearchFormular","opsSearchDateFrom","opsSearchDateTo"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+    ["opsSearchStatus","opsSearchGebuehr"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+    const metaEl = document.getElementById("opsSucheMeta");
+    if (metaEl) metaEl.textContent = "Filter zurückgesetzt.";
+    const ergebnisse = document.getElementById("opsSuchErgebnisse");
+    if (ergebnisse) ergebnisse.innerHTML = "";
+    const pagEl = document.getElementById("opsPaginierung");
+    if (pagEl) pagEl.style.display = "none";
+  });
+}
+if (btnOpsSeiteZurueck) {
+  btnOpsSeiteZurueck.addEventListener("click", async () => {
+    if (opsSucheAktuelleSeite > 1) await opsSuchen(opsSucheAktuelleSeite - 1);
+  });
+}
+if (btnOpsSeiteWeiter) {
+  btnOpsSeiteWeiter.addEventListener("click", async () => {
+    if (opsSucheAktuelleSeite < opsSucheGesamtSeiten) await opsSuchen(opsSucheAktuelleSeite + 1);
+  });
+}
+
+// Ops-Subtabs
+document.querySelectorAll(".ops-subtab").forEach(btn => {
+  btn.addEventListener("click", () => opsSubtabSetzen(btn.dataset.opstab));
+});
+
+// Ops: Wiederherstellen
+const btnOpsWiederherstellen = document.getElementById("btnOpsWiederherstellen");
+if (btnOpsWiederherstellen) {
+  btnOpsWiederherstellen.addEventListener("click", async () => {
+    const antragId = (document.getElementById("opsAntragId")?.value || "").trim();
+    const grund = (document.getElementById("opsWiederherstellenGrund")?.value || "").trim();
+    const metaEl = document.getElementById("opsWiederherstellenMeta");
+    if (!antragId) { if (metaEl) metaEl.textContent = "Antrags-ID fehlt."; return; }
+    if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
+    if (metaEl) metaEl.textContent = "Wird verarbeitet…";
+    const res = await nuiAufruf("hm_bp:admin_ops_wiederherstellen", { antragId, grund });
+    if (metaEl) metaEl.textContent = res.ok ? "✓ Antrag erfolgreich wiederhergestellt." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
+  });
+}
+
+// Ops: Status überschreiben
+const btnOpsStatusOverride = document.getElementById("btnOpsStatusOverride");
+if (btnOpsStatusOverride) {
+  btnOpsStatusOverride.addEventListener("click", async () => {
+    const antragId = (document.getElementById("opsAntragId")?.value || "").trim();
+    const neuerStatus = document.getElementById("opsStatusOverrideSelect")?.value || "";
+    const grund = (document.getElementById("opsStatusOverrideGrund")?.value || "").trim();
+    const metaEl = document.getElementById("opsStatusOverrideMeta");
+    if (!antragId) { if (metaEl) metaEl.textContent = "Antrags-ID fehlt."; return; }
+    if (!neuerStatus) { if (metaEl) metaEl.textContent = "Bitte Status wählen."; return; }
+    if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
+    if (metaEl) metaEl.textContent = "Wird verarbeitet…";
+    const res = await nuiAufruf("hm_bp:admin_ops_status_override", { antragId, neuerStatus, grund });
+    if (metaEl) metaEl.textContent = res.ok ? "✓ Status erfolgreich überschrieben." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
+  });
+}
+
+// Ops: Verschieben
+const btnOpsVerschieben = document.getElementById("btnOpsVerschieben");
+if (btnOpsVerschieben) {
+  btnOpsVerschieben.addEventListener("click", async () => {
+    const antragId = (document.getElementById("opsAntragId")?.value || "").trim();
+    const neuKategorieId = (document.getElementById("opsVerschiebenKategorie")?.value || "").trim();
+    const neuFormularId = (document.getElementById("opsVerschiebenFormular")?.value || "").trim();
+    const grund = (document.getElementById("opsVerschiebenGrund")?.value || "").trim();
+    const metaEl = document.getElementById("opsVerschiebenMeta");
+    if (!antragId) { if (metaEl) metaEl.textContent = "Antrags-ID fehlt."; return; }
+    if (!neuKategorieId && !neuFormularId) { if (metaEl) metaEl.textContent = "Mindestens Kategorie oder Formular muss angegeben werden."; return; }
+    if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
+    if (metaEl) metaEl.textContent = "Wird verarbeitet…";
+    const res = await nuiAufruf("hm_bp:admin_ops_verschieben", { antragId, neuKategorieId, neuFormularId, grund });
+    if (metaEl) metaEl.textContent = res.ok ? "✓ Antrag erfolgreich verschoben." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
+  });
+}
+
+// Ops: Hart löschen
+const btnOpsHartLoeschen = document.getElementById("btnOpsHartLoeschen");
+if (btnOpsHartLoeschen) {
+  btnOpsHartLoeschen.addEventListener("click", async () => {
+    const antragId = (document.getElementById("opsAntragId")?.value || "").trim();
+    const grund = (document.getElementById("opsHartLoeschenGrund")?.value || "").trim();
+    const metaEl = document.getElementById("opsHartLoeschenMeta");
+    if (!antragId) { if (metaEl) metaEl.textContent = "Antrags-ID fehlt."; return; }
+    if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
+    if (!confirm(`Antrag "${antragId}" wirklich ENDGÜLTIG löschen? Diese Aktion kann NICHT rückgängig gemacht werden!\n\nBegründung: ${grund}`)) return;
+    if (metaEl) metaEl.textContent = "Wird verarbeitet…";
+    const res = await nuiAufruf("hm_bp:admin_ops_hartloeschen", { antragId, grund });
+    if (metaEl) metaEl.textContent = res.ok ? "✓ Antrag endgültig gelöscht." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
+  });
+}
+
+// Ops: Im Auftrag erstellen – Spieler-Suche
+const btnOpsImAuftragSuchen = document.getElementById("btnOpsImAuftragSuchen");
+if (btnOpsImAuftragSuchen) {
+  btnOpsImAuftragSuchen.addEventListener("click", async () => {
+    const name = (document.getElementById("opsImAuftragSuchname")?.value || "").trim();
+    const metaEl = document.getElementById("opsImAuftragSuchMeta");
+    const ergebnisseEl = document.getElementById("opsImAuftragErgebnisse");
+    if (!name || name.length < 2) { if (metaEl) metaEl.textContent = "Min. 2 Zeichen eingeben."; return; }
+    if (metaEl) metaEl.textContent = "Suche läuft…";
+    if (ergebnisseEl) ergebnisseEl.innerHTML = "";
+    const res = await nuiAufruf("hm_bp:delegation_online_spieler_suchen", { name });
+    if (!res.ok) { if (metaEl) metaEl.textContent = "Fehler: " + (res.fehler?.nachricht || "Suche fehlgeschlagen."); return; }
+    const spieler = res.spieler || [];
+    if (metaEl) metaEl.textContent = spieler.length === 0 ? "Kein online Spieler mit diesem Namen gefunden." : `${spieler.length} Spieler gefunden.`;
+    if (ergebnisseEl) {
+      ergebnisseEl.innerHTML = "";
+      spieler.forEach(sp => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-secondary";
+        btn.style.cssText = "width:100%; text-align:left; margin-bottom:4px;";
+        btn.textContent = sp.name;
+        btn.addEventListener("click", () => {
+          opsImAuftragAusgewaehlterSpieler = { source: sp.source, name: sp.name };
+          const auswahlEl = document.getElementById("opsImAuftragAuswahl");
+          if (auswahlEl) auswahlEl.textContent = `Ausgewählt: ${sp.name}`;
+          // Formularliste für Im-Auftrag laden
+          opsImAuftragFormularListeLaden();
+        });
+        ergebnisseEl.appendChild(btn);
+      });
+    }
+  });
+}
+
+async function opsImAuftragFormularListeLaden() {
+  const selectEl = document.getElementById("opsImAuftragFormular");
+  if (!selectEl) return;
+  selectEl.innerHTML = "<option value=\"\">– Lade Formulare… –</option>";
+  // Alle verfügbaren Formulare aus globalem State laden (falls vorhanden)
+  // Einfache Fallback-Lösung: nutze Kategorien-Formulare
+  selectEl.innerHTML = "<option value=\"\">– Bitte Formular-ID manuell eingeben –</option>";
+  const felderEl = document.getElementById("opsImAuftragFelder");
+  if (felderEl) felderEl.style.display = "none";
+}
+
+// Ops: Im Auftrag - Formular laden wenn ID eingegeben
+const opsImAuftragFormularSelect = document.getElementById("opsImAuftragFormular");
+// Fallback: Formular-ID als Text-Input direkt nach dem Select
+const opsImAuftragFormularInput = (() => {
+  const el = document.createElement("input");
+  el.type = "text";
+  el.id = "opsImAuftragFormularInput";
+  el.placeholder = "Formular-ID direkt eingeben (z.B. general_request)…";
+  el.style.marginTop = "6px";
+  if (opsImAuftragFormularSelect) {
+    opsImAuftragFormularSelect.parentNode.insertBefore(el, opsImAuftragFormularSelect.nextSibling);
+  }
+  return el;
+})();
+
+// Ops: Im Auftrag Formular laden
+const btnOpsImAuftragSchema = document.createElement("button");
+btnOpsImAuftragSchema.type = "button";
+btnOpsImAuftragSchema.className = "btn btn-secondary";
+btnOpsImAuftragSchema.textContent = "Formular laden";
+btnOpsImAuftragSchema.style.marginTop = "6px";
+if (opsImAuftragFormularInput && opsImAuftragFormularInput.parentNode) {
+  opsImAuftragFormularInput.parentNode.insertBefore(btnOpsImAuftragSchema, opsImAuftragFormularInput.nextSibling);
+}
+btnOpsImAuftragSchema.addEventListener("click", async () => {
+  const formularId = opsImAuftragFormularInput.value.trim();
+  if (!formularId) { alert("Bitte Formular-ID eingeben."); return; }
+  const res = await nuiAufruf("hm_bp:formular_schema_laden", { formularId });
+  if (!res.ok || !res.schema) { alert("Formular nicht gefunden oder Schema konnte nicht geladen werden."); return; }
+  opsImAuftragAusgewaehlterFormularId = formularId;
+  const felderEl = document.getElementById("opsImAuftragFelder");
+  const containerEl = document.getElementById("opsImAuftragFelderContainer");
+  if (felderEl) felderEl.style.display = "";
+  if (containerEl) {
+    containerEl.innerHTML = "";
+    schemaRendern_inContainer(res.schema, containerEl);
+  }
+});
+
+function schemaRendern_inContainer(schema, container) {
+  if (!schema || !container) return;
+  container.innerHTML = "";
+  (schema.felder || schema.fields || []).forEach(feld => {
+    const el = feldElementErstellen(feld);
+    if (el) container.appendChild(el);
+  });
+}
+
+// Ops: Im Auftrag Antrag einreichen
+const btnOpsImAuftragErstellen = document.getElementById("btnOpsImAuftragErstellen");
+if (btnOpsImAuftragErstellen) {
+  btnOpsImAuftragErstellen.addEventListener("click", async () => {
+    const metaEl = document.getElementById("opsImAuftragErstellenMeta");
+    if (!opsImAuftragAusgewaehlterSpieler) { if (metaEl) metaEl.textContent = "Bitte zuerst einen Bürger auswählen."; return; }
+    if (!opsImAuftragAusgewaehlterFormularId) { if (metaEl) metaEl.textContent = "Bitte Formular laden."; return; }
+    const grund = (document.getElementById("opsImAuftragGrund")?.value || "").trim();
+    if (!grund) { if (metaEl) metaEl.textContent = "Begründung fehlt."; return; }
+    const containerEl = document.getElementById("opsImAuftragFelderContainer");
+    const antworten = containerEl ? antwortenEinsammeln_inContainer(containerEl) : {};
+    if (metaEl) metaEl.textContent = "Wird eingereicht…";
+    const res = await nuiAufruf("hm_bp:admin_ops_im_auftrag_erstellen", {
+      zielIngameName: opsImAuftragAusgewaehlterSpieler.name,
+      zielSource: opsImAuftragAusgewaehlterSpieler.source,
+      formularId: opsImAuftragAusgewaehlterFormularId,
+      antworten,
+      grund,
+    });
+    if (metaEl) metaEl.textContent = res.ok ? "✓ Antrag erfolgreich im Auftrag eingereicht." : "Fehler: " + (res.fehler?.nachricht || "Unbekannter Fehler.");
+  });
+}
+
+function antwortenEinsammeln_inContainer(container) {
+  const antworten = {};
+  if (!container) return antworten;
+  container.querySelectorAll("[data-field-id]").forEach(el => {
+    const id = el.dataset.fieldId;
+    if (el.type === "checkbox") antworten[id] = el.checked;
+    else if (el.tagName === "SELECT" && el.multiple) {
+      antworten[id] = Array.from(el.selectedOptions).map(o => o.value);
+    } else {
+      antworten[id] = el.value;
+    }
+  });
+  return antworten;
+}
+
+
 
 // ==========================
 // Startup

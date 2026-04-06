@@ -132,6 +132,67 @@
 
           <div class="trenner"></div>
 
+          <!-- Bürger: Eigene Anträge suchen -->
+          <div class="box-title">Meine Anträge – Suche &amp; Filter</div>
+          <div class="grid2">
+            <div class="feld">
+              <div class="label">Suche</div>
+              <input id="buergerSucheQuery" type="text" placeholder="Aktenzeichen oder Formular-ID…" maxlength="64" />
+              <div class="hint">Suche nach Aktenzeichen (z.&nbsp;B. HM-DOJ-…) oder Formular-ID.</div>
+            </div>
+            <div class="feld">
+              <div class="label">Filter &amp; Sortierung</div>
+              <div>
+                <div class="muted" style="margin:0 0 4px 0;">Status</div>
+                <select id="buergerSucheStatus">
+                  <option value="">Alle Status</option>
+                </select>
+              </div>
+              <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <div class="muted" style="margin:0 0 4px 0;">Zeitraum von</div>
+                  <input id="buergerSucheDateFrom" type="date" />
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 4px 0;">Zeitraum bis</div>
+                  <input id="buergerSucheDateTo" type="date" />
+                </div>
+              </div>
+              <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <div class="muted" style="margin:0 0 4px 0;">Sortierung</div>
+                  <select id="buergerSucheSortBy">
+                    <option value="updated_at">Letzte Änderung</option>
+                    <option value="created_at">Erstellt am</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 4px 0;">Richtung</div>
+                  <select id="buergerSucheSortDir">
+                    <option value="DESC">Absteigend</option>
+                    <option value="ASC">Aufsteigend</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="btnBuergerSuchen" class="btn btn-secondary" type="button" style="flex:1;">Suchen</button>
+                <button id="btnBuergerSucheReset" class="btn btn-secondary" type="button" style="flex:1;">Zurücksetzen</button>
+              </div>
+              <div class="muted" id="buergerSucheMeta" style="margin-top:4px;"></div>
+            </div>
+          </div>
+
+          <!-- Bürger-Suchergebnis-Liste -->
+          <div id="buergerSuchePaginierung" style="display:none; margin-top:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button id="btnBuergerSeiteZurueck" class="btn btn-secondary" type="button" disabled>&#8249; Zurück</button>
+            <span id="buergerSeiteInfo" class="muted">Seite 1 von 1</span>
+            <button id="btnBuergerSeiteWeiter" class="btn btn-secondary" type="button" disabled>Weiter &#8250;</button>
+            <span id="buergerGesamtInfo" class="muted"></span>
+          </div>
+          <div id="buergerSuchErgebnisse" class="liste" style="margin-top:8px;"></div>
+
+          <div class="trenner"></div>
+
           <div class="box-title">Mein Antrag – Details</div>
           <div class="muted" id="buergerDetailsHeader">Bitte links einen Antrag auswählen.</div>
 
@@ -190,8 +251,8 @@
           <div class="grid2">
             <div class="feld">
               <div class="label">Suche</div>
-              <input id="justizSearchQuery" type="text" placeholder="Bürgername (min. 2 Zeichen)…" maxlength="64" aria-label="Bürgername suchen" />
-              <div class="hint">Suche nach Bürgername (Teilsuche). Min. 2 Zeichen. Nur innerhalb der ausgewählten Kategorie/Queue.</div>
+              <input id="justizSearchQuery" type="text" placeholder="Bürgername, Aktenzeichen oder Formular-ID…" maxlength="64" aria-label="Volltext suchen" />
+              <div class="hint">Volltext-Suche: Bürgername, Aktenzeichen (z.&nbsp;B. HM-DOJ-…) oder Formular-ID. Min. 2 Zeichen.</div>
 
               <div style="margin-top:10px;">
                 <div class="muted" style="margin:0 0 6px 0;">Bearbeiter</div>
@@ -234,6 +295,22 @@
 
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                 <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Gebührenstatus</div>
+                  <select id="justizFilterGebuehr">
+                    <option value="">Alle</option>
+                    <option value="bezahlt">Bezahlt</option>
+                    <option value="unbezahlt">Unbezahlt</option>
+                    <option value="befreit">Befreit</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="muted" style="margin:0 0 6px 0;">Formular-ID</div>
+                  <input id="justizFilterFormular" type="text" placeholder="Formular-ID…" maxlength="64" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                <div>
                   <div class="muted" style="margin:0 0 6px 0;">Zeitraum von</div>
                   <input id="justizFilterDateFrom" type="date" />
                 </div>
@@ -249,6 +326,7 @@
                   <select id="justizSortBy">
                     <option value="updated_at">Letzte Änderung</option>
                     <option value="created_at">Erstellt am</option>
+                    <option value="sla_due_at">Frist (SLA)</option>
                     <option value="priority">Priorität</option>
                     <option value="status">Status</option>
                   </select>
@@ -583,6 +661,7 @@ Option B'></textarea>
               <button class="tab admin-subtab" data-subtab="Module">Module</button>
               <button class="tab admin-subtab" data-subtab="JobSettings">Job-Einstellungen</button>
               <button class="tab admin-subtab" data-subtab="Audit">Audit-Log</button>
+              <button class="tab admin-subtab" data-subtab="Ops">Ops-Verwaltung</button>
               <button class="tab admin-subtab" data-subtab="Vollmachten" id="adminSubtabVollmachten" style="display:none;">Vollmachten</button>
             </div>
 
@@ -722,7 +801,189 @@ Option B'></textarea>
               <div id="adminAuditListe" class="liste" style="margin-top:4px; max-height:540px; overflow-y:auto;"></div>
             </div>
 
-            <!-- Sektion: Vollmachten-Verwaltung (PR3) -->
+            <!-- Sektion: Ops-Verwaltung (PR6) -->
+            <div id="adminOpsPanel" style="display:none; margin-top:16px;">
+
+              <!-- Unternavigation: Ops-Bereiche -->
+              <div class="tabs" style="margin-bottom:12px; flex-wrap:wrap;">
+                <button class="tab ops-subtab active" data-opstab="suche">Suche</button>
+                <button class="tab ops-subtab" data-opstab="aktionen">Aktionen</button>
+                <button class="tab ops-subtab" data-opstab="imauftrag">Im Auftrag erstellen</button>
+              </div>
+
+              <!-- Ops: Suche -->
+              <div id="opsBereichSuche">
+                <div class="box-title" style="font-size:13px;">Kategorieübergreifende Suche</div>
+                <div class="grid2" style="gap:12px; margin-top:8px;">
+                  <div class="feld">
+                    <div class="label">Suchbegriff</div>
+                    <input id="opsSearchQuery" type="text" placeholder="Bürgername, Aktenzeichen, Formular-ID…" maxlength="64" />
+                    <div style="margin-top:8px;">
+                      <div class="muted" style="margin:0 0 4px 0;">Kategorie (optional)</div>
+                      <input id="opsSearchKategorie" type="text" placeholder="Kategorie-ID (leer = alle)" maxlength="64" />
+                    </div>
+                    <div style="margin-top:8px;">
+                      <div class="muted" style="margin:0 0 4px 0;">Formular (optional)</div>
+                      <input id="opsSearchFormular" type="text" placeholder="Formular-ID (leer = alle)" maxlength="64" />
+                    </div>
+                  </div>
+                  <div class="feld">
+                    <div class="label">Filter</div>
+                    <div>
+                      <div class="muted" style="margin:0 0 4px 0;">Status</div>
+                      <select id="opsSearchStatus">
+                        <option value="">Alle Status</option>
+                      </select>
+                    </div>
+                    <div style="margin-top:8px;">
+                      <div class="muted" style="margin:0 0 4px 0;">Gebührenstatus</div>
+                      <select id="opsSearchGebuehr">
+                        <option value="">Alle</option>
+                        <option value="bezahlt">Bezahlt</option>
+                        <option value="unbezahlt">Unbezahlt</option>
+                        <option value="befreit">Befreit</option>
+                      </select>
+                    </div>
+                    <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                      <div>
+                        <div class="muted" style="margin:0 0 4px 0;">Von</div>
+                        <input id="opsSearchDateFrom" type="date" />
+                      </div>
+                      <div>
+                        <div class="muted" style="margin:0 0 4px 0;">Bis</div>
+                        <input id="opsSearchDateTo" type="date" />
+                      </div>
+                    </div>
+                    <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                      <div>
+                        <div class="muted" style="margin:0 0 4px 0;">Sortierung</div>
+                        <select id="opsSearchSortBy">
+                          <option value="updated_at">Letzte Änderung</option>
+                          <option value="created_at">Erstellt am</option>
+                          <option value="sla_due_at">Frist (SLA)</option>
+                          <option value="priority">Priorität</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div class="muted" style="margin:0 0 4px 0;">Richtung</div>
+                        <select id="opsSearchSortDir">
+                          <option value="DESC">Absteigend</option>
+                          <option value="ASC">Aufsteigend</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                      <button id="btnOpsSuchen" class="btn" type="button" style="flex:1;">Suchen</button>
+                      <button id="btnOpsSucheReset" class="btn btn-secondary" type="button" style="flex:1;">Zurücksetzen</button>
+                    </div>
+                    <div class="muted" id="opsSucheMeta" style="margin-top:4px;"></div>
+                  </div>
+                </div>
+                <!-- Paginierung -->
+                <div id="opsPaginierung" style="display:none; margin-top:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <button id="btnOpsSeiteZurueck" class="btn btn-secondary" type="button" disabled>&#8249; Zurück</button>
+                  <span id="opsSeiteInfo" class="muted">Seite 1 von 1</span>
+                  <button id="btnOpsSeiteWeiter" class="btn btn-secondary" type="button" disabled>Weiter &#8250;</button>
+                  <span id="opsGesamtInfo" class="muted"></span>
+                </div>
+                <div id="opsSuchErgebnisse" class="liste" style="margin-top:8px; max-height:400px; overflow-y:auto;"></div>
+              </div>
+
+              <!-- Ops: Aktionen -->
+              <div id="opsBereichAktionen" style="display:none;">
+                <div class="feld" style="margin-bottom:12px;">
+                  <div class="label">Antrags-ID (interne ID oder Aktenzeichen)</div>
+                  <input id="opsAntragId" type="text" placeholder="Antrags-ID oder Aktenzeichen eingeben…" maxlength="64" />
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+                  <!-- Wiederherstellen -->
+                  <div style="border:1px solid #6fcf97; border-radius:6px; padding:12px; background:#f0fff4;">
+                    <div class="box-title" style="font-size:13px; color:#27ae60; margin-bottom:8px;">♻️ Wiederherstellen</div>
+                    <div class="muted" style="margin-bottom:8px;">Archivierung aufheben – Antrag wird in den normalen Bestand zurückversetzt.</div>
+                    <input id="opsWiederherstellenGrund" type="text" placeholder="Begründung (Pflichtfeld)…" />
+                    <button id="btnOpsWiederherstellen" class="btn btn-secondary" type="button" style="margin-top:8px; width:100%;">Wiederherstellen</button>
+                    <div class="muted" id="opsWiederherstellenMeta" style="margin-top:4px;"></div>
+                  </div>
+
+                  <!-- Status überschreiben -->
+                  <div style="border:1px solid #f2994a; border-radius:6px; padding:12px; background:#fffbf0;">
+                    <div class="box-title" style="font-size:13px; color:#f2994a; margin-bottom:8px;">🛡️ Status überschreiben</div>
+                    <div class="muted" style="margin-bottom:8px;">Status direkt setzen – umgeht normale Workflow-Regeln.</div>
+                    <select id="opsStatusOverrideSelect" style="width:100%; margin-bottom:8px;">
+                      <option value="">– Bitte Status wählen –</option>
+                    </select>
+                    <input id="opsStatusOverrideGrund" type="text" placeholder="Begründung (Pflichtfeld)…" />
+                    <button id="btnOpsStatusOverride" class="btn btn-secondary" type="button" style="margin-top:8px; width:100%;">Status überschreiben</button>
+                    <div class="muted" id="opsStatusOverrideMeta" style="margin-top:4px;"></div>
+                  </div>
+
+                  <!-- Verschieben -->
+                  <div style="border:1px solid #f2c94c; border-radius:6px; padding:12px; background:#fffef0;">
+                    <div class="box-title" style="font-size:13px; color:#b8860b; margin-bottom:8px;">📁 Verschieben</div>
+                    <div class="muted" style="margin-bottom:8px;">Kategorie und/oder Formular des Antrags ändern.</div>
+                    <input id="opsVerschiebenKategorie" type="text" placeholder="Neue Kategorie-ID (leer = unverändert)" style="margin-bottom:6px;" />
+                    <input id="opsVerschiebenFormular" type="text" placeholder="Neue Formular-ID (leer = unverändert)" style="margin-bottom:6px;" />
+                    <input id="opsVerschiebenGrund" type="text" placeholder="Begründung (Pflichtfeld)…" />
+                    <button id="btnOpsVerschieben" class="btn btn-secondary" type="button" style="margin-top:8px; width:100%;">Verschieben</button>
+                    <div class="muted" id="opsVerschiebenMeta" style="margin-top:4px;"></div>
+                  </div>
+
+                  <!-- Hart löschen -->
+                  <div style="border:1px solid #eb5757; border-radius:6px; padding:12px; background:#fff0f0;">
+                    <div class="box-title" style="font-size:13px; color:#eb5757; margin-bottom:8px;">🗑️ Endgültig löschen</div>
+                    <div class="muted" style="margin-bottom:8px; color:#eb5757;">⚠️ Unwiderruflich! Antrag und alle zugehörigen Daten werden permanent gelöscht.</div>
+                    <input id="opsHartLoeschenGrund" type="text" placeholder="Begründung (Pflichtfeld)…" />
+                    <button id="btnOpsHartLoeschen" class="btn" type="button" style="margin-top:8px; width:100%; background:#eb5757; color:#fff;">Endgültig löschen</button>
+                    <div class="muted" id="opsHartLoeschenMeta" style="margin-top:4px;"></div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Ops: Im Auftrag erstellen -->
+              <div id="opsBereichImAuftrag" style="display:none;">
+                <div class="box-title" style="font-size:13px; margin-bottom:8px;">📋 Antrag im Auftrag erstellen</div>
+                <div class="muted" style="margin-bottom:12px;">
+                  Erstellt einen Antrag im Namen eines online anwesenden Bürgers (nur Ingame-Name – kein Identifier sichtbar).
+                </div>
+                <div class="grid2" style="gap:12px;">
+                  <div class="feld">
+                    <div class="label">Bürger (Ingame-Name)</div>
+                    <div style="display:flex; gap:6px;">
+                      <input id="opsImAuftragSuchname" type="text" placeholder="Ingame-Name suchen…" style="flex:1;" />
+                      <button type="button" id="btnOpsImAuftragSuchen" class="btn btn-secondary">Suchen</button>
+                    </div>
+                    <div class="muted" id="opsImAuftragSuchMeta" style="margin-top:4px;"></div>
+                    <div id="opsImAuftragErgebnisse" style="margin-top:6px;"></div>
+                    <div class="muted" id="opsImAuftragAuswahl" style="margin-top:4px; color:#27ae60;"></div>
+                  </div>
+                  <div class="feld">
+                    <div class="label">Formular</div>
+                    <select id="opsImAuftragFormular" style="width:100%;">
+                      <option value="">– Bitte Formular wählen –</option>
+                    </select>
+                    <div style="margin-top:8px;">
+                      <div class="label">Begründung</div>
+                      <input id="opsImAuftragGrund" type="text" placeholder="Begründung (Pflichtfeld)…" />
+                    </div>
+                  </div>
+                </div>
+                <!-- Formularfelder für Im-Auftrag-Antrag -->
+                <div id="opsImAuftragFelder" style="display:none; margin-top:12px; border:1px solid #2d9cdb; border-radius:6px; padding:12px; background:#f0f8ff;">
+                  <div class="box-title" style="font-size:13px; margin-bottom:8px;">Antragsfelder</div>
+                  <div id="opsImAuftragFelderContainer"></div>
+                  <div class="form-actions" style="margin-top:10px;">
+                    <button id="btnOpsImAuftragErstellen" class="btn" type="button">Antrag einreichen</button>
+                    <div class="muted" id="opsImAuftragErstellenMeta"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+
             <div id="adminVollmachtenPanel" style="display:none; margin-top:16px;">
               <div class="muted" style="margin-bottom:10px;">
                 Vollmachten ermöglichen die Delegation: Bürger ↔ Bevollmächtigter (z.B. Anwalt) oder Firma ↔ Firmenvertreter.
