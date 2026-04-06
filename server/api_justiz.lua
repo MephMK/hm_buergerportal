@@ -54,24 +54,24 @@ RegisterNetEvent("hm_bp:justiz:bearbeiter_liste_anfordern", function()
   TriggerClientEvent("hm_bp:justiz:bearbeiter_liste_antwort", quelle, { ok = true, liste = liste })
 end)
 
-RegisterNetEvent("hm_bp:justiz:eigang_anfordern", function(payload)
+RegisterNetEvent("hm_bp:justiz:eingang_anfordern", function(payload)
   local quelle = source
   payload = payload or {}
 
   local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.JUSTICE_VIEW, {})
   if not spieler then
-    TriggerClientEvent("hm_bp:justiz:eigang_antwort", quelle, { ok = false, fehler = err })
+    TriggerClientEvent("hm_bp:justiz:eingang_antwort", quelle, { ok = false, fehler = err })
     return
   end
 
   local kategorieId = payload.kategorieId
   local liste, err2 = HM_BP.Server.Dienste.JustizAntragService.EingangListe(spieler, kategorieId, payload.limit or 50)
   if not liste then
-    TriggerClientEvent("hm_bp:justiz:eigang_antwort", quelle, { ok = false, fehler = err2 })
+    TriggerClientEvent("hm_bp:justiz:eingang_antwort", quelle, { ok = false, fehler = err2 })
     return
   end
 
-  TriggerClientEvent("hm_bp:justiz:eigang_antwort", quelle, { ok = true, liste = liste })
+  TriggerClientEvent("hm_bp:justiz:eingang_antwort", quelle, { ok = true, liste = liste })
 end)
 
 RegisterNetEvent("hm_bp:justiz:zugewiesen_anfordern", function(payload)
