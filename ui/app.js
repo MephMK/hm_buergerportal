@@ -2176,12 +2176,15 @@ btnReload.addEventListener("click", async () => {
   await nuiAufruf("hm_bp:portal_daten_anfordern", {});
   await nuiAufruf("hm_bp:kategorien_laden", {});
   await nuiAufruf("hm_bp:meine_antraege_laden", {});
-  await nuiAufruf("hm_bp:justiz_kategorien_laden", {});
   await nuiAufruf("hm_bp:prioritaeten_liste_laden", {});
-  await nuiAufruf("hm_bp:justiz_bearbeiter_liste_laden", {});
 
-  // Formular-Editor Rechte neu laden
-  await formEditorLoadRechte();
+  const reloadRolle = aktuellerSpieler && aktuellerSpieler.rolle;
+  if (reloadRolle === "admin" || reloadRolle === "justiz") {
+    await nuiAufruf("hm_bp:justiz_kategorien_laden", {});
+    await nuiAufruf("hm_bp:justiz_bearbeiter_liste_laden", {});
+    // Formular-Editor Rechte neu laden
+    await formEditorLoadRechte();
+  }
 
   filterSelectsInitialisieren();
 });
@@ -2712,11 +2715,12 @@ window.addEventListener("message", (event) => {
     einreichenStatus.textContent = "";
     tabSetzen("buerger");
 
-    nuiAufruf("hm_bp:prioritaeten_liste_laden", {});
-    nuiAufruf("hm_bp:justiz_bearbeiter_liste_laden", {});
+    // Hide role-gated tabs until portal data arrives and role is known
+    if (tabJustiz) tabJustiz.style.display = "none";
+    const adminTabElInit = document.getElementById("tabAdmin");
+    if (adminTabElInit) adminTabElInit.style.display = "none";
 
-    // Formular-Editor Rechte laden
-    formEditorLoadRechte();
+    nuiAufruf("hm_bp:prioritaeten_liste_laden", {});
   }
 
   if (msg.typ === "hm_bp:ui_schliessen") {
@@ -2769,6 +2773,13 @@ window.addEventListener("message", (event) => {
     if (vollmachtenTab) {
       const darfVollmacht = delegationAktiviert && (sp.rolle === "admin");
       vollmachtenTab.style.display = darfVollmacht ? "" : "none";
+    }
+
+    // Justiz/Admin: Kategorien, Bearbeiterliste und Formular-Editor-Rechte laden
+    if (sp.rolle === "admin" || sp.rolle === "justiz") {
+      nuiAufruf("hm_bp:justiz_kategorien_laden", {});
+      nuiAufruf("hm_bp:justiz_bearbeiter_liste_laden", {});
+      formEditorLoadRechte();
     }
   }
 
@@ -2837,7 +2848,7 @@ window.addEventListener("message", (event) => {
     bearbeiterSelectFuellen(null);
   }
 
-  if (msg.typ === "hm_bp:justiz:eigang_antwort" || msg.typ === "hm_bp:justiz:zugewiesen_antwort" || msg.typ === "hm_bp:justiz:alle_kategorie_antwort") {
+  if (msg.typ === "hm_bp:justiz:eingang_antwort" || msg.typ === "hm_bp:justiz:zugewiesen_antwort" || msg.typ === "hm_bp:justiz:alle_kategorie_antwort") {
     const payload = msg.payload || {};
     if (!payload.ok) return fehlerAnzeigen(payload.fehler?.nachricht || "Justiz-Liste konnte nicht geladen werden.");
     justizAntraegeRendern(payload.liste);

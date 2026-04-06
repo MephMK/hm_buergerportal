@@ -134,7 +134,7 @@ end)
 
 RegisterNUICallback("hm_bp:justiz_eingang_laden", function(daten, cb)
   daten = daten or {}
-  TriggerServerEvent("hm_bp:justiz:eigang_anfordern", { kategorieId = daten.kategorieId, limit = daten.limit or 100 })
+  TriggerServerEvent("hm_bp:justiz:eingang_anfordern", { kategorieId = daten.kategorieId, limit = daten.limit or 100 })
   cb({ ok = true })
 end)
 
@@ -383,7 +383,7 @@ RegisterNetEvent("hm_bp:antrag:nachreichen_antwort", function(payload) sende("hm
 
 RegisterNetEvent("hm_bp:justiz:kategorien_antwort", function(payload) sende("hm_bp:justiz:kategorien_antwort", payload) end)
 RegisterNetEvent("hm_bp:justiz:bearbeiter_liste_antwort", function(payload) sende("hm_bp:justiz:bearbeiter_liste_antwort", payload) end)
-RegisterNetEvent("hm_bp:justiz:eigang_antwort", function(payload) sende("hm_bp:justiz:eigang_antwort", payload) end)
+RegisterNetEvent("hm_bp:justiz:eingang_antwort", function(payload) sende("hm_bp:justiz:eingang_antwort", payload) end)
 RegisterNetEvent("hm_bp:justiz:zugewiesen_antwort", function(payload) sende("hm_bp:justiz:zugewiesen_antwort", payload) end)
 RegisterNetEvent("hm_bp:justiz:alle_kategorie_antwort", function(payload) sende("hm_bp:justiz:alle_kategorie_antwort", payload) end)
 RegisterNetEvent("hm_bp:justiz:details_antwort", function(payload) sende("hm_bp:justiz:details_antwort", payload) end)
