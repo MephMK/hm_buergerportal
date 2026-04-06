@@ -71,21 +71,25 @@ function AntiSpamService.PruefeRateLimit(spieler, schluessel)
 end
 
 -- ----------------------------------------------------------------
--- Hilfsfunktionen: einfacher FNV-1a-Hashersatz (Lua-5.1-kompatibel)
--- Verwendet reine Arithmetik statt Bitoperatoren (FiveM: Lua 5.1).
+-- Hilfsfunktionen: einfacher FNV-1a-Hashersatz
+-- Verwendet bit.bxor (LuaJIT/FiveM) falls verfügbar,
+-- anderenfalls arithmetischer Fallback (Lua 5.1).
 -- ----------------------------------------------------------------
 
+local _bitXor = (type(bit) == "table" and bit.bxor) or nil
+
 local function xorByte(h, b)
-  -- Bitweises XOR via Lookup für 8-Bit-Werte (0..255)
+  if _bitXor then
+    return _bitXor(h, b)
+  end
+  -- Arithmetischer Fallback für Umgebungen ohne bit-Library
   local result = 0
-  local bit = 1
+  local place = 1
   while b > 0 or h > 0 do
-    local hBit = h % 2
-    local bBit = b % 2
-    if hBit ~= bBit then result = result + bit end
+    if (h % 2) ~= (b % 2) then result = result + place end
     h = math.floor(h / 2)
     b = math.floor(b / 2)
-    bit = bit * 2
+    place = place * 2
   end
   return result
 end
