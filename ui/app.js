@@ -2728,7 +2728,7 @@ if (btnFormEditorConfigExport) {
       formEditorConfigExportOutput.style.display = "";
       formEditorConfigExportOutput.value = JSON.stringify(res.daten, null, 2);
     }
-    if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "Snippet generiert. Kopiere den JSON-Block und trage ihn in config.lua ein.";
+    if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "JSON exportiert. Kopiere den Inhalt und übertrage die Felder manuell als Lua-Tabelle in config.lua.";
   });
 }
 

@@ -703,7 +703,7 @@ function FormularEditorService.ConfigFormularListe(kategorieId, spieler)
   return ergebnis, nil
 end
 
----Liefert das Schema eines Config-Formulars als Lua-Snippet für den Export.
+---Liefert die Formulardaten eines Config-Formulars als JSON für den Export.
 function FormularEditorService.ConfigSchemaExportieren(spieler, formId)
   formId = trim(tostring(formId or ""))
   if istLeer(formId) then
@@ -739,7 +739,7 @@ function FormularEditorService.ConfigSchemaExportieren(spieler, formId)
     gebuehren   = f.gebuehren or { aktiv = false, betrag = 0, erstattbar = false },
     felder      = f.felder or {},
     quelle      = "config",
-    hinweis     = "Dieses Formular stammt aus Config.Formulare.Liste. Änderungen müssen manuell in config.lua eingetragen werden.",
+    hinweis     = "Dieses Formular stammt aus Config.Formulare.Liste. Aenderungen muessen manuell als Lua-Tabelle in config.lua eingetragen werden.",
   }
 
   return { ok = true, daten = exportData, snippet = json.encode(exportData) }, nil
