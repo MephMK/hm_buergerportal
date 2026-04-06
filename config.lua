@@ -60,6 +60,36 @@ Config.Zahlung = {
   -- Terminale Status: Bei diesen Statusübergängen wird die Gebühr erhoben.
   -- Erweiterbar je nach Workflow-Konfiguration des Servers.
   TerminaleStatus = { "approved", "rejected", "withdrawn", "closed", "completed", "archived" },
+
+  -- Zahlungsmodus (PR4):
+  --   "bei_einreichung"  – Gebühr wird sofort bei Einreichung des Antrags abgebucht.
+  --   "bei_entscheidung" – Gebühr wird erst beim Erreichen eines terminalen Status erhoben (Standard).
+  Modus = "bei_entscheidung",
+
+  -- Erstattungen (PR4): Konfigurierbare Rückerstattungsregeln.
+  Erstattungen = {
+    -- Erstattungen aktivieren (false = keine Rückerstattungen).
+    aktiv = false,
+    -- Regeln: Bei welchem neuen Status wird wie viel Prozent erstattet?
+    -- Gilt nur wenn der Antrag bereits bezahlt wurde (zahlung_status = 'bezahlt').
+    -- prozent: 0–100 (100 = vollständige Rückerstattung).
+    regeln = {
+      { status = "rejected",  prozent = 100 },
+      { status = "withdrawn", prozent = 50  },
+    },
+  },
+
+  -- Gebührenbefreiungen (PR4): Befreiung nach Rolle, Kategorie oder Formular.
+  Befreiungen = {
+    -- Befreiungen aktivieren (false = keine Befreiungen möglich).
+    aktiv = false,
+    -- Rollen (Job-Namen), die generell von Gebühren befreit sind.
+    rollen = {},
+    -- Kategorie-IDs, bei denen keine Gebühren erhoben werden.
+    kategorien = {},
+    -- Formular-IDs, bei denen keine Gebühren erhoben werden.
+    formulare = {},
+  },
 }
 
 -- =============================================================

@@ -572,8 +572,9 @@ function schemaRendern(schema) {
   formularTitel.textContent = formular.titel || "Formular";
   formularBeschreibung.textContent = formular.beschreibung || "";
 
-  // Gebühren-Hinweis anzeigen (PR14)
+  // Gebühren-Hinweis anzeigen (PR4/PR14)
   const feeEur = formular.fee_eur || 0;
+  const zahlungModus = formular.zahlung_modus || "bei_entscheidung";
   let gebuehrHinweis = document.getElementById("gebuehrHinweis");
   if (!gebuehrHinweis) {
     gebuehrHinweis = document.createElement("div");
@@ -583,9 +584,12 @@ function schemaRendern(schema) {
   }
   if (feeEur > 0) {
     const feeInt = parseInt(feeEur, 10) || 0;
+    const modusText = zahlungModus === "bei_einreichung"
+      ? "Die Geb\u00fchr wird sofort bei Einreichung von Ihrem Bankkonto abgebucht."
+      : "Die Geb\u00fchr wird nach Bearbeitung Ihres Antrags von Ihrem Bankkonto abgebucht.";
     gebuehrHinweis.innerHTML =
       `<span class="badge badge-warn">Geb\u00fchr: ${feeInt} \u20ac</span> ` +
-      `<span class="muted">Die Geb\u00fchr wird nach Bearbeitung Ihres Antrags von Ihrem Bankkonto abgebucht.</span>`;
+      `<span class="muted">${modusText}</span>`;
     gebuehrHinweis.style.display = "block";
   } else {
     gebuehrHinweis.style.display = "none";
@@ -2648,7 +2652,9 @@ window.addEventListener("message", (event) => {
       return fehlerAnzeigen(payload.fehler?.nachricht || "Einreichen fehlgeschlagen.");
     }
     let statusHtml = `<span class="status-ok">Erfolgreich eingereicht:</span> ${escapeHtml(payload.antrag?.public_id || "")}`;
-    if (payload.antrag?.zahlung_hinweis) {
+    if (payload.antrag?.befreit) {
+      statusHtml += `<div class="zahlung-hinweis befreiung-aktiv" role="note" aria-label="Geb\u00fchrenbefreiung"><span class="badge badge-ok">Geb\u00fchrenbefreiung aktiv</span> F\u00fcr diesen Antrag werden keine Geb\u00fchren erhoben.</div>`;
+    } else if (payload.antrag?.zahlung_hinweis) {
       statusHtml += `<div class="zahlung-hinweis muted" role="note" aria-label="Zahlungshinweis">${escapeHtml(payload.antrag.zahlung_hinweis)}</div>`;
     }
     einreichenStatus.innerHTML = statusHtml;

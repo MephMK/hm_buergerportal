@@ -179,7 +179,20 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten, de
   if feeEur == 0 and fConfig and fConfig.gebuehren and fConfig.gebuehren.aktiv then
     feeEur = math.max(0, math.floor(tonumber(fConfig.gebuehren.betrag) or 0))
   end
-  -- Zahlungsstatus: bei Gebühr > 0 → unbezahlt (Zahlung nach Bearbeitung)
+
+  -- Gebührenbefreiung prüfen (PR4)
+  local befreit = false
+  local originalFeeEur = feeEur
+  if feeEur > 0 and HM_BP.Server.Dienste.PaymentService then
+    befreit = HM_BP.Server.Dienste.PaymentService.BefreiungPruefen(spieler, {
+      category_id = fConfig.kategorieId,
+      form_id     = formularId,
+    })
+    if befreit then feeEur = 0 end
+  end
+
+  -- Zahlungsmodus: "bei_einreichung" → sofort abbuchen; "bei_entscheidung" → unbezahlt bis Terminal
+  local zahlungModus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung"
   local zahlungStatus = feeEur > 0 and "unbezahlt" or "bezahlt"
 
   local flags = {
@@ -313,6 +326,7 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten, de
       zahlung_status  = zahlungStatus,
       delegation_typ  = delegationType,
       buerger_name    = citizenName,
+      befreit         = befreit,
     })
   })
 
@@ -321,6 +335,97 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten, de
     pcall(function()
       HM_BP.Server.Dienste.WorkflowService.SlaInitialisieren(antragId, fConfig.kategorieId)
     end)
+  end
+
+  -- Gebührenbefreiung: Ledger-Eintrag (PR4, Modus "bei_entscheidung" und Befreiung greift)
+  -- Bei Modus "bei_einreichung" wird das Ledger innerhalb von GebuehrAbbuchen beschrieben.
+  if befreit and originalFeeEur > 0 and zahlungModus ~= "bei_einreichung"
+    and HM_BP.Server.Dienste.LedgerService then
+    local formTitel = schema.formular and schema.formular.titel or formularId
+    pcall(function()
+      HM_BP.Server.Dienste.LedgerService.Eintragen({
+        antrag_id          = antragId,
+        public_id          = publicId,
+        citizen_identifier = citizenIdentifier,
+        actor_name         = spieler.name,
+        typ                = "exempt",
+        betrag_eur         = originalFeeEur,
+        status             = "success",
+        metadata           = { form_id = formularId, formular_titel = formTitel, modus = zahlungModus },
+      })
+    end)
+    if HM_BP.Server.Dienste.WebhookService then
+      pcall(function()
+        HM_BP.Server.Dienste.WebhookService.Emit("antrag_payment_befreit", {
+          public_id      = publicId,
+          spieler_name   = spieler.name,
+          citizen_name   = citizenName,
+          betrag_eur     = originalFeeEur,
+          formular_titel = formTitel,
+          form_id        = formularId,
+          zeitpunkt      = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+        })
+      end)
+    end
+    if HM_BP.Server.Dienste.AuditService then
+      pcall(function()
+        HM_BP.Server.Dienste.AuditService.Log(
+          "zahlung.befreit",
+          spieler,
+          "submission",
+          tostring(antragId),
+          { betrag_eur = originalFeeEur, public_id = publicId, form_id = formularId, formular_titel = formTitel },
+          { actor_source = "antrag_service" }
+        )
+      end)
+    end
+  end
+
+  -- Zahlung bei Einreichung (PR4: Modus "bei_einreichung")
+  local zahlung_bei_einreichung_ergebnis = nil
+  if zahlungModus == "bei_einreichung" and feeEur > 0 and HM_BP.Server.Dienste.PaymentService then
+    local formTitel = schema.formular and schema.formular.titel or formularId
+    local payResult = HM_BP.Server.Dienste.PaymentService.GebuehrAbbuchen(
+      spieler,
+      feeEur,
+      {
+        antrag_id      = antragId,
+        public_id      = publicId,
+        form_id        = formularId,
+        formular_titel = formTitel,
+        citizen_name   = citizenName,
+        spieler_name   = spieler.name,
+        category_id    = fConfig.kategorieId,
+      }
+    )
+    zahlung_bei_einreichung_ergebnis = payResult
+    if payResult and (payResult.abgezogen or payResult.befreit) then
+      zahlungStatus = "bezahlt"
+      HM_BP.Server.Datenbank.Ausfuehren(
+        "UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt', charged_at = UTC_TIMESTAMP() WHERE id = ?",
+        { antragId })
+    elseif payResult and not payResult.ok then
+      zahlungStatus = "fehlgeschlagen"
+      HM_BP.Server.Datenbank.Ausfuehren(
+        "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
+        { antragId })
+    end
+  end
+
+  -- Zahlungshinweis für den Bürger (deutsch, PR4)
+  local zahlung_hinweis = nil
+  if befreit then
+    zahlung_hinweis = "Gebührenbefreiung aktiv – für diesen Antrag werden keine Gebühren erhoben."
+  elseif feeEur > 0 then
+    local origFeeEur = tonumber(schema.formular and schema.formular.fee_eur) or 0
+    if origFeeEur == 0 and fConfig and fConfig.gebuehren and fConfig.gebuehren.aktiv then
+      origFeeEur = math.max(0, math.floor(tonumber(fConfig.gebuehren.betrag) or 0))
+    end
+    if zahlungModus == "bei_einreichung" then
+      zahlung_hinweis = ("Für diesen Antrag wird eine Gebühr von %d € erhoben. Die Zahlung erfolgt sofort bei Einreichung."):format(origFeeEur)
+    else
+      zahlung_hinweis = ("Für diesen Antrag wird eine Gebühr von %d € erhoben. Die Zahlung erfolgt nach Bearbeitung Ihres Antrags."):format(origFeeEur)
+    end
   end
 
   return {
@@ -333,10 +438,9 @@ function AntragService.Einreichen(spieler, standortId, formularId, antworten, de
     zahlung_status = zahlungStatus,
     delegation_typ = delegationType,
     buerger_name   = citizenName,
-    -- Hinweis für den Bürger (PR14: Zahlung nach Bearbeitung)
-    zahlung_hinweis = feeEur > 0
-      and ("Für diesen Antrag wird eine Gebühr von %d € erhoben. Die Zahlung erfolgt nach Bearbeitung Ihres Antrags."):format(feeEur)
-      or nil,
+    befreit        = befreit,
+    zahlung_hinweis = zahlung_hinweis,
+    zahlung_modus  = zahlungModus,
   }, nil
 end
 

@@ -517,4 +517,29 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_vm_aktiv (aktiv)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
+
+  -- v17: PR4 – Zahlungs-Ledger (Gebühren v2)
+  -- Jede Zahlung, Rückerstattung und Befreiung wird hier protokolliert.
+  -- typ:    'debit' | 'credit' | 'refund' | 'exempt'
+  -- status: 'success' | 'failed'
+  migrationAnwenden("v17_zahlungs_ledger", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_zahlungs_ledger (
+      id                  BIGINT NOT NULL AUTO_INCREMENT,
+      antrag_id           BIGINT NOT NULL,
+      public_id           VARCHAR(64) NOT NULL,
+      citizen_identifier  VARCHAR(128) NOT NULL,
+      actor_name          VARCHAR(128) NOT NULL DEFAULT '',
+      typ                 VARCHAR(16) NOT NULL COMMENT 'debit|credit|refund|exempt',
+      betrag_eur          INT NOT NULL DEFAULT 0,
+      status              VARCHAR(16) NOT NULL DEFAULT 'success' COMMENT 'success|failed',
+      metadata            JSON NULL,
+      created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      INDEX idx_ledger_antrag (antrag_id),
+      INDEX idx_ledger_citizen (citizen_identifier),
+      INDEX idx_ledger_typ (typ),
+      INDEX idx_ledger_created (created_at),
+      CONSTRAINT fk_ledger_submission FOREIGN KEY (antrag_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 end
