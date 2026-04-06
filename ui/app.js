@@ -4175,7 +4175,7 @@ function adminPermissionsAnzeigen(daten) {
   const katalogHinweis = document.createElement("div");
   katalogHinweis.className = "muted";
   katalogHinweis.style.cssText = "font-size:0.82em; margin-bottom:8px;";
-  katalogHinweis.textContent = "Die deutschen Bezeichnungen werden im Tab Job-Einstellungen angezeigt. Bearbeitung \u00fcber den Erweitert-Modus (JSON-Editor) unter dem Schl\u00fcssel \"Katalog\".";
+  katalogHinweis.textContent = "Die deutschen Bezeichnungen werden im Tab Job-Einstellungen angezeigt. Bearbeitung über den Erweitert-Modus (JSON-Editor) unter dem Schlüssel \"Katalog\".";
   katalogSection.appendChild(katalogHinweis);
 
   if (katalogKeys.length === 0) {
@@ -4691,7 +4691,7 @@ function jobSettingsPermAnzeigen(jobName, gradeNum) {
     else if (statusKlasse === "js-inherited-allow") { btn.style.background = "rgba(255,255,255,0.04)"; btn.style.opacity = "0.75"; }
     else                                       { btn.style.background = "transparent";           btn.style.opacity = "0.5"; }
 
-    btn.innerHTML = `<span style="font-weight:700; min-width:16px; text-align:center;">${statusIcon}</span> <span style="color:#fff;">${escapeHtml(permLabelDe(aktion))}</span>`;
+    btn.innerHTML = `<span style="font-weight:700; min-width:16px; text-align:center;">${statusIcon}</span> <span>${escapeHtml(permLabelDe(aktion))}</span>`;
 
     btn.addEventListener("click", () => {
       // Zustand zyklisch wechseln: inherit → override-allow → override-deny → inherit
