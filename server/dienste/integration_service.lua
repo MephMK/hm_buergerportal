@@ -173,7 +173,10 @@ local function aktionAusfuehren(aktion, antrag)
     if not HM_BP.Server.Dienste.WebhookService then
       return false, "WebhookService nicht verfügbar"
     end
-    local event = tostring(aktion.event or "integration_event")
+    local event = tostring(aktion.event or "")
+    if event == "" then
+      return false, "send_webhook_event: event fehlt"
+    end
     local ok, err = pcall(function()
       HM_BP.Server.Dienste.WebhookService.Emit(event, aktion.daten or {})
     end)

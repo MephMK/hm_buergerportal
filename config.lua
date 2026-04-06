@@ -1895,25 +1895,32 @@ Config.Integrationen = {
 -- In Config.Formulare.Liste["mein_formular"] das Feld "integrationen"
 -- mit den gewünschten Hooks und Aktionen befüllen.
 --
+-- Hinweis zu send_webhook_event:
+--   Das Feld "event" ist Pflicht. Das angegebene Event wird per WebhookService.Emit gesendet.
+--   Für das URL-Routing gelten die normalen Regeln aus Config.Webhooks.Routing.
+--   Integration-Fehler-Events (integration_failed) nutzen automatisch Config.Webhooks.Urls["integrationen"].
+--   Eigene Events benötigen einen passenden Eintrag in Config.Webhooks.Routing.NachEvent
+--   oder Config.Webhooks.Routing.Fallback, damit sie zugestellt werden.
+--
 -- Beispiel (nicht aktiv – nur zur Dokumentation):
 --
 -- Config.Formulare.Liste["general_request"].integrationen = {
 --   on_approve = {
 --     {
 --       typ   = "send_webhook_event",
---       event = "antrag_status_changed",
+--       event = "antrag_status_changed",   -- muss in Routing.NachEvent oder Routing.Fallback liegen
 --       daten = { text = "Antrag wurde genehmigt." },
 --     },
 --     {
 --       typ        = "set_db_flag",
---       schluessel = "vorgang_abgeschlossen",
+--       schluessel = "vorgang_abgeschlossen",    -- muss in ErlaubteDBFlags stehen
 --       wert       = "1",
 --     },
 --   },
 --   on_reject = {
 --     {
 --       typ   = "emit_server_event",
---       event = "mein_script:antrag_abgelehnt",
+--       event = "mein_script:antrag_abgelehnt",  -- muss in ErlaubteServerEvents stehen
 --       daten = { grund = "Anforderungen nicht erfüllt" },
 --     },
 --   },
