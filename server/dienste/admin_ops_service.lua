@@ -377,8 +377,8 @@ function AdminOpsService.ImAuftragErstellen(spieler, zielIngameName, formularId,
   local zielSource = nil
   local sucheNach  = trim(zielIngameName):lower()
 
-  local ok, players = pcall(GetPlayers)
-  if not ok or not players then
+  local players = GetPlayers()
+  if not players then
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.INTERNER_FEHLER, nachricht = "Spielerliste konnte nicht abgerufen werden." }
   end
 

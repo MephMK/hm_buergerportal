@@ -296,10 +296,26 @@ function AntiSpamService.AbuseWebhookSenden(grund, spieler, extra)
     text        = tostring(grund or ""),
   }
 
+  -- Bekannte Identifier-Schlüssel und FiveM-Identifier-Muster herausfiltern
+  local idSchluessel = {
+    identifier = true, citizen_identifier = true, actor_identifier = true,
+    assigned_to_identifier = true, erteilt_von_identifier = true,
+  }
+  -- Muster für FiveM-Identifier-Werte (license:, steam:, discord:, usw.)
+  local function istIdentifier(v)
+    if type(v) ~= "string" then return false end
+    return v:match("^license:[a-f0-9]+$")
+        or v:match("^steam:[a-f0-9]+$")
+        or v:match("^discord:%d+$")
+        or v:match("^xbl:%d+$")
+        or v:match("^live:%d+$")
+        or v:match("^fivem:%d+$")
+        or v:match("^ip:%d+%.%d+%.%d+%.%d+$")
+  end
+
   if type(extra) == "table" then
     for k, v in pairs(extra) do
-      -- Niemals Identifier weitergeben
-      if k ~= "identifier" and k ~= "citizen_identifier" and k ~= "actor_identifier" then
+      if not idSchluessel[k] and not istIdentifier(v) then
         daten[k] = v
       end
     end
