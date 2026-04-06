@@ -118,6 +118,13 @@ RegisterNUICallback("hm_bp:antrag_nachreichen", function(daten, cb)
   cb({ ok = true })
 end)
 
+-- PR6: Bürger-Suche (eigene Anträge mit Filtern suchen)
+RegisterNUICallback("hm_bp:buerger_suchen", function(daten, cb)
+  daten = daten or {}
+  TriggerServerEvent("hm_bp:antraege:suchen", daten)
+  cb({ ok = true })
+end)
+
 -- Justiz
 RegisterNUICallback("hm_bp:justiz_kategorien_laden", function(_, cb)
   TriggerServerEvent("hm_bp:justiz:kategorien_anfordern")
@@ -356,6 +363,8 @@ RegisterNetEvent("hm_bp:formulare:liste_antwort", function(payload) sende("hm_bp
 RegisterNetEvent("hm_bp:formular:schema_antwort", function(payload) sende("hm_bp:formular:schema_antwort", payload) end)
 RegisterNetEvent("hm_bp:antrag:einreichen_antwort", function(payload) sende("hm_bp:antrag:einreichen_antwort", payload) end)
 RegisterNetEvent("hm_bp:antraege:meine_antwort", function(payload) sende("hm_bp:antraege:meine_antwort", payload) end)
+-- PR6: Bürger-Suche Antwort
+RegisterNetEvent("hm_bp:antraege:suchen_antwort", function(payload) sende("hm_bp:antraege:suchen_antwort", payload) end)
 
 -- NEU: Bürger Details + Antwort + Nachreichen Ack
 RegisterNetEvent("hm_bp:antrag:details_mein_antwort", function(payload) sende("hm_bp:antrag:details_mein_antwort", payload) end)

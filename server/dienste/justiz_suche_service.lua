@@ -22,7 +22,7 @@ end
 
 local function normalizeLike(s)
   s = tostring(s or "")
-  -- LIKE-Wildcards entfernen (Missbrauch/Performance)
+  -- LIKE-Wildcards und Sonderzeichen entfernen (Missbrauch/Performance-Schutz)
   s = s:gsub("%%", ""):gsub("_", "")
   s = s:gsub("^%s+", ""):gsub("%s+$", "")
   local maxLen = (Config.Suche and Config.Suche.MaxSuchtextLaenge) or 64
@@ -34,8 +34,9 @@ local function validateSort(sortBy, sortDir)
   local erlaubt = {
     created_at = true,
     updated_at = true,
-    priority = true,
-    status = true
+    priority   = true,
+    status     = true,
+    sla_due_at = true,
   }
 
   sortBy = tostring(sortBy or "updated_at")
@@ -112,21 +113,22 @@ end
 -- JustizSucheService.Suchen
 -- ----------------------------------------------------------------
 -- payload-Felder:
---   kategorieId  (string, Pflicht)
---   queue        (string: eingang|zugewiesen|alle|archiv)
---   query        (string: Bürgername LIKE-Suche, min 2 Zeichen)
---   status       (string oder table: ein oder mehrere Status-IDs)
---   prio         (string)
---   dateFrom     (YYYY-MM-DD)
---   dateTo       (YYYY-MM-DD)
---   sortBy       (created_at|updated_at|priority|status)
---   sortDir      (ASC|DESC)
---   page         (number, min 1)
---   perPage      (number, 1–MaxProSeite aus Config.Suche)
---   bearbeiter   ("" = alle | "unbearbeitet" = kein Bearbeiter |
---                 "zugewiesen" = hat Bearbeiter | sonstiger Text = Name LIKE)
---   eskaliert    (boolean/truthy)
---   ueberfaellig (boolean/truthy)
+--   kategorieId    (string, Pflicht)
+--   queue          (string: eingang|zugewiesen|alle|archiv)
+--   query          (string: citizen_name ODER public_id ODER form_id LIKE-Suche, min 2 Zeichen)
+--   status         (string oder table: ein oder mehrere Status-IDs)
+--   prio           (string)
+--   dateFrom       (YYYY-MM-DD)
+--   dateTo         (YYYY-MM-DD)
+--   sortBy         (created_at|updated_at|priority|status|sla_due_at)
+--   sortDir        (ASC|DESC)
+--   page           (number, min 1)
+--   perPage        (number, 1–MaxProSeite aus Config.Suche)
+--   bearbeiter     ("" = alle | "unbearbeitet" = kein Bearbeiter |
+--                   "zugewiesen" = hat Bearbeiter | sonstiger Text = Name LIKE)
+--   eskaliert      (boolean/truthy)
+--   ueberfaellig   (boolean/truthy)
+--   zahlungStatus  (string: "bezahlt"|"unbezahlt"|"befreit"|"" = alle)
 -- ----------------------------------------------------------------
 function JustizSucheService.Suchen(spieler, payload)
   payload = payload or {}
@@ -196,7 +198,7 @@ function JustizSucheService.Suchen(spieler, payload)
     return nil, { code = HM_BP.Gemeinsam.Fehlercodes.UNGUELTIGE_DATEN, nachricht = "Ungültige Priorität." }
   end
 
-  -- Suche: NUR Bürgername (citizen_name) via LIKE
+  -- Suche: citizen_name ODER public_id ODER form_id via LIKE
   local suchText = nil
   if not istLeer(payload.query) then
     local q = normalizeLike(payload.query)
@@ -221,6 +223,15 @@ function JustizSucheService.Suchen(spieler, payload)
   -- Flags
   local nurEskaliert    = payload.eskaliert == true or payload.eskaliert == "true"
   local nurUeberfaellig = payload.ueberfaellig == true or payload.ueberfaellig == "true"
+
+  -- Zahlungsstatus-Filter
+  local zahlungStatusFilter = nil
+  if not istLeer(payload.zahlungStatus) then
+    local zs = tostring(payload.zahlungStatus)
+    if zs == "bezahlt" or zs == "unbezahlt" or zs == "befreit" then
+      zahlungStatusFilter = zs
+    end
+  end
 
   -- ----------------------------------------------------------------
   -- WHERE-Klausel aufbauen
@@ -262,10 +273,13 @@ function JustizSucheService.Suchen(spieler, payload)
     table.insert(params, dateTo)
   end
 
-  -- Suche: NUR citizen_name via LIKE
+  -- Suche: citizen_name ODER public_id ODER form_id via LIKE
   if suchText then
-    table.insert(whereParts, "citizen_name LIKE ?")
-    table.insert(params, "%" .. suchText .. "%")
+    local likeTerm = "%" .. suchText .. "%"
+    table.insert(whereParts, "(citizen_name LIKE ? OR public_id LIKE ? OR form_id LIKE ?)")
+    table.insert(params, likeTerm)
+    table.insert(params, likeTerm)
+    table.insert(params, likeTerm)
   end
 
   -- Bearbeiter-Filter
@@ -287,6 +301,21 @@ function JustizSucheService.Suchen(spieler, payload)
     table.insert(whereParts, "sla_due_at IS NOT NULL AND sla_due_at < NOW()")
   end
 
+  -- Zahlungsstatus-Filter
+  if zahlungStatusFilter then
+    table.insert(whereParts, "zahlung_status = ?")
+    table.insert(params, zahlungStatusFilter)
+  end
+
+  -- Formular-ID-Filter (exakter Match, wenn gesetzt)
+  if not istLeer(payload.formularId) then
+    local fid = tostring(payload.formularId):gsub("^%s+", ""):gsub("%s+$", "")
+    if fid ~= "" then
+      table.insert(whereParts, "form_id = ?")
+      table.insert(params, fid)
+    end
+  end
+
   -- ----------------------------------------------------------------
   -- SQL ausführen
   -- ----------------------------------------------------------------
@@ -297,6 +326,7 @@ function JustizSucheService.Suchen(spieler, payload)
   if sortBy == "updated_at" then sortSql = "updated_at" end
   if sortBy == "priority"   then sortSql = "priority" end
   if sortBy == "status"     then sortSql = "status" end
+  if sortBy == "sla_due_at" then sortSql = "sla_due_at" end
 
   -- queryParams = params + LIMIT + OFFSET (nur für SELECT benötigt).
   -- params bleibt unverändert und wird für das COUNT-Query wiederverwendet.

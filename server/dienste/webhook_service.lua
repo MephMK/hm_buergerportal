@@ -61,6 +61,22 @@ local function resolveWebhookUrl(eventName, data)
       local intUrl = c.Urls["integrationen"]
       if intUrl and intUrl ~= "" then return intUrl end
     end
+
+    -- Missbrauchsschutz-Events: nutzen den "missbrauch"-Webhook
+    if eventName == "abuse_triggered" then
+      local abuseUrl = c.Urls["missbrauch"]
+      if abuseUrl and abuseUrl ~= "" then return abuseUrl end
+    end
+
+    -- Admin-Ops-Events: nutzen den gemeinsamen "admin_ops"-Webhook (PR6)
+    if eventName == "antrag_hartgeloescht"
+    or eventName == "admin_status_override"
+    or eventName == "antrag_verschoben"
+    or eventName == "antrag_wiederhergestellt"
+    or eventName == "antrag_im_auftrag_erstellt" then
+      local adminOpsUrl = c.Urls["admin_ops"]
+      if adminOpsUrl and adminOpsUrl ~= "" then return adminOpsUrl end
+    end
   end
 
   local routing = c.Routing or {}
@@ -116,6 +132,14 @@ local EVENT_META = {
   antrag_payment_befreit     = { farbe = 0x6FCF97, titel = "✅ Gebührenbefreiung"                  },
   integration_failed         = { farbe = 0xFF0000, titel = "⚠️ Folgeaktion fehlgeschlagen"         },
   integration_succeeded      = { farbe = 0x27AE60, titel = "✅ Folgeaktion erfolgreich"             },
+  -- PR6: Admin-Ops- und Missbrauchsschutz-Events
+  antrag_verschoben          = { farbe = 0xF2994A, titel = "📁 Antrag verschoben"                   },
+  antrag_wiederhergestellt   = { farbe = 0x6FCF97, titel = "♻️ Antrag wiederhergestellt"            },
+  antrag_hartgeloescht       = { farbe = 0xEB5757, titel = "🗑️ Antrag endgültig gelöscht"           },
+  admin_status_override      = { farbe = 0xEB5757, titel = "🛡️ Status manuell überschrieben"        },
+  antrag_im_auftrag_erstellt = { farbe = 0x2D9CDB, titel = "📋 Antrag im Auftrag erstellt"          },
+  abuse_triggered            = { farbe = 0xFF6B00, titel = "🚨 Missbrauchsschutz ausgelöst"         },
+  admin_hard_delete          = { farbe = 0xEB5757, titel = "💥 Admin: Antrag gelöscht"              },
 }
 
 local function embedColorForEvent(eventName)
@@ -298,6 +322,28 @@ local function arbeiteQueue()
               avatar_url = identCfg.AvatarUrl,
               embeds     = { embed }
             }
+
+            -- Discord-Pings: @-Mention bei kritischen Events (optional, standardmäßig OFF)
+            local pingCfg = c.Pings
+            if pingCfg and pingCfg.Aktiviert == true and pingCfg.RolleId then
+              local sollPingen = false
+              local nurFuer = pingCfg.NurFuerEvents
+              if type(nurFuer) == "table" and #nurFuer > 0 then
+                for _, ev in ipairs(nurFuer) do
+                  if ev == eventName then
+                    sollPingen = true
+                    break
+                  end
+                end
+              else
+                -- Leere Liste = alle Events wenn Aktiviert=true
+                sollPingen = true
+              end
+              if sollPingen then
+                msg.content = "<@&" .. tostring(pingCfg.RolleId) .. ">"
+              end
+            end
+
             local payload = json.encode(msg)
 
             httpPost(url, payload, function(code, body, headers)

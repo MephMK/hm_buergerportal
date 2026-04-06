@@ -460,4 +460,135 @@ function AntragService.MeineAntraegeAuflisten(spieler, limit)
   return rows or {}
 end
 
+-- ----------------------------------------------------------------
+-- AntragService.MeineSucheAusfuehren
+-- Bürger kann eigene Anträge gefiltert/paginiert suchen.
+-- Sieht nur eigene Einträge (WHERE citizen_identifier = ?).
+-- ----------------------------------------------------------------
+-- payload-Felder:
+--   query      (string: public_id LIKE ODER form_id LIKE, min 2 Zeichen)
+--   status     (string oder table)
+--   formular_id (string)
+--   dateFrom   (YYYY-MM-DD)
+--   dateTo     (YYYY-MM-DD)
+--   sortBy     (created_at|updated_at)
+--   sortDir    (ASC|DESC)
+--   page       (number, min 1)
+--   perPage    (number, max 100)
+-- ----------------------------------------------------------------
+function AntragService.MeineSucheAusfuehren(spieler, payload)
+  payload = payload or {}
+
+  if Config.Suche and Config.Suche.Aktiviert == false then
+    return nil, { code = HM_BP.Gemeinsam.Fehlercodes.KEINE_BERECHTIGUNG, nachricht = "Suche ist deaktiviert." }
+  end
+
+  local cfgStd = (Config.Suche and Config.Suche.StandardProSeite) or 25
+  local cfgMax = (Config.Suche and Config.Suche.MaxProSeite)      or 100
+
+  local function clampN(n, mn, mx)
+    n = tonumber(n)
+    if not n then return mn end
+    if n < mn then return mn end
+    if n > mx then return mx end
+    return n
+  end
+
+  local perPage = clampN(payload.perPage or cfgStd, 1, cfgMax)
+  local page    = clampN(payload.page or 1, 1, 10000)
+  local offset  = (page - 1) * perPage
+
+  -- Sortierung (nur eigene Anträge: created_at/updated_at)
+  local sortBy  = tostring(payload.sortBy or "created_at")
+  if sortBy ~= "created_at" and sortBy ~= "updated_at" then sortBy = "created_at" end
+  local sortDir = tostring(payload.sortDir or "DESC"):upper()
+  if sortDir ~= "ASC" and sortDir ~= "DESC" then sortDir = "DESC" end
+
+  -- WHERE aufbauen – Bürger sieht NUR eigene nicht-gelöschten Anträge
+  local whereParts = { "citizen_identifier = ?", "deleted_at IS NULL" }
+  local params     = { spieler.identifier }
+
+  -- Status-Filter
+  if payload.status and tostring(payload.status) ~= "" then
+    if type(payload.status) == "table" then
+      local platzhalter = {}
+      for _, s in ipairs(payload.status) do
+        if s and tostring(s) ~= "" then
+          table.insert(platzhalter, "?")
+          table.insert(params, tostring(s))
+        end
+      end
+      if #platzhalter > 0 then
+        table.insert(whereParts, "status IN (" .. table.concat(platzhalter, ",") .. ")")
+      end
+    else
+      table.insert(whereParts, "status = ?")
+      table.insert(params, tostring(payload.status))
+    end
+  end
+
+  -- Formular-Filter
+  if payload.formular_id and tostring(payload.formular_id) ~= "" then
+    table.insert(whereParts, "form_id = ?")
+    table.insert(params, tostring(payload.formular_id))
+  end
+
+  -- Zeitraum (created_at)
+  if payload.dateFrom and tostring(payload.dateFrom):match("^%d%d%d%d%-%d%d%-%d%d$") then
+    table.insert(whereParts, "DATE(created_at) >= ?")
+    table.insert(params, payload.dateFrom)
+  end
+  if payload.dateTo and tostring(payload.dateTo):match("^%d%d%d%d%-%d%d%-%d%d$") then
+    table.insert(whereParts, "DATE(created_at) <= ?")
+    table.insert(params, payload.dateTo)
+  end
+
+  -- Freitextsuche (public_id | form_id)
+  if payload.query and tostring(payload.query):gsub("%s+", "") ~= "" then
+    local maxLen = (Config.Suche and Config.Suche.MaxSuchtextLaenge) or 64
+    local q = tostring(payload.query):gsub("%%", ""):gsub("_", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if #q > maxLen then q = q:sub(1, maxLen) end
+    if #q >= 2 then
+      local likeTerm = "%" .. q .. "%"
+      table.insert(whereParts, "(public_id LIKE ? OR form_id LIKE ?)")
+      table.insert(params, likeTerm)
+      table.insert(params, likeTerm)
+    end
+  end
+
+  local whereSql = table.concat(whereParts, " AND ")
+
+  local queryParams = {}
+  for _, v in ipairs(params) do table.insert(queryParams, v) end
+  table.insert(queryParams, perPage)
+  table.insert(queryParams, offset)
+
+  local rows = HM_BP.Server.Datenbank.Alle(([[
+    SELECT id, public_id, category_id, form_id, status, priority,
+           created_at, updated_at, archived_at, zahlung_status
+    FROM hm_bp_submissions
+    WHERE %s
+    ORDER BY %s %s
+    LIMIT ? OFFSET ?
+  ]]):format(whereSql, sortBy, sortDir), queryParams)
+
+  local total = HM_BP.Server.Datenbank.Skalar(
+    ("SELECT COUNT(*) FROM hm_bp_submissions WHERE %s"):format(whereSql),
+    params
+  ) or 0
+  total = tonumber(total) or 0
+
+  local gesamtSeiten = math.max(1, math.ceil(total / perPage))
+
+  return {
+    liste        = rows or {},
+    total        = total,
+    page         = page,
+    perPage      = perPage,
+    gesamtSeiten = gesamtSeiten,
+    sortBy       = sortBy,
+    sortDir      = sortDir,
+  }, nil
+end
+
 HM_BP.Server.Dienste.AntragService = AntragService
