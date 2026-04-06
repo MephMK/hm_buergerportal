@@ -3504,6 +3504,7 @@ let jobSettingsDaten          = {};  // aktuell geladene JobSettings (effektiv)
 let jobSettingsBasis          = {};  // Basis-Defaults (vor Overrides)
 let jobSettingsAktionen       = [];  // kanonische Aktionsschlüssel
 let jobSettingsRollenDefaults = {};  // globale Defaults pro Rolle
+let jobSettingsPermKatalog    = {};  // Katalog: permission key → { label_de, group_de }
 let jobSettingsAktivJob       = null;
 let jobSettingsAktivGrade     = null;
 
@@ -4158,6 +4159,70 @@ function adminPermissionsAnzeigen(daten) {
     adminCrudListe.appendChild(card);
   }
 
+  // -- Katalog-Abschnitt: Deutsche Bezeichnungen je Permission-Key --
+  const katalog = daten.Katalog || {};
+  const katalogKeys = Object.keys(katalog).sort();
+
+  const katalogSection = document.createElement("div");
+  katalogSection.style.cssText = "margin-top:18px;";
+
+  const katalogTitel = document.createElement("div");
+  katalogTitel.className = "admin-crud-item-name";
+  katalogTitel.style.cssText = "font-size:1em; margin-bottom:6px;";
+  katalogTitel.textContent = "Katalog – Deutsche Bezeichnungen";
+  katalogSection.appendChild(katalogTitel);
+
+  const katalogHinweis = document.createElement("div");
+  katalogHinweis.className = "muted";
+  katalogHinweis.style.cssText = "font-size:0.82em; margin-bottom:8px;";
+  katalogHinweis.textContent = "Die deutschen Bezeichnungen werden im Tab Job-Einstellungen angezeigt. Bearbeitung über den Erweitert-Modus (JSON-Editor) unter dem Schlüssel \"Katalog\".";
+  katalogSection.appendChild(katalogHinweis);
+
+  if (katalogKeys.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "Kein Katalog konfiguriert.";
+    katalogSection.appendChild(empty);
+  } else {
+    // Gruppiere Keys nach group_de
+    const gruppen = {};
+    for (const key of katalogKeys) {
+      const eintrag = katalog[key] || {};
+      const gruppe = eintrag.group_de || "Sonstige";
+      if (!gruppen[gruppe]) gruppen[gruppe] = [];
+      gruppen[gruppe].push({ key, eintrag });
+    }
+    const gruppenNamen = Object.keys(gruppen).sort();
+    for (const gruppenName of gruppenNamen) {
+      const gruppeDiv = document.createElement("div");
+      gruppeDiv.style.cssText = "margin-bottom:10px;";
+
+      const gruppeHeader = document.createElement("div");
+      gruppeHeader.style.cssText = "font-size:0.8em; font-weight:700; color:var(--muted,#888); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;";
+      gruppeHeader.textContent = gruppenName;
+      gruppeDiv.appendChild(gruppeHeader);
+
+      const gruppeGrid = document.createElement("div");
+      gruppeGrid.style.cssText = "display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:4px;";
+      for (const { key, eintrag } of gruppen[gruppenName]) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:baseline; gap:6px; padding:3px 6px; background:rgba(255,255,255,0.04); border-radius:4px; font-size:0.82em;";
+        const labelSpan = document.createElement("span");
+        labelSpan.style.cssText = "color:#fff; font-weight:600; flex:1;";
+        labelSpan.textContent = eintrag.label_de || key.replace(/\./g, " ");
+        const keySpan = document.createElement("span");
+        keySpan.style.cssText = "color:var(--muted,#888); font-size:0.9em; flex-shrink:0;";
+        keySpan.textContent = key;
+        row.appendChild(labelSpan);
+        row.appendChild(keySpan);
+        gruppeGrid.appendChild(row);
+      }
+      gruppeDiv.appendChild(gruppeGrid);
+      katalogSection.appendChild(gruppeDiv);
+    }
+  }
+  adminCrudListe.appendChild(katalogSection);
+
   const hinweis = document.createElement("div");
   hinweis.className = "muted";
   hinweis.style.marginTop = "10px";
@@ -4465,6 +4530,7 @@ async function adminJobSettingsLaden() {
   jobSettingsBasis          = res.basis          || {};
   jobSettingsAktionen       = res.aktionen       || [];
   jobSettingsRollenDefaults = res.rollenDefaults || {};
+  jobSettingsPermKatalog    = res.permKatalog    || {};
   jobSettingsAktivJob       = null;
   jobSettingsAktivGrade     = null;
 
@@ -4544,6 +4610,15 @@ function jobSettingsGradeAuswaehlen(jobName, gradeNum) {
   jobSettingsPermAnzeigen(jobName, gradeNum);
 }
 
+// Gibt den deutschen Anzeigenamen für einen Permission-Key zurück.
+// Nutzt den Katalog (Admin-konfigurierbar) oder fällt auf den Key mit
+// Punkten als Leerzeichen zurück.
+function permLabelDe(aktion) {
+  const eintrag = jobSettingsPermKatalog[aktion];
+  if (eintrag && eintrag.label_de) return eintrag.label_de;
+  return String(aktion).replace(/\./g, " ");
+}
+
 function jobSettingsPermAnzeigen(jobName, gradeNum) {
   if (!jobSettingsPermGrid) return;
   jobSettingsPermGrid.innerHTML = "";
@@ -4606,16 +4681,17 @@ function jobSettingsPermAnzeigen(jobName, gradeNum) {
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.style.cssText = "display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:4px; border:1px solid transparent; cursor:pointer; font-size:0.82em; text-align:left;";
+    btn.style.cssText = "display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:4px; border:1px solid transparent; cursor:pointer; font-size:0.82em; text-align:left; color:#fff;";
     btn.dataset.aktion  = aktion;
     btn.dataset.status  = statusKlasse;
+    btn.title = aktion;
 
     if (statusKlasse === "js-allow")           { btn.style.background = "rgba(39,174,96,0.18)";  btn.style.borderColor = "#27ae60"; }
     else if (statusKlasse === "js-deny")       { btn.style.background = "rgba(235,87,87,0.18)";  btn.style.borderColor = "#eb5757"; }
     else if (statusKlasse === "js-inherited-allow") { btn.style.background = "rgba(255,255,255,0.04)"; btn.style.opacity = "0.75"; }
     else                                       { btn.style.background = "transparent";           btn.style.opacity = "0.5"; }
 
-    btn.innerHTML = `<span style="font-weight:700; min-width:16px; text-align:center;">${statusIcon}</span> ${escapeHtml(aktion)}`;
+    btn.innerHTML = `<span style="font-weight:700; min-width:16px; text-align:center;">${statusIcon}</span> <span>${escapeHtml(permLabelDe(aktion))}</span>`;
 
     btn.addEventListener("click", () => {
       // Zustand zyklisch wechseln: inherit → override-allow → override-deny → inherit

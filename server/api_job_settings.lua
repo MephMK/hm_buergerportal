@@ -74,6 +74,23 @@ local function aktionenListe()
   return liste
 end
 
+-- Gibt den Permission-Katalog (key → {label_de, group_de}) aus der effektiven Config zurück.
+local function permKatalogLaden()
+  local eff = cfgSvc() and cfgSvc().GetEffectiveConfig() or Config
+  local katalog = (eff.Permissions and eff.Permissions.Katalog) or {}
+  -- Kopie zurückgeben (flach genug, da nur string-Werte)
+  local result = {}
+  for k, v in pairs(katalog) do
+    if type(k) == "string" and type(v) == "table" then
+      result[k] = {
+        label_de = type(v.label_de) == "string" and v.label_de or nil,
+        group_de = type(v.group_de) == "string" and v.group_de or nil,
+      }
+    end
+  end
+  return result
+end
+
 -- Gibt den effektiven globalen Defaults-Eintrag (allow/deny) für eine Rolle zurück.
 local function rollenDefaultsLaden()
   local defaults = Config.Permissions and Config.Permissions.Defaults or {}
@@ -193,6 +210,7 @@ RegisterNetEvent("hm_bp:admin:job_settings_laden", function(payload)
     basis       = basis,
     aktionen    = aktionenListe(),
     rollenDefaults = rollenDefaultsLaden(),
+    permKatalog = permKatalogLaden(),
   })
 end)
 
