@@ -175,6 +175,18 @@ const formEditorMeta = document.getElementById("formEditorMeta");
 const formEditorBox = document.getElementById("formEditorBox");
 const formEditorKategorieSelect = document.getElementById("formEditorKategorieSelect");
 const formEditorFormListe = document.getElementById("formEditorFormListe");
+const formEditorQuelleSelect = document.getElementById("formEditorQuelleSelect");
+const formEditorDBSektion = document.getElementById("formEditorDBSektion");
+const formEditorConfigSektion = document.getElementById("formEditorConfigSektion");
+const formEditorConfigFormListe = document.getElementById("formEditorConfigFormListe");
+const formEditorConfigExportBereich = document.getElementById("formEditorConfigExportBereich");
+const formEditorConfigFormTitel = document.getElementById("formEditorConfigFormTitel");
+const btnFormEditorConfigExport = document.getElementById("btnFormEditorConfigExport");
+const formEditorConfigExportMeta = document.getElementById("formEditorConfigExportMeta");
+const formEditorConfigExportOutput = document.getElementById("formEditorConfigExportOutput");
+
+const justizBuergerAngabenSection = document.getElementById("justizBuergerAngabenSection");
+const justizBuergerAngaben = document.getElementById("justizBuergerAngaben");
 
 const formEditorNewId = document.getElementById("formEditorNewId");
 const formEditorNewTitel = document.getElementById("formEditorNewTitel");
@@ -212,6 +224,9 @@ const formEditorActionMeta = document.getElementById("formEditorActionMeta");
 let ausgewaehlteKategorieId = null;
 let ausgewaehltesFormularId = null;
 let aktuellesSchema = null;
+let formEditorQuelle = "db"; // "db" oder "config"
+let ausgewaehlteConfigFormularId = null; // für Config-Formular-Editor
+let aktuelleConfigFormularListe = []; // gecachte Config-Formulare für aktuelle Kategorie
 
 let justizKategorien = [];
 let ausgewaehlteJustizKategorieId = null;
@@ -1419,6 +1434,64 @@ function justizVerlaufRendern(timeline) {
   }
 }
 
+function justizBuergerAngabenRendern(payloadRaw) {
+  if (!justizBuergerAngabenSection || !justizBuergerAngaben) return;
+  justizBuergerAngaben.innerHTML = "";
+
+  if (!payloadRaw) {
+    justizBuergerAngabenSection.style.display = "none";
+    return;
+  }
+
+  let felder = [];
+  let antworten = {};
+
+  try {
+    felder = Array.isArray(payloadRaw.fields_snapshot)
+      ? payloadRaw.fields_snapshot
+      : JSON.parse(payloadRaw.fields_snapshot || "[]");
+  } catch(e) { felder = []; }
+
+  try {
+    antworten = (typeof payloadRaw.answers === "object" && payloadRaw.answers !== null)
+      ? payloadRaw.answers
+      : JSON.parse(payloadRaw.answers || "{}");
+  } catch(e) { antworten = {}; }
+
+  // Nur nicht-dekorative Felder zeigen (kein divider/heading/info ohne Antwort)
+  const DEKORATIV = new Set(["divider", "heading", "info"]);
+  const anzeigeFelder = felder.filter(f => !DEKORATIV.has(f.typ));
+
+  if (anzeigeFelder.length === 0) {
+    justizBuergerAngabenSection.style.display = "none";
+    return;
+  }
+
+  justizBuergerAngabenSection.style.display = "";
+
+  for (const f of anzeigeFelder) {
+    const key = f.key || f.id || "";
+    const label = f.label || key;
+    const wert = antworten[key];
+    let wertText = "";
+
+    if (wert === undefined || wert === null || wert === "") {
+      wertText = "–";
+    } else if (typeof wert === "boolean") {
+      wertText = wert ? "Ja" : "Nein";
+    } else if (Array.isArray(wert)) {
+      wertText = wert.join(", ");
+    } else {
+      wertText = String(wert);
+    }
+
+    const el = document.createElement("div");
+    el.style.cssText = "padding:6px 0; border-bottom:1px solid #eee;";
+    el.innerHTML = `<span style="font-weight:600; color:#555; font-size:11px;">${escapeHtml(label)}:</span> <span style="color:#222;">${escapeHtml(wertText)}</span>`;
+    justizBuergerAngaben.appendChild(el);
+  }
+}
+
 // ==========================
 // Justiz: Filter UI
 // ==========================
@@ -1847,6 +1920,53 @@ async function formEditorLoadFormList() {
   formEditorMeta.textContent = `Formulare: ${formEditorFormListeState.length}`;
 
   renderFormEditorFormList();
+}
+
+async function formEditorLoadConfigFormList() {
+  if (!formEditorConfigFormListe) return;
+  aktuelleConfigFormularListe = [];
+  listeLeeren(formEditorConfigFormListe);
+  if (!formEditorKategorieId) return;
+
+  formEditorMeta.textContent = "Config-Formulare werden geladen…";
+  const res = await nuiAufruf("hm_bp:form_editor_config_liste_laden", { kategorieId: formEditorKategorieId });
+  if (!res || res.ok !== true) {
+    formEditorMeta.textContent = "";
+    return fehlerAnzeigen(res?.fehler?.nachricht || "Config-Formularliste konnte nicht geladen werden.");
+  }
+
+  aktuelleConfigFormularListe = Array.isArray(res.liste) ? res.liste : [];
+  formEditorMeta.textContent = `Config-Formulare: ${aktuelleConfigFormularListe.length}`;
+  renderFormEditorConfigFormList();
+}
+
+function renderFormEditorConfigFormList() {
+  if (!formEditorConfigFormListe) return;
+  listeLeeren(formEditorConfigFormListe);
+
+  if (!aktuelleConfigFormularListe || aktuelleConfigFormularListe.length === 0) {
+    const m = document.createElement("div");
+    m.className = "muted";
+    m.textContent = "Keine Config-Formulare in dieser Kategorie.";
+    formEditorConfigFormListe.appendChild(m);
+    return;
+  }
+
+  for (const f of aktuelleConfigFormularListe) {
+    const item = document.createElement("div");
+    item.className = "liste-item" + (f.id === ausgewaehlteConfigFormularId ? " aktiv" : "");
+    item.style.cssText = "cursor:pointer; padding:6px 8px; border-bottom:1px solid #eee;";
+    item.innerHTML = `<strong>${escapeHtml(f.titel || f.id)}</strong> <span class="muted" style="font-size:11px;">(Config, ${f.feldAnzahl} Felder)</span>`;
+    item.addEventListener("click", () => {
+      ausgewaehlteConfigFormularId = f.id;
+      if (formEditorConfigFormTitel) formEditorConfigFormTitel.textContent = f.titel || f.id;
+      if (formEditorConfigExportBereich) formEditorConfigExportBereich.style.display = "";
+      if (formEditorConfigExportOutput) { formEditorConfigExportOutput.style.display = "none"; formEditorConfigExportOutput.value = ""; }
+      if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "";
+      renderFormEditorConfigFormList(); // re-render to highlight
+    });
+    formEditorConfigFormListe.appendChild(item);
+  }
 }
 
 function statusBadge(status) {
@@ -2581,6 +2701,37 @@ formEditorKategorieSelect.addEventListener("change", async () => {
   await formEditorLoadFormList();
 });
 
+if (formEditorQuelleSelect) {
+  formEditorQuelleSelect.addEventListener("change", async () => {
+    formEditorQuelle = formEditorQuelleSelect.value || "db";
+    if (formEditorDBSektion) formEditorDBSektion.style.display = formEditorQuelle === "db" ? "" : "none";
+    if (formEditorConfigSektion) formEditorConfigSektion.style.display = formEditorQuelle === "config" ? "" : "none";
+    if (formEditorConfigExportBereich) formEditorConfigExportBereich.style.display = "none";
+    ausgewaehlteConfigFormularId = null;
+    if (formEditorQuelle === "config") {
+      await formEditorLoadConfigFormList();
+    }
+  });
+}
+
+if (btnFormEditorConfigExport) {
+  btnFormEditorConfigExport.addEventListener("click", async () => {
+    fehlerVerstecken();
+    if (!ausgewaehlteConfigFormularId) return;
+    if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "Exportiere…";
+    const res = await nuiAufruf("hm_bp:form_editor_config_export", { formId: ausgewaehlteConfigFormularId });
+    if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "";
+    if (!res || res.ok !== true) {
+      return fehlerAnzeigen(res?.fehler?.nachricht || "Export fehlgeschlagen.");
+    }
+    if (formEditorConfigExportOutput) {
+      formEditorConfigExportOutput.style.display = "";
+      formEditorConfigExportOutput.value = JSON.stringify(res.daten, null, 2);
+    }
+    if (formEditorConfigExportMeta) formEditorConfigExportMeta.textContent = "Snippet generiert. Kopiere den JSON-Block und trage ihn in config.lua ein.";
+  });
+}
+
 btnFormEditorCreate.addEventListener("click", async () => {
   fehlerVerstecken();
   formEditorCreateMeta.textContent = "";
@@ -2924,6 +3075,9 @@ window.addEventListener("message", (event) => {
 
     justizStatusResult.textContent = "";
     justizVerlaufRendern(d.timeline || []);
+
+    // Bürger-Angaben (Formularfelder + Antworten) rendern
+    justizBuergerAngabenRendern(d.payload);
 
     // PR8: Anhänge laden
     if (a.id) {

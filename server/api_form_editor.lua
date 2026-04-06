@@ -248,3 +248,47 @@ RegisterNetEvent("hm_bp:form_editor:archivieren", function(payload)
 
   TriggerClientEvent("hm_bp:form_editor:archivieren_antwort", quelle, { ok = true })
 end)
+
+-- ==========================
+-- Config-Formulare: Liste laden
+-- ==========================
+RegisterNetEvent("hm_bp:form_editor:config_liste_anfordern", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:form_editor:config_liste_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local liste, fehler = svc().ConfigFormularListe(payload.kategorieId, spieler)
+  if not liste then
+    TriggerClientEvent("hm_bp:form_editor:config_liste_antwort", quelle, { ok = false, fehler = fehler })
+    return
+  end
+
+  TriggerClientEvent("hm_bp:form_editor:config_liste_antwort", quelle, { ok = true, liste = liste })
+end)
+
+-- ==========================
+-- Config-Formular: Schema/Daten exportieren
+-- ==========================
+RegisterNetEvent("hm_bp:form_editor:config_export_anfordern", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.FORM_EDITOR_USE, {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:form_editor:config_export_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local result, fehler = svc().ConfigSchemaExportieren(spieler, payload.formId)
+  if not result then
+    TriggerClientEvent("hm_bp:form_editor:config_export_antwort", quelle, { ok = false, fehler = fehler })
+    return
+  end
+
+  TriggerClientEvent("hm_bp:form_editor:config_export_antwort", quelle, result)
+end)

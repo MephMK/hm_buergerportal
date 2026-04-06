@@ -128,7 +128,7 @@ Config.JobSettings = {
             "message.public.write",
             "attachment.add",
             "attachment.remove",
-            "form_editor.use",
+            "question.ask",
             "workflow.lock.request",
             "workflow.lock.release",
             "delegate.submit_for_citizen",
@@ -158,6 +158,7 @@ Config.JobSettings = {
             "notes.internal.write",
             "attachment.add",
             "attachment.remove",
+            "question.ask",
             "form_editor.use",
             "form_editor.publish",
             "form_editor.archive",
@@ -194,6 +195,7 @@ Config.JobSettings = {
             "notes.internal.write",
             "attachment.add",
             "attachment.remove",
+            "question.ask",
             "form_editor.use",
             "form_editor.publish",
             "form_editor.archive",
@@ -1566,6 +1568,15 @@ Config.Workflows = {
   Eskalation = {
     Aktiviert = true,
     UeberfaelligNachStunden = 72,
+  },
+
+  -- Statusübergangs-Modus:
+  --   "strict"   – Nur explizit in erlaubteFolgeStatus konfigurierte Übergänge erlaubt (Standard).
+  --   "flexible" – Jeder Übergang zwischen erlaubteStatus der Kategorie ist möglich;
+  --                erlaubteFolgeStatus wird ignoriert. Ermöglicht Überspringen von Statussen,
+  --                Rückwärts-Übergänge und Wiedereröffnen geschlossener Tickets.
+  StatusTransitions = {
+    Modus = "flexible",
   },
 }
 

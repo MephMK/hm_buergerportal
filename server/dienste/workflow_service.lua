@@ -49,6 +49,8 @@ end
 
 ---Prüft, ob der Übergang vonStatus → nachStatus für eine Kategorie erlaubt ist.
 ---Reihenfolge:
+---  Im "flexible"-Modus: jeder Übergang zwischen erlaubteStatus der Kategorie ist erlaubt.
+---  Im "strict"-Modus (Standard):
 ---  1. Kategorie-spezifisches workflow.erlaubteFolgeStatus  (spezifischer)
 ---  2. Globales Config.Status.Liste[vonStatus].erlaubteFolgeStatus
 ---  3. Kein Eintrag → erlaubt (kein Zwang)
@@ -56,7 +58,28 @@ end
 function WorkflowService.UebergangErlaubt(kategorieId, vonStatus, nachStatus)
   if type(vonStatus) ~= "string" or type(nachStatus) ~= "string" then return true end
 
-  -- 1. Kategorie-spezifisch
+  -- Flexible mode: jeder Übergang zwischen erlaubten Statussen der Kategorie ist erlaubt
+  local modus = Config.Workflows
+    and Config.Workflows.StatusTransitions
+    and Config.Workflows.StatusTransitions.Modus
+    or "strict"
+
+  if modus == "flexible" then
+    -- Im flexiblen Modus prüfen wir nur, ob nachStatus in erlaubteStatus der Kategorie ist
+    local k = Config.Kategorien
+      and Config.Kategorien.Liste
+      and Config.Kategorien.Liste[kategorieId]
+    if k and type(k.erlaubteStatus) == "table" then
+      for _, s in ipairs(k.erlaubteStatus) do
+        if s == nachStatus then return true end
+      end
+      return false  -- Zielstatus nicht in erlaubteStatus → verweigert
+    end
+    -- Keine Kategorie-Einschränkung → erlaubt
+    return true
+  end
+
+  -- 1. Kategorie-spezifisch (strict)
   local k = Config.Kategorien
     and Config.Kategorien.Liste
     and Config.Kategorien.Liste[kategorieId]
