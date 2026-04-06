@@ -45,6 +45,15 @@ Modulares Bürgerportal / Antragssystem für FiveM (ESX, oxmysql, NUI) – volls
 > **Wichtig:** Module, die als „OFF" markiert sind, müssen in `Config.Module` explizit auf `true` gesetzt werden.  
 > Die vollständige Config-Referenz mit allen Optionen findest du in [`docs/CONFIG_REFERENCE.md`](docs/CONFIG_REFERENCE.md).
 
+### 📚 Dokumentation
+
+| Dokument | Beschreibung |
+|---|---|
+| 📖 **[Konfigurationsanleitung (DE)](docs/CONFIG_GUIDE_DE.md)** | Schritt-für-Schritt Einrichtung der `config.lua` – auch ohne IT-Kenntnisse |
+| 🖥️ **[Admin-UI Anleitung (DE)](docs/ADMIN_UI_GUIDE_DE.md)** | Alle Tabs und Funktionen des Admin-Panels erklärt |
+| 💡 **[Beispiele & Troubleshooting (DE)](docs/EXAMPLES_AND_TROUBLESHOOTING_DE.md)** | Fertige Beispiel-Konfigurationen und Lösungen für häufige Probleme |
+| 🔧 **[Vollständige Config-Referenz](docs/CONFIG_REFERENCE.md)** | Technische Referenz aller Konfigurations-Optionen |
+
 ---
 
 ## 2. Abhängigkeiten
@@ -554,3 +563,15 @@ Dort sind alle Abschnitte dokumentiert:
 - `Config.SLA` – SLA-Checker
 - `Config.Delegation` – Vollmacht-System (default OFF)
 - `Config.Integrationen` – Folgeaktionen-Engine (default OFF)
+
+---
+
+### Weitere Anleitungen
+
+Für Einsteiger und Nicht-IT-Nutzer gibt es ergänzende, sehr ausführliche Anleitungen:
+
+| Dokument | Für wen? | Inhalt |
+|---|---|---|
+| 📖 **[Konfigurationsanleitung (DE)](docs/CONFIG_GUIDE_DE.md)** | Jeden, der den Server einrichtet | Schritt-für-Schritt Erklärung der `config.lua`, Feature-Flags, Overrides, Beispiele |
+| 🖥️ **[Admin-UI Anleitung (DE)](docs/ADMIN_UI_GUIDE_DE.md)** | Admins und Leitung | Alle Tabs und Funktionen des Admin-Panels mit Beispielen |
+| 💡 **[Beispiele & Troubleshooting (DE)](docs/EXAMPLES_AND_TROUBLESHOOTING_DE.md)** | Alle | Fertige Beispiel-Konfigurationen (klein/mittel/groß), Lösungen für häufige Probleme |
