@@ -19,22 +19,51 @@ end
 
 local function migrationAnwenden(id, sql)
   if migrationVorhanden(id) then return end
-  HM_BP.Server.Datenbank.Ausfuehren(sql)
+  local ok, err = pcall(function()
+    HM_BP.Server.Datenbank.Ausfuehren(sql)
+  end)
+  if not ok then
+    print(("[hm_buergerportal] FEHLER bei Migration '%s': %s"):format(id, tostring(err)))
+    print(("[hm_buergerportal] ACHTUNG: Migration '%s' wurde nicht angewendet – Datenbankschema kann unvollständig sein!"):format(id))
+    return
+  end
   HM_BP.Server.Datenbank.Ausfuehren("INSERT INTO hm_bp_migrations (id) VALUES (?)", { id })
   print(("[hm_buergerportal] Migration angewendet: %s"):format(id))
+end
+
+-- Rückwärtskompatibilität: Falls v1_core_tables bereits angewendet wurde (ältere Installation),
+-- werden die neuen Einzel-Migrationen als bereits angewendet markiert, ohne deren DDL erneut auszuführen.
+local function v1BackwardCompatibility()
+  if not migrationVorhanden("v1_core_tables") then return end
+  local neueV1Ids = {
+    "v1_categories", "v1_forms", "v1_form_versions", "v1_locations",
+    "v1_submissions", "v1_submission_payloads", "v1_submission_timeline",
+    "v1_submission_status_history", "v1_audit_logs", "v1_webhook_logs", "v1_security_events"
+  }
+  for _, migrationId in ipairs(neueV1Ids) do
+    HM_BP.Server.Datenbank.Ausfuehren(
+      "INSERT IGNORE INTO hm_bp_migrations (id) VALUES (?)", { migrationId }
+    )
+  end
 end
 
 function HM_BP.Server.Migrationen.AlleAusfuehren()
   migrationsTabelleSicherstellen()
 
-  migrationAnwenden("v1_core_tables", [[
+  -- Rückwärtskompatibilität: bestehende Installationen mit v1_core_tables überspringen die Einzel-Migrationen.
+  v1BackwardCompatibility()
+
+  -- v1: Kern-Tabellen (aufgeteilt in Einzel-Statements für MySQL-Kompatibilität ohne multipleStatements)
+  migrationAnwenden("v1_categories", [[
     CREATE TABLE IF NOT EXISTS hm_bp_categories (
       id VARCHAR(64) PRIMARY KEY,
       data JSON NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_forms", [[
     CREATE TABLE IF NOT EXISTS hm_bp_forms (
       id VARCHAR(64) PRIMARY KEY,
       category_id VARCHAR(64) NOT NULL,
@@ -44,7 +73,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_forms_category (category_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_form_versions", [[
     CREATE TABLE IF NOT EXISTS hm_bp_form_versions (
       form_id VARCHAR(64) NOT NULL,
       version INT NOT NULL,
@@ -54,14 +85,18 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       PRIMARY KEY (form_id, version),
       INDEX idx_form_versions_form (form_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_locations", [[
     CREATE TABLE IF NOT EXISTS hm_bp_locations (
       id VARCHAR(64) PRIMARY KEY,
       data JSON NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_submissions", [[
     CREATE TABLE IF NOT EXISTS hm_bp_submissions (
       id BIGINT NOT NULL AUTO_INCREMENT,
       public_id VARCHAR(32) NOT NULL,
@@ -103,7 +138,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_created (created_at),
       INDEX idx_archived (archived_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_submission_payloads", [[
     CREATE TABLE IF NOT EXISTS hm_bp_submission_payloads (
       submission_id BIGINT NOT NULL,
       form_snapshot JSON NOT NULL,
@@ -113,7 +150,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       PRIMARY KEY (submission_id),
       CONSTRAINT fk_payloads_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_submission_timeline", [[
     CREATE TABLE IF NOT EXISTS hm_bp_submission_timeline (
       id BIGINT NOT NULL AUTO_INCREMENT,
       submission_id BIGINT NOT NULL,
@@ -128,7 +167,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_timeline_created (created_at),
       CONSTRAINT fk_timeline_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_submission_status_history", [[
     CREATE TABLE IF NOT EXISTS hm_bp_submission_status_history (
       id BIGINT NOT NULL AUTO_INCREMENT,
       submission_id BIGINT NOT NULL,
@@ -143,7 +184,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_statushist_created (created_at),
       CONSTRAINT fk_statushist_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_audit_logs", [[
     CREATE TABLE IF NOT EXISTS hm_bp_audit_logs (
       id BIGINT NOT NULL AUTO_INCREMENT,
       action VARCHAR(64) NOT NULL,
@@ -161,7 +204,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_audit_target (target_type, target_id),
       INDEX idx_audit_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_webhook_logs", [[
     CREATE TABLE IF NOT EXISTS hm_bp_webhook_logs (
       id BIGINT NOT NULL AUTO_INCREMENT,
       event_name VARCHAR(64) NOT NULL,
@@ -175,7 +220,9 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       INDEX idx_webhook_event (event_name),
       INDEX idx_webhook_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 
+  migrationAnwenden("v1_security_events", [[
     CREATE TABLE IF NOT EXISTS hm_bp_security_events (
       id BIGINT NOT NULL AUTO_INCREMENT,
       event_type VARCHAR(64) NOT NULL,
