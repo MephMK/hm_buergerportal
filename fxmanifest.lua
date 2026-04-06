@@ -88,6 +88,7 @@ server_scripts {
   'server/dienste/admin_config_service.lua',
   'server/dienste/admin_audit_service.lua',
   'server/dienste/admin_validierung_service.lua',
+  'server/dienste/admin_ops_service.lua',
 
   'server/middleware.lua',
 
@@ -99,6 +100,7 @@ server_scripts {
   'server/api_attachments.lua',
   'server/api_admin.lua',
   'server/api_admin_crud.lua',
+  'server/api_admin_ops.lua',
   'server/api_audit.lua',
   'server/api_export.lua',
   'server/api_job_settings.lua',

@@ -359,3 +359,25 @@ RegisterNetEvent("hm_bp:debug:oeffentliche_id_test", function()
 
   TriggerClientEvent("hm_bp:debug:oeffentliche_id_test_antwort", quelle, { ok = true, publicId = publicId })
 end)
+
+-- =========================
+-- Bürger: eigene Anträge suchen/filtern (PR6)
+-- =========================
+RegisterNetEvent("hm_bp:antraege:suchen", function(payload)
+  local quelle = source
+  payload = payload or {}
+
+  local spieler, err = HM_BP.Server.Middleware.PruefeRecht(quelle, HM_BP.Shared.Actions.SUBMISSIONS_VIEW_OWN, {})
+  if not spieler then
+    TriggerClientEvent("hm_bp:antraege:suchen_antwort", quelle, { ok = false, fehler = err })
+    return
+  end
+
+  local result, err2 = HM_BP.Server.Dienste.AntragService.MeineSucheAusfuehren(spieler, payload)
+  if not result then
+    TriggerClientEvent("hm_bp:antraege:suchen_antwort", quelle, { ok = false, fehler = err2 })
+    return
+  end
+
+  TriggerClientEvent("hm_bp:antraege:suchen_antwort", quelle, { ok = true, res = result })
+end)

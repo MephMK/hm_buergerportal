@@ -1554,6 +1554,40 @@ Config.Webhooks = {
     -- Beispiel:
     --   ["integrationen"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
     ["integrationen"] = nil,
+
+    -- admin_ops: Discord-Webhook-Kanal für Admin-Ops-Events (PR6).
+    -- Events: antrag_verschoben, antrag_wiederhergestellt, antrag_hartgeloescht,
+    --         admin_status_override, antrag_im_auftrag_erstellt.
+    -- Beispiel:
+    --   ["admin_ops"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+    ["admin_ops"] = nil,
+
+    -- missbrauch: Discord-Webhook-Kanal für Missbrauchsschutz-Events (PR6).
+    -- Event: abuse_triggered.
+    -- Beispiel:
+    --   ["missbrauch"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+    ["missbrauch"] = nil,
+  },
+
+  -- ----------------------------------------------------------
+  -- Discord-Pings (optional, Standard: OFF)
+  -- Sendet @-Mentions bei konfigurierten kritischen Events.
+  -- ----------------------------------------------------------
+  Pings = {
+    -- Aktiviert: Pings insgesamt ein-/ausschalten (Standard: OFF)
+    Aktiviert = false,
+    -- Discord-Rollen-ID (als String), die bei kritischen Events gepingt wird.
+    -- Beispiel: RolleId = "123456789012345678"
+    RolleId = nil,
+    -- Events, bei denen gepingt werden soll.
+    -- Leere Tabelle = alle Events wenn Aktiviert=true.
+    NurFuerEvents = {
+      "abuse_triggered",
+      "security_incident",
+      "system_error",
+      "antrag_hartgeloescht",
+      "admin_status_override",
+    }
   }
 }
 
@@ -1580,13 +1614,32 @@ Config.Suche = {
 }
 
 Config.AntiSpam = {
-  Aktiviert = true,
+  -- Master-Schalter (Standard: OFF – explizit aktivieren)
+  Aktiviert = false,
   GlobalerCooldownSekunden = 15,
   MaxOffeneAntraegeProSpieler = 5,
   MinTextLaenge = 3,
   MaxTextLaenge = 2000,
-  DuplikatPruefung = { Aktiviert = true, FensterMinuten = 30 },
-  RateLimit = { Aktiviert = true, MaxAktionen = 20, ProSekunden = 60 }
+  -- Per-Formular-Cooldown (Sekunden): formularId -> Sekunden
+  -- Beispiel: PerFormularCooldown = { ["personalausweis"] = 60 }
+  PerFormularCooldown = {},
+  -- Per-Formular-Textlängen: formularId -> { min = N, max = N }
+  -- Überschreibt MinTextLaenge/MaxTextLaenge für das jeweilige Formular.
+  PerFormularLaengen = {},
+  Blackliste = {
+    -- Verbotene-Wörter-Filter (Standard: OFF)
+    Aktiviert = false,
+    -- Verbotene Wörter (Groß-/Kleinschreibung wird ignoriert)
+    Woerter = {}
+  },
+  DuplikatPruefung = { Aktiviert = false, FensterMinuten = 30 },
+  RateLimit = { Aktiviert = false, MaxAktionen = 20, ProSekunden = 60 },
+  Lockout = {
+    -- Lockout nach zu vielen Fehlversuchen (Standard: OFF)
+    Aktiviert = false,
+    MaxFehlversuche = 5,
+    DauerSekunden = 300
+  }
 }
 
 Config.Archiv = {

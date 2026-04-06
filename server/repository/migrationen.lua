@@ -561,4 +561,20 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
         REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
+
+  -- v19: PR6 – Missbrauchsschutz-Log
+  -- Protokolliert Missbrauchs-Ereignisse (Lockouts, Blacklist-Treffer usw.)
+  -- für Monitoring und Auditing.
+  migrationAnwenden("v19_abuse_lockout_log", [[
+    CREATE TABLE IF NOT EXISTS hm_bp_abuse_log (
+      id             BIGINT NOT NULL AUTO_INCREMENT,
+      identifier     VARCHAR(128) NOT NULL,
+      grund          VARCHAR(255) NOT NULL DEFAULT '',
+      extra          JSON NULL,
+      created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      INDEX idx_abuse_identifier (identifier),
+      INDEX idx_abuse_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ]])
 end
