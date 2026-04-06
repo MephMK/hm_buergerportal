@@ -6,6 +6,16 @@ Modulares Bürgerportal / Antragssystem für FiveM (ESX, oxmysql, NUI) – volls
 
 ---
 
+## Dokumentation
+
+| Dokument | Beschreibung |
+|---|---|
+| 📘 **[Konfigurationsanleitung (Deutsch)](docs/CONFIG_GUIDE_DE.md)** | Ausführliche, anfängerfreundliche Anleitung zur Konfiguration – erklärt jeden Abschnitt der config.lua mit Beispielen und vollständigen Beispiel-Setups |
+| 🖥️ **[Admin-Panel Anleitung (Deutsch)](docs/ADMIN_UI_GUIDE_DE.md)** | Anleitung für das Admin-Panel (UI): Module, JobSettings, Webhooks, Formular-Editor, Admin-Ops und Audit-Log |
+| 📄 **[Config-Referenz (technisch)](docs/CONFIG_REFERENCE.md)** | Vollständige technische Referenz aller Konfigurationsoptionen |
+
+---
+
 ## Inhaltsverzeichnis
 
 1. [Überblick & Module](#1-überblick--module)
@@ -527,6 +537,15 @@ harte Abhängigkeit).
 ---
 
 ## 12. Vollständige Config-Referenz
+
+### Anfängerfreundliche Anleitungen
+
+| Dokument | Inhalt |
+|---|---|
+| 📘 [`docs/CONFIG_GUIDE_DE.md`](docs/CONFIG_GUIDE_DE.md) | Schritt-für-Schritt Konfigurationsanleitung auf Deutsch – mit Erklärungen für Nicht-IT-Admins, vollständigen Beispiel-Setups und Troubleshooting |
+| 🖥️ [`docs/ADMIN_UI_GUIDE_DE.md`](docs/ADMIN_UI_GUIDE_DE.md) | Erklärung aller Admin-Panel-Funktionen (Module, JobSettings, Webhooks, Formular-Editor, Admin-Ops, Audit-Log) |
+
+### Technische Referenz
 
 Die ausführliche Beschreibung **aller** Konfigurations-Sektionen mit Beispielen, Use-Cases und typischen Fehlern findest du in:
 
