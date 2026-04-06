@@ -17,177 +17,225 @@ local function migrationVorhanden(id)
   return zeile ~= nil
 end
 
-local function migrationAnwenden(id, sql)
+-- Akzeptiert entweder einen SQL-String oder eine Funktion für komplexe Migrationen.
+local function migrationAnwenden(id, sqlOderFn)
   if migrationVorhanden(id) then return end
-  HM_BP.Server.Datenbank.Ausfuehren(sql)
+  if type(sqlOderFn) == "function" then
+    sqlOderFn()
+  else
+    HM_BP.Server.Datenbank.Ausfuehren(sqlOderFn)
+  end
   HM_BP.Server.Datenbank.Ausfuehren("INSERT INTO hm_bp_migrations (id) VALUES (?)", { id })
   print(("[hm_buergerportal] Migration angewendet: %s"):format(id))
+end
+
+-- Führt mehrere CREATE TABLE-Statements einzeln aus (Multi-Statement-Kompatibilität).
+-- tabellen: Liste von { tabellenName, sql } Paaren.
+local function tabellenErstellen(migId, tabellen)
+  for _, t in ipairs(tabellen) do
+    local ok, err = pcall(HM_BP.Server.Datenbank.Ausfuehren, t[2])
+    if not ok then
+      print(("[hm_buergerportal] FEHLER bei %s – Tabelle '%s': %s"):format(migId, t[1], tostring(err)))
+      error(err)
+    end
+  end
+end
+local function spalteFehlt(tabellenName, spaltenName)
+  local zeile = HM_BP.Server.Datenbank.Einzel(
+    "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+    { tabellenName, spaltenName }
+  )
+  return zeile == nil
+end
+
+-- Prüft ob ein Index in einer Tabelle fehlt (via INFORMATION_SCHEMA, MySQL/MariaDB-kompatibel).
+local function indexFehlt(tabellenName, indexName)
+  local zeile = HM_BP.Server.Datenbank.Einzel(
+    "SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? LIMIT 1",
+    { tabellenName, indexName }
+  )
+  return zeile == nil
 end
 
 function HM_BP.Server.Migrationen.AlleAusfuehren()
   migrationsTabelleSicherstellen()
 
-  migrationAnwenden("v1_core_tables", [[
-    CREATE TABLE IF NOT EXISTS hm_bp_categories (
-      id VARCHAR(64) PRIMARY KEY,
-      data JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  -- v1_core_tables: Jede Tabelle wird in einem eigenen DB-Call erstellt (Multi-Statement-Kompatibilität).
+  migrationAnwenden("v1_core_tables", function()
+    tabellenErstellen("v1_core_tables", {
+      { "hm_bp_categories", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_categories (
+          id VARCHAR(64) PRIMARY KEY,
+          data JSON NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_forms", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_forms (
+          id VARCHAR(64) PRIMARY KEY,
+          category_id VARCHAR(64) NOT NULL,
+          active TINYINT(1) NOT NULL DEFAULT 1,
+          data JSON NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_forms_category (category_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_form_versions", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_form_versions (
+          form_id VARCHAR(64) NOT NULL,
+          version INT NOT NULL,
+          schema_json JSON NOT NULL,
+          created_by_identifier VARCHAR(128) NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (form_id, version),
+          INDEX idx_form_versions_form (form_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_locations", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_locations (
+          id VARCHAR(64) PRIMARY KEY,
+          data JSON NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_submissions", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_submissions (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          public_id VARCHAR(32) NOT NULL,
+          citizen_identifier VARCHAR(128) NOT NULL,
+          citizen_name VARCHAR(128) NULL,
 
-    CREATE TABLE IF NOT EXISTS hm_bp_forms (
-      id VARCHAR(64) PRIMARY KEY,
-      category_id VARCHAR(64) NOT NULL,
-      active TINYINT(1) NOT NULL DEFAULT 1,
-      data JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_forms_category (category_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          category_id VARCHAR(64) NOT NULL,
+          form_id VARCHAR(64) NOT NULL,
+          form_version INT NOT NULL,
 
-    CREATE TABLE IF NOT EXISTS hm_bp_form_versions (
-      form_id VARCHAR(64) NOT NULL,
-      version INT NOT NULL,
-      schema_json JSON NOT NULL,
-      created_by_identifier VARCHAR(128) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (form_id, version),
-      INDEX idx_form_versions_form (form_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          status VARCHAR(32) NOT NULL,
+          priority VARCHAR(16) NOT NULL,
 
-    CREATE TABLE IF NOT EXISTS hm_bp_locations (
-      id VARCHAR(64) PRIMARY KEY,
-      data JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          deadline_at DATETIME NULL,
+          due_state VARCHAR(16) NOT NULL DEFAULT 'normal',
 
-    CREATE TABLE IF NOT EXISTS hm_bp_submissions (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      public_id VARCHAR(32) NOT NULL,
-      citizen_identifier VARCHAR(128) NOT NULL,
-      citizen_name VARCHAR(128) NULL,
+          assigned_to_identifier VARCHAR(128) NULL,
+          assigned_to_name VARCHAR(128) NULL,
 
-      category_id VARCHAR(64) NOT NULL,
-      form_id VARCHAR(64) NOT NULL,
-      form_version INT NOT NULL,
+          location_id VARCHAR(64) NULL,
 
-      status VARCHAR(32) NOT NULL,
-      priority VARCHAR(16) NOT NULL,
+          flags JSON NULL,
 
-      deadline_at DATETIME NULL,
-      due_state VARCHAR(16) NOT NULL DEFAULT 'normal',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          closed_at DATETIME NULL,
+          archived_at DATETIME NULL,
+          deleted_at DATETIME NULL,
+          delete_reason VARCHAR(255) NULL,
 
-      assigned_to_identifier VARCHAR(128) NULL,
-      assigned_to_name VARCHAR(128) NULL,
-
-      location_id VARCHAR(64) NULL,
-
-      flags JSON NULL,
-
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      closed_at DATETIME NULL,
-      archived_at DATETIME NULL,
-      deleted_at DATETIME NULL,
-      delete_reason VARCHAR(255) NULL,
-
-      PRIMARY KEY (id),
-      UNIQUE KEY uq_public_id (public_id),
-      INDEX idx_citizen_identifier (citizen_identifier),
-      INDEX idx_status (status),
-      INDEX idx_priority (priority),
-      INDEX idx_category (category_id),
-      INDEX idx_form (form_id),
-      INDEX idx_assigned (assigned_to_identifier),
-      INDEX idx_created (created_at),
-      INDEX idx_archived (archived_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_submission_payloads (
-      submission_id BIGINT NOT NULL,
-      form_snapshot JSON NOT NULL,
-      fields_snapshot JSON NOT NULL,
-      answers JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (submission_id),
-      CONSTRAINT fk_payloads_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_submission_timeline (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      submission_id BIGINT NOT NULL,
-      entry_type VARCHAR(32) NOT NULL,
-      visibility VARCHAR(16) NOT NULL,
-      author_identifier VARCHAR(128) NOT NULL,
-      author_name VARCHAR(128) NULL,
-      content JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      INDEX idx_timeline_submission (submission_id),
-      INDEX idx_timeline_created (created_at),
-      CONSTRAINT fk_timeline_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_submission_status_history (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      submission_id BIGINT NOT NULL,
-      old_status VARCHAR(32) NULL,
-      new_status VARCHAR(32) NOT NULL,
-      changed_by_identifier VARCHAR(128) NOT NULL,
-      changed_by_name VARCHAR(128) NULL,
-      comment VARCHAR(255) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      INDEX idx_statushist_submission (submission_id),
-      INDEX idx_statushist_created (created_at),
-      CONSTRAINT fk_statushist_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_audit_logs (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      action VARCHAR(64) NOT NULL,
-      actor_identifier VARCHAR(128) NOT NULL,
-      actor_name VARCHAR(128) NULL,
-      actor_job VARCHAR(64) NULL,
-      actor_grade INT NULL,
-      target_type VARCHAR(32) NOT NULL,
-      target_id VARCHAR(64) NOT NULL,
-      data JSON NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      INDEX idx_audit_action (action),
-      INDEX idx_audit_actor (action, actor_identifier),
-      INDEX idx_audit_target (target_type, target_id),
-      INDEX idx_audit_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_webhook_logs (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      event_name VARCHAR(64) NOT NULL,
-      webhook_url_hash VARCHAR(64) NOT NULL,
-      payload JSON NOT NULL,
-      success TINYINT(1) NOT NULL DEFAULT 0,
-      response_code INT NULL,
-      error_text VARCHAR(255) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      INDEX idx_webhook_event (event_name),
-      INDEX idx_webhook_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-    CREATE TABLE IF NOT EXISTS hm_bp_security_events (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      event_type VARCHAR(64) NOT NULL,
-      actor_identifier VARCHAR(128) NULL,
-      actor_name VARCHAR(128) NULL,
-      data JSON NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      INDEX idx_sec_event_type (event_type),
-      INDEX idx_sec_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  ]])
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_public_id (public_id),
+          INDEX idx_citizen_identifier (citizen_identifier),
+          INDEX idx_status (status),
+          INDEX idx_priority (priority),
+          INDEX idx_category (category_id),
+          INDEX idx_form (form_id),
+          INDEX idx_assigned (assigned_to_identifier),
+          INDEX idx_created (created_at),
+          INDEX idx_archived (archived_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_submission_payloads", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_submission_payloads (
+          submission_id BIGINT NOT NULL,
+          form_snapshot JSON NOT NULL,
+          fields_snapshot JSON NOT NULL,
+          answers JSON NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (submission_id),
+          CONSTRAINT fk_payloads_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_submission_timeline", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_submission_timeline (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          submission_id BIGINT NOT NULL,
+          entry_type VARCHAR(32) NOT NULL,
+          visibility VARCHAR(16) NOT NULL,
+          author_identifier VARCHAR(128) NOT NULL,
+          author_name VARCHAR(128) NULL,
+          content JSON NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_timeline_submission (submission_id),
+          INDEX idx_timeline_created (created_at),
+          CONSTRAINT fk_timeline_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_submission_status_history", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_submission_status_history (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          submission_id BIGINT NOT NULL,
+          old_status VARCHAR(32) NULL,
+          new_status VARCHAR(32) NOT NULL,
+          changed_by_identifier VARCHAR(128) NOT NULL,
+          changed_by_name VARCHAR(128) NULL,
+          comment VARCHAR(255) NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_statushist_submission (submission_id),
+          INDEX idx_statushist_created (created_at),
+          CONSTRAINT fk_statushist_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_audit_logs", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_audit_logs (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          action VARCHAR(64) NOT NULL,
+          actor_identifier VARCHAR(128) NOT NULL,
+          actor_name VARCHAR(128) NULL,
+          actor_job VARCHAR(64) NULL,
+          actor_grade INT NULL,
+          target_type VARCHAR(32) NOT NULL,
+          target_id VARCHAR(64) NOT NULL,
+          data JSON NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_audit_action (action),
+          INDEX idx_audit_actor (action, actor_identifier),
+          INDEX idx_audit_target (target_type, target_id),
+          INDEX idx_audit_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_webhook_logs", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_webhook_logs (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          event_name VARCHAR(64) NOT NULL,
+          webhook_url_hash VARCHAR(64) NOT NULL,
+          payload JSON NOT NULL,
+          success TINYINT(1) NOT NULL DEFAULT 0,
+          response_code INT NULL,
+          error_text VARCHAR(255) NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_webhook_event (event_name),
+          INDEX idx_webhook_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_security_events", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_security_events (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          event_type VARCHAR(64) NOT NULL,
+          actor_identifier VARCHAR(128) NULL,
+          actor_name VARCHAR(128) NULL,
+          data JSON NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_sec_event_type (event_type),
+          INDEX idx_sec_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+    })
+  end)
 
   migrationAnwenden("v2_monats_sequenzen", [[
     CREATE TABLE IF NOT EXISTS hm_bp_public_id_sequences (
@@ -224,89 +272,108 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
 
-  migrationAnwenden("v5_formular_editor", [[
-    CREATE TABLE IF NOT EXISTS hm_bp_form_editor_forms (
-      id VARCHAR(64) NOT NULL,
-      category_id VARCHAR(64) NOT NULL,
+  -- v5_formular_editor: Jede Tabelle in einem eigenen DB-Call (Multi-Statement-Kompatibilität).
+  migrationAnwenden("v5_formular_editor", function()
+    tabellenErstellen("v5_formular_editor", {
+      { "hm_bp_form_editor_forms", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_form_editor_forms (
+          id VARCHAR(64) NOT NULL,
+          category_id VARCHAR(64) NOT NULL,
 
-      status VARCHAR(16) NOT NULL DEFAULT 'draft', -- draft|published|archived
-      active TINYINT(1) NOT NULL DEFAULT 1,
+          status VARCHAR(16) NOT NULL DEFAULT 'draft',
+          active TINYINT(1) NOT NULL DEFAULT 1,
 
-      title VARCHAR(128) NOT NULL,
-      description TEXT NULL,
+          title VARCHAR(128) NOT NULL,
+          description TEXT NULL,
 
-      created_by_identifier VARCHAR(128) NULL,
-      created_by_name VARCHAR(128) NULL,
+          created_by_identifier VARCHAR(128) NULL,
+          created_by_name VARCHAR(128) NULL,
 
-      updated_by_identifier VARCHAR(128) NULL,
-      updated_by_name VARCHAR(128) NULL,
+          updated_by_identifier VARCHAR(128) NULL,
+          updated_by_name VARCHAR(128) NULL,
 
-      published_version INT NULL,
-      published_at DATETIME NULL,
+          published_version INT NULL,
+          published_at DATETIME NULL,
 
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-      PRIMARY KEY (id),
-      INDEX idx_fe_forms_category (category_id),
-      INDEX idx_fe_forms_status (status),
-      INDEX idx_fe_forms_active (active)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          PRIMARY KEY (id),
+          INDEX idx_fe_forms_category (category_id),
+          INDEX idx_fe_forms_status (status),
+          INDEX idx_fe_forms_active (active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_form_editor_versions", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_form_editor_versions (
+          form_id VARCHAR(64) NOT NULL,
+          version INT NOT NULL,
+          schema_json JSON NOT NULL,
 
-    CREATE TABLE IF NOT EXISTS hm_bp_form_editor_versions (
-      form_id VARCHAR(64) NOT NULL,
-      version INT NOT NULL,
-      schema_json JSON NOT NULL,
+          created_by_identifier VARCHAR(128) NULL,
+          created_by_name VARCHAR(128) NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-      created_by_identifier VARCHAR(128) NULL,
-      created_by_name VARCHAR(128) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (form_id, version),
+          INDEX idx_fe_versions_form (form_id),
+          CONSTRAINT fk_fe_versions_form FOREIGN KEY (form_id) REFERENCES hm_bp_form_editor_forms(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+      { "hm_bp_form_editor_permissions", [[
+        CREATE TABLE IF NOT EXISTS hm_bp_form_editor_permissions (
+          id BIGINT NOT NULL AUTO_INCREMENT,
+          category_id VARCHAR(64) NOT NULL,
 
-      PRIMARY KEY (form_id, version),
-      INDEX idx_fe_versions_form (form_id),
-      CONSTRAINT fk_fe_versions_form FOREIGN KEY (form_id) REFERENCES hm_bp_form_editor_forms(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          role VARCHAR(16) NOT NULL,
+          job VARCHAR(64) NULL,
+          min_grade INT NULL,
+          max_grade INT NULL,
 
-    CREATE TABLE IF NOT EXISTS hm_bp_form_editor_permissions (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      category_id VARCHAR(64) NOT NULL,
+          can_create TINYINT(1) NOT NULL DEFAULT 0,
+          can_edit   TINYINT(1) NOT NULL DEFAULT 0,
+          can_publish TINYINT(1) NOT NULL DEFAULT 0,
+          can_archive TINYINT(1) NOT NULL DEFAULT 0,
 
-      role VARCHAR(16) NOT NULL,           -- admin|justiz|buerger
-      job VARCHAR(64) NULL,
-      min_grade INT NULL,
-      max_grade INT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-      can_create TINYINT(1) NOT NULL DEFAULT 0,
-      can_edit   TINYINT(1) NOT NULL DEFAULT 0,
-      can_publish TINYINT(1) NOT NULL DEFAULT 0,
-      can_archive TINYINT(1) NOT NULL DEFAULT 0,
-
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-      PRIMARY KEY (id),
-      INDEX idx_fe_perm_category (category_id),
-      INDEX idx_fe_perm_role (role),
-      INDEX idx_fe_perm_job (job),
-      INDEX idx_fe_perm_grade (min_grade, max_grade)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  ]])
+          PRIMARY KEY (id),
+          INDEX idx_fe_perm_category (category_id),
+          INDEX idx_fe_perm_role (role),
+          INDEX idx_fe_perm_job (job),
+          INDEX idx_fe_perm_grade (min_grade, max_grade)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ]] },
+    })
+  end)
 
   -- v6: SLA/Workflow-Spalten für Anträge (PR7)
-  migrationAnwenden("v6_workflow_sla", [[
-    ALTER TABLE hm_bp_submissions
-      ADD COLUMN IF NOT EXISTS last_status_change_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS sla_due_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS sla_paused_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS sla_paused_by VARCHAR(128) NULL,
-      ADD COLUMN IF NOT EXISTS escalated_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS needs_leitung TINYINT(1) NOT NULL DEFAULT 0;
-  ]])
+  migrationAnwenden("v6_workflow_sla", function()
+    if spalteFehlt("hm_bp_submissions", "last_status_change_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN last_status_change_at DATETIME NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "sla_due_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN sla_due_at DATETIME NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "sla_paused_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN sla_paused_at DATETIME NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "sla_paused_by") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN sla_paused_by VARCHAR(128) NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "escalated_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN escalated_at DATETIME NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "needs_leitung") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN needs_leitung TINYINT(1) NOT NULL DEFAULT 0")
+    end
+  end)
 
   -- v7: lock_reason für Bearbeitungssperren (PR7)
-  migrationAnwenden("v7_lock_reason", [[
-    ALTER TABLE hm_bp_submission_locks
-      ADD COLUMN IF NOT EXISTS lock_reason VARCHAR(128) NULL;
-  ]])
+  migrationAnwenden("v7_lock_reason", function()
+    if spalteFehlt("hm_bp_submission_locks", "lock_reason") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submission_locks ADD COLUMN lock_reason VARCHAR(128) NULL")
+    end
+  end)
 
   -- v8: Anhänge als URL-Links (PR8)
   migrationAnwenden("v8_attachments", [[
@@ -360,18 +427,35 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
 
   -- v10: Audit-Log-Härtung (PR12)
   -- Neue Spalten für vollständige, unveränderliche Audit-Einträge.
-  migrationAnwenden("v10_audit_haertung_spalten", [[
-    ALTER TABLE hm_bp_audit_logs
-      ADD COLUMN IF NOT EXISTS request_id VARCHAR(32) NULL,
-      ADD COLUMN IF NOT EXISTS actor_display_name VARCHAR(256) NULL,
-      ADD COLUMN IF NOT EXISTS actor_source VARCHAR(64) NULL,
-      ADD COLUMN IF NOT EXISTS actor_ip VARCHAR(64) NULL,
-      ADD COLUMN IF NOT EXISTS target_public_id VARCHAR(32) NULL,
-      ADD COLUMN IF NOT EXISTS target_category_id VARCHAR(64) NULL,
-      ADD COLUMN IF NOT EXISTS target_form_id VARCHAR(64) NULL,
-      ADD COLUMN IF NOT EXISTS reason TEXT NULL,
-      ADD COLUMN IF NOT EXISTS metadata JSON NULL;
-  ]])
+  migrationAnwenden("v10_audit_haertung_spalten", function()
+    if spalteFehlt("hm_bp_audit_logs", "request_id") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN request_id VARCHAR(32) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "actor_display_name") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN actor_display_name VARCHAR(256) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "actor_source") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN actor_source VARCHAR(64) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "actor_ip") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN actor_ip VARCHAR(64) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "target_public_id") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN target_public_id VARCHAR(32) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "target_category_id") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN target_category_id VARCHAR(64) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "target_form_id") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN target_form_id VARCHAR(64) NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "reason") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN reason TEXT NULL")
+    end
+    if spalteFehlt("hm_bp_audit_logs", "metadata") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_audit_logs ADD COLUMN metadata JSON NULL")
+    end
+  end)
   migrationAnwenden("v10_audit_idx_request_id", [[
     ALTER TABLE hm_bp_audit_logs ADD INDEX idx_audit_request_id (request_id);
   ]])
@@ -383,37 +467,39 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   ]])
 
   -- v11: SLA Erste-Bearbeitung (PR13)
-  -- Neue Felder für die 24h-Erst-Bearbeitungs-SLA:
-  --   first_staff_comment_at  – Zeitstempel des ersten Justiz/Admin-Kommentars oder Rückfrage
-  --   escalated               – Boolean-Flag: wurde die Eskalation bereits ausgelöst?
-  --   last_escalation_reminder_at – Zeitstempel der letzten Reminder-Benachrichtigung (Rate-Limiting)
-  migrationAnwenden("v11_sla_erst_bearbeitung", [[
-    ALTER TABLE hm_bp_submissions
-      ADD COLUMN IF NOT EXISTS first_staff_comment_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS escalated TINYINT(1) NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS last_escalation_reminder_at DATETIME NULL;
-  ]])
+  migrationAnwenden("v11_sla_erst_bearbeitung", function()
+    if spalteFehlt("hm_bp_submissions", "first_staff_comment_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN first_staff_comment_at DATETIME NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "escalated") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN escalated TINYINT(1) NOT NULL DEFAULT 0")
+    end
+    if spalteFehlt("hm_bp_submissions", "last_escalation_reminder_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN last_escalation_reminder_at DATETIME NULL")
+    end
+  end)
   migrationAnwenden("v11_idx_sla_erst_bearbeitung", [[
     ALTER TABLE hm_bp_submissions
       ADD INDEX idx_sub_erst_bearbeitung (escalated, created_at, first_staff_comment_at);
   ]])
 
   -- v12: Gebührenzahlung (PR14)
-  -- fee_eur (forms):    Gebührenbetrag in Euro (Ganzzahl) am Formular
-  -- fee_eur (submissions): Gebührenbetrag in Euro (Snapshot beim Einreichen)
-  -- zahlung_status:     'bezahlt' | 'unbezahlt' | 'fehlgeschlagen'
-  --   DEFAULT 'bezahlt': neue Zeilen ohne explizites Setzen sind implizit bezahlt (Fallback)
-  -- charged_at:         Zeitpunkt der erfolgreichen Abbuchung
-  migrationAnwenden("v12_gebuehren_forms", [[
-    ALTER TABLE hm_bp_form_editor_forms
-      ADD COLUMN IF NOT EXISTS fee_eur INT NOT NULL DEFAULT 0;
-  ]])
-  migrationAnwenden("v12_gebuehren_submissions", [[
-    ALTER TABLE hm_bp_submissions
-      ADD COLUMN IF NOT EXISTS fee_eur INT NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS zahlung_status VARCHAR(16) NOT NULL DEFAULT 'bezahlt',
-      ADD COLUMN IF NOT EXISTS charged_at DATETIME NULL;
-  ]])
+  migrationAnwenden("v12_gebuehren_forms", function()
+    if spalteFehlt("hm_bp_form_editor_forms", "fee_eur") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_form_editor_forms ADD COLUMN fee_eur INT NOT NULL DEFAULT 0")
+    end
+  end)
+  migrationAnwenden("v12_gebuehren_submissions", function()
+    if spalteFehlt("hm_bp_submissions", "fee_eur") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN fee_eur INT NOT NULL DEFAULT 0")
+    end
+    if spalteFehlt("hm_bp_submissions", "zahlung_status") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN zahlung_status VARCHAR(16) NOT NULL DEFAULT 'bezahlt'")
+    end
+    if spalteFehlt("hm_bp_submissions", "charged_at") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN charged_at DATETIME NULL")
+    end
+  end)
   -- Backfill: Alle bestehenden Einreichungen hatten fee_eur = 0 → als bezahlt markieren.
   -- Neue Einreichungen mit fee_eur > 0 werden beim Einreichen explizit auf 'unbezahlt' gesetzt.
   migrationAnwenden("v12_backfill_zahlung_status", [[
@@ -446,21 +532,18 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
   ]])
 
   -- v14: PR1 – Statusystem-Erweiterung (neue Status + Overdue-Optimierung)
-  -- idx_sub_due_state: Index für die OverdueAktualisieren-Batch-Query.
-  --   Deckt: due_state != 'overdue' WHERE sla_due_at < NOW() AND sla_paused_at IS NULL
   migrationAnwenden("v14_idx_due_state", [[
     ALTER TABLE hm_bp_submissions
       ADD INDEX idx_sub_due_state (due_state, sla_due_at, sla_paused_at, deleted_at, archived_at);
   ]])
   -- idx_sub_status_history: Index für Statusverlauf-Abfragen
-  migrationAnwenden("v14_idx_status_history", [[
-    ALTER TABLE hm_bp_submission_status_history
-      ADD INDEX IF NOT EXISTS idx_ssh_sub_created (submission_id, created_at);
-  ]])
+  migrationAnwenden("v14_idx_status_history", function()
+    if indexFehlt("hm_bp_submission_status_history", "idx_ssh_sub_created") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submission_status_history ADD INDEX idx_ssh_sub_created (submission_id, created_at)")
+    end
+  end)
 
   -- v15: PR2 – Mitarbeiter-Entwürfe (interne Notizen + Rückfragen als Entwurf speichern)
-  -- Tabelle hm_bp_staff_drafts: Ein Datensatz je (submission_id, actor_identifier, draft_type).
-  -- Speichern überschreibt; Laden und Löschen über dieselbe Unique-Kombination.
   migrationAnwenden("v15_staff_drafts", [[
     CREATE TABLE IF NOT EXISTS hm_bp_staff_drafts (
       id BIGINT NOT NULL AUTO_INCREMENT,
@@ -476,25 +559,30 @@ function HM_BP.Server.Migrationen.AlleAusfuehren()
       CONSTRAINT fk_draft_submission FOREIGN KEY (submission_id) REFERENCES hm_bp_submissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]])
-  -- v15: author_identifier-Spalte in Timeline ergänzen (war bisher nur in einigen Einträgen gesetzt)
-  migrationAnwenden("v15_timeline_author_role", [[
-    ALTER TABLE hm_bp_submission_timeline
-      ADD COLUMN IF NOT EXISTS author_role VARCHAR(16) NULL;
-  ]])
+  -- v15: author_role-Spalte in Timeline ergänzen
+  migrationAnwenden("v15_timeline_author_role", function()
+    if spalteFehlt("hm_bp_submission_timeline", "author_role") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submission_timeline ADD COLUMN author_role VARCHAR(16) NULL")
+    end
+  end)
 
   -- v16: PR3 – Delegation / Stellvertretung + Vollmacht
-  -- Submissions: actor_* (wer eingereicht hat) vs. citizen_* (für wen).
-  -- Bei normalen Anträgen sind actor = citizen.
-  migrationAnwenden("v16_submissions_delegation", [[
-    ALTER TABLE hm_bp_submissions
-      ADD COLUMN IF NOT EXISTS actor_identifier VARCHAR(128) NULL,
-      ADD COLUMN IF NOT EXISTS actor_name       VARCHAR(128) NULL,
-      ADD COLUMN IF NOT EXISTS delegation_type  VARCHAR(32)  NULL;
-  ]])
-  migrationAnwenden("v16_idx_actor", [[
-    ALTER TABLE hm_bp_submissions
-      ADD INDEX IF NOT EXISTS idx_sub_actor (actor_identifier);
-  ]])
+  migrationAnwenden("v16_submissions_delegation", function()
+    if spalteFehlt("hm_bp_submissions", "actor_identifier") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN actor_identifier VARCHAR(128) NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "actor_name") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN actor_name VARCHAR(128) NULL")
+    end
+    if spalteFehlt("hm_bp_submissions", "delegation_type") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD COLUMN delegation_type VARCHAR(32) NULL")
+    end
+  end)
+  migrationAnwenden("v16_idx_actor", function()
+    if indexFehlt("hm_bp_submissions", "idx_sub_actor") then
+      HM_BP.Server.Datenbank.Ausfuehren("ALTER TABLE hm_bp_submissions ADD INDEX idx_sub_actor (actor_identifier)")
+    end
+  end)
   -- Vollmachten-Tabelle: Bürger ↔ Bevollmächtigter und Firma ↔ Firmenvertreter
   migrationAnwenden("v16_vollmachten", [[
     CREATE TABLE IF NOT EXISTS hm_bp_vollmachten (
