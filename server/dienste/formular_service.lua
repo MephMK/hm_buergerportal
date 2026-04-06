@@ -162,6 +162,8 @@ function FormularService.ListeSichtbarFuer(spieler, standortId, kategorieId)
           standardPrioritaet = f.standardPrioritaet,
           -- Gebühr aus config.gebuehren (PR14)
           fee_eur = (f.gebuehren and f.gebuehren.aktiv and tonumber(f.gebuehren.betrag)) or 0,
+          -- Zahlungsmodus (PR4)
+          zahlung_modus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung",
         })
       end
       ::weiter::
@@ -194,6 +196,8 @@ function FormularService.ListeSichtbarFuer(spieler, standortId, kategorieId)
           standardPrioritaet = nil,
           -- Gebühr aus DB-Formular (PR14)
           fee_eur = tonumber(r.fee_eur) or 0,
+          -- Zahlungsmodus (PR4)
+          zahlung_modus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung",
         })
 
         ::weiter_db::
@@ -223,6 +227,8 @@ function FormularService.FormularSchemaHolen(spieler, formularId)
       -- Gebühr aus DB in Schema eintragen (PR14)
       schema.formular = schema.formular or {}
       schema.formular.fee_eur = tonumber(row.fee_eur) or 0
+      -- Zahlungsmodus (PR4)
+      schema.formular.zahlung_modus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung"
 
       schema = ensureCitizenNameField(schema, rolle)
       return schema, nil
@@ -254,6 +260,8 @@ function FormularService.FormularSchemaHolen(spieler, formularId)
       version = 1,
       -- Gebühr aus Config (PR14)
       fee_eur = (f.gebuehren and f.gebuehren.aktiv and tonumber(f.gebuehren.betrag)) or 0,
+      -- Zahlungsmodus (PR4)
+      zahlung_modus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung",
     },
     felder = {}
   }

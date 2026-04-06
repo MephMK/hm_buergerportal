@@ -385,6 +385,7 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
   if Config.Module and Config.Module.Gebuehren then
     local feeEur      = tonumber(a.fee_eur) or 0
     local istUnbezahlt = (a.zahlung_status == "unbezahlt")
+    local zahlungModus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung"
     local terminaleStatus = (Config.Zahlung and Config.Zahlung.TerminaleStatus) or
       { "approved", "rejected", "closed", "completed", "archived" }
     local archivTerminal = false
@@ -392,7 +393,7 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
       if ts == "archived" then archivTerminal = true; break end
     end
 
-    if feeEur > 0 and istUnbezahlt and archivTerminal then
+    if feeEur > 0 and istUnbezahlt and archivTerminal and zahlungModus ~= "bei_einreichung" then
       -- Bürger-Source ermitteln
       local buergerSource = nil
       do
@@ -450,8 +451,9 @@ function JustizAntragService.Archivieren(spieler, antragId, grund)
           local payResult = HM_BP.Server.Dienste.PaymentService.GebuehrAbbuchen(
             buergerSpieler, feeEur,
             { antrag_id = antragId, public_id = a.public_id, form_id = a.form_id,
-              formular_titel = formTitel, citizen_name = a.citizen_name, spieler_name = a.citizen_name })
-          if payResult and payResult.ok and payResult.abgezogen then
+              formular_titel = formTitel, citizen_name = a.citizen_name, spieler_name = a.citizen_name,
+              category_id = a.category_id })
+          if payResult and payResult.ok and (payResult.abgezogen or payResult.befreit) then
             HM_BP.Server.Datenbank.Ausfuehren(
               "UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt', charged_at = UTC_TIMESTAMP() WHERE id = ?",
               { antragId })
@@ -653,12 +655,16 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
     end)
   end
 
-  -- Gebührenabzug bei terminalem Status (PR14)
+  -- Gebührenabzug bei terminalem Status (PR14/PR4)
   -- Läuft nur wenn: Gebühren-Modul aktiv, Betrag > 0, noch nicht bezahlt, neuer Status ist terminal
+  -- Bei Modus "bei_einreichung": Gebühr bereits bei Einreichung abgebucht → kein zweiter Abzug.
+  -- Rückerstattungsregeln (PR4): Wenn Erstattungen aktiv und Regel für neuerStatus existiert.
   local zahlungErgebnis = nil
   if Config.Module and Config.Module.Gebuehren then
     local feeEur = tonumber(a.fee_eur) or 0
     local istUnbezahlt = (a.zahlung_status == "unbezahlt")
+    local istBezahlt   = (a.zahlung_status == "bezahlt")
+    local zahlungModus = (Config.Zahlung and Config.Zahlung.Modus) or "bei_entscheidung"
     local terminaleStatus = (Config.Zahlung and Config.Zahlung.TerminaleStatus) or
       { "approved", "rejected", "closed", "completed", "archived" }
 
@@ -667,22 +673,26 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
       if neuerStatus == ts then istTerminal = true; break end
     end
 
-    if feeEur > 0 and istUnbezahlt and istTerminal then
-      -- Bürger-Spieler-Objekt für Banking ermitteln
-      local buergerSource = nil
+    -- Formular-Titel ermitteln (für Webhook/Audit)
+    local formTitel = a.form_id
+    if Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[a.form_id] then
+      formTitel = Config.Formulare.Liste[a.form_id].titel or a.form_id
+    else
+      local fRow = HM_BP.Server.Datenbank.Einzel(
+        "SELECT title FROM hm_bp_form_editor_forms WHERE id = ?", { a.form_id })
+      if fRow and fRow.title then formTitel = fRow.title end
+    end
 
-      -- Versuche ESX.GetPlayerFromIdentifier (effizient, O(1) lookup)
+    -- Bürger-Source ermitteln (benötigt für Banking)
+    local function buergerSourceErmitteln()
+      local buergerSource = nil
       do
         local ok, esx = pcall(function() return exports['es_extended']:getSharedObject() end)
         if ok and esx and esx.GetPlayerFromIdentifier then
           local xPlayer = esx.GetPlayerFromIdentifier(a.citizen_identifier)
-          if xPlayer then
-            buergerSource = tonumber(xPlayer.source)
-          end
+          if xPlayer then buergerSource = tonumber(xPlayer.source) end
         end
       end
-
-      -- Fallback: Suche durch alle Online-Spieler
       if not buergerSource and GetPlayerIdentifier then
         local players = GetPlayers and GetPlayers() or {}
         for _, pid in ipairs(players) do
@@ -690,18 +700,65 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
           if pidN then
             for i = 0, GetNumPlayerIdentifiers(pidN) - 1 do
               if GetPlayerIdentifier(pidN, i) == a.citizen_identifier then
-                buergerSource = pidN
-                break
+                buergerSource = pidN; break
               end
             end
             if buergerSource then break end
           end
         end
       end
+      return buergerSource
+    end
 
-      -- Zahlung nur wenn Spieler online ist (Banking-Ressourcen benötigen aktive Source)
+    -- Rückerstattungslogik (PR4): Wenn Erstattungen aktiv und Antrag bereits bezahlt
+    local erstattungen = Config.Zahlung and Config.Zahlung.Erstattungen
+    if erstattungen and erstattungen.aktiv and istBezahlt and feeEur > 0 and istTerminal then
+      local erstattungProzent = nil
+      if type(erstattungen.regeln) == "table" then
+        for _, regel in ipairs(erstattungen.regeln) do
+          if regel.status == neuerStatus and type(regel.prozent) == "number" then
+            erstattungProzent = math.max(0, math.min(100, regel.prozent))
+            break
+          end
+        end
+      end
+
+      if erstattungProzent and erstattungProzent > 0 and HM_BP.Server.Dienste.PaymentService then
+        local erstattungBetrag = math.floor(feeEur * erstattungProzent / 100)
+        if erstattungBetrag > 0 then
+          local buergerSource = buergerSourceErmitteln()
+          if buergerSource then
+            local buergerSpieler = {
+              identifier = a.citizen_identifier,
+              name       = a.citizen_name,
+              source     = buergerSource,
+              job        = { name = "", grade = 0 },
+            }
+            local refResult = HM_BP.Server.Dienste.PaymentService.GebuehrErstatten(
+              buergerSpieler,
+              erstattungBetrag,
+              {
+                antrag_id      = antragId,
+                public_id      = a.public_id,
+                form_id        = a.form_id,
+                formular_titel = formTitel,
+                citizen_name   = a.citizen_name,
+                spieler_name   = a.citizen_name,
+                grund          = ("Status: %s, %d%%"):format(neuerStatus, erstattungProzent),
+              }
+            )
+            zahlungErgebnis = { typ = "erstattung", ergebnis = refResult,
+              betrag_eur = erstattungBetrag, prozent = erstattungProzent }
+          end
+        end
+      end
+    end
+
+    -- Abbuchung bei terminalem Status (Modus "bei_entscheidung", noch nicht bezahlt)
+    if feeEur > 0 and istUnbezahlt and istTerminal and zahlungModus ~= "bei_einreichung" then
+      local buergerSource = buergerSourceErmitteln()
+
       if not buergerSource then
-        -- Spieler ist offline: als fehlgeschlagen markieren (Staff muss manuell abbuchen)
         HM_BP.Server.Datenbank.Ausfuehren(
           "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
           { antragId })
@@ -721,17 +778,6 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
         zahlungErgebnis = { ok = false, abgezogen = false, eingezahlt = false,
           fehler = "Spieler ist offline – manuelle Abbuchung erforderlich." }
       else
-        -- Formular-Titel ermitteln (für Webhook-Log)
-        local formTitel = a.form_id
-        if Config.Formulare and Config.Formulare.Liste and Config.Formulare.Liste[a.form_id] then
-          formTitel = Config.Formulare.Liste[a.form_id].titel or a.form_id
-        else
-          -- DB-Formular-Titel abrufen
-          local fRow = HM_BP.Server.Datenbank.Einzel(
-            "SELECT title FROM hm_bp_form_editor_forms WHERE id = ?", { a.form_id })
-          if fRow and fRow.title then formTitel = fRow.title end
-        end
-
         local buergerSpieler = {
           identifier = a.citizen_identifier,
           name       = a.citizen_name,
@@ -750,17 +796,16 @@ function JustizAntragService.StatusAendern(spieler, antragId, neuerStatus, komme
               formular_titel = formTitel,
               citizen_name   = a.citizen_name,
               spieler_name   = a.citizen_name,
+              category_id    = a.category_id,
             }
           )
           zahlungErgebnis = payResult
 
-          if payResult and payResult.ok and payResult.abgezogen then
-            -- Zahlung erfolgreich: Status auf 'bezahlt' setzen + Zeitstempel
+          if payResult and payResult.ok and (payResult.abgezogen or payResult.befreit) then
             HM_BP.Server.Datenbank.Ausfuehren(
               "UPDATE hm_bp_submissions SET zahlung_status = 'bezahlt', charged_at = UTC_TIMESTAMP() WHERE id = ?",
               { antragId })
           elseif payResult and not payResult.ok then
-            -- Zahlung fehlgeschlagen: auf 'fehlgeschlagen' setzen
             HM_BP.Server.Datenbank.Ausfuehren(
               "UPDATE hm_bp_submissions SET zahlung_status = 'fehlgeschlagen' WHERE id = ?",
               { antragId })
