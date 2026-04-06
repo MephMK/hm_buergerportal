@@ -27,7 +27,7 @@ local RESOURCE_NAME   = GetCurrentResourceName()
 local MANAGED_SECTIONS = {
   "Kern", "Module",
   "Standorte", "Kategorien", "Formulare", "Permissions", "Status", "Webhooks", "Workflows", "Anhaenge",
-  "Suche", "JobSettings"
+  "Suche", "JobSettings", "Integrationen"
 }
 
 -- In-Memory-Snapshot der originalen Basis-Config (vor jedem Merge)

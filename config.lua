@@ -1547,6 +1547,13 @@ Config.Webhooks = {
     -- Beispiel:
     --   ["antrag_payments"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
     ["antrag_payments"] = nil,
+
+    -- integrationen: Discord-Webhook-Kanal für Folgeaktions-Fehler (PR5).
+    -- Events: integration_failed, integration_succeeded.
+    -- Kein Identifier an Discord – nur öffentliche ID, Formular, Hook und Fehlertext.
+    -- Beispiel:
+    --   ["integrationen"] = "https://discord.com/api/webhooks/XXXXXX/XXXXXX",
+    ["integrationen"] = nil,
   }
 }
 
@@ -1632,6 +1639,11 @@ Config.Module = {
 
   -- Benachrichtigungen: Ingame-Benachrichtigungen an Spieler.
   Benachrichtigungen = true,
+
+  -- Integrationen: Folgeaktionen-Engine (PR5).
+  -- Führt pro Formular konfigurierbare Aktionen nach Statuswechseln aus.
+  -- Standardmäßig DEAKTIVIERT – erst auf true setzen, wenn Aktionen konfiguriert sind.
+  Integrationen      = false,
 }
 
 -- =============================================================
@@ -1801,3 +1813,110 @@ Config.Delegation = {
     admin   = { "submit_for_citizen", "submit_for_company", "justice_create_for_citizen" },
   },
 }
+
+-- =============================================================
+-- Config.Integrationen
+-- PR5: Folgeaktionen/Integrationen Framework
+--
+-- Engine für konfigurierbare Folgeaktionen nach Statuswechseln.
+-- Standardmäßig DEAKTIVIERT (Config.Module.Integrationen = false).
+--
+-- Aktivierung:
+--   1) Config.Module.Integrationen = true  setzen
+--   2) Config.Integrationen.Aktiviert = true setzen
+--   3) Aktionen in Config.Formulare.Liste[id].integrationen konfigurieren
+--
+-- Unterstützte Aktionstypen (alle müssen in ErlaubteAktionsTypen stehen):
+--   emit_server_event  – TriggerEvent auf dem Server
+--   call_export        – exports[resource][funktion](args, antrag)
+--   set_db_flag        – Schlüssel/Wert in hm_bp_integration_flags
+--   send_webhook_event – WebhookService.Emit(event, daten)
+--
+-- Sicherheit:
+--   • Jeder Aktionstyp muss in ErlaubteAktionsTypen stehen
+--   • emit_server_event: Event muss in ErlaubteServerEvents stehen
+--   • call_export: "resource:funktion" muss in ErlaubteExports stehen
+--   • set_db_flag: Schlüssel muss in ErlaubteDBFlags stehen
+--   • pcall um alle Aktionen (Lua-Fehler werden abgefangen und geloggt)
+--   • MaxAktionenProQueue: harte Grenze für Actions pro Aufruf
+--   • MaxGesamtZeitMs: zeitlicher Guard (ms), danach Abbruch
+-- =============================================================
+Config.Integrationen = {
+  -- Master-Switch. Muss ZUSÄTZLICH zu Config.Module.Integrationen = true gesetzt sein.
+  Aktiviert = false,
+
+  -- Harte Grenze: Maximale Anzahl Aktionen pro Queue-Aufruf.
+  MaxAktionenProQueue = 20,
+
+  -- Zeitlicher Guard: Wenn alle bisher ausgeführten Aktionen zusammen
+  -- länger als dieser Wert (ms) benötigt haben, werden weitere abgebrochen.
+  MaxGesamtZeitMs = 4000,
+
+  -- Whitelist: Nur diese Aktionstypen sind erlaubt.
+  -- Entferne Typen, die du nicht benötigst, aus der Liste.
+  ErlaubteAktionsTypen = {
+    "emit_server_event",
+    "call_export",
+    "set_db_flag",
+    "send_webhook_event",
+  },
+
+  -- Whitelist: Server-Events, die per emit_server_event ausgelöst werden dürfen.
+  -- Trage hier die erlaubten Event-Namen ein.
+  -- Beispiel: { "mein_script:aktion_ausfuehren", "anderes_script:benachrichtigen" }
+  ErlaubteServerEvents = {},
+
+  -- Whitelist: Exports, die per call_export aufgerufen werden dürfen.
+  -- Format: "resource_name:export_funktion"
+  -- Beispiel: { "mein_script:AntragBearbeiten", "anderes_script:StatusSenden" }
+  ErlaubteExports = {},
+
+  -- Whitelist: DB-Flag-Schlüssel, die per set_db_flag gesetzt werden dürfen.
+  -- Beispiel: { "vorgang_abgeschlossen", "bearbeitung_gestartet" }
+  ErlaubteDBFlags = {},
+
+  -- Zuordnung: Welcher Status löst welchen Hook aus.
+  -- Hooks: on_approve | on_reject | on_return | on_archive
+  -- Passe diese Tabelle an deine Status-IDs an.
+  StatusHooks = {
+    approved           = "on_approve",
+    partially_approved = "on_approve",
+    rejected           = "on_reject",
+    withdrawn          = "on_reject",
+    question_open      = "on_return",
+    waiting_for_documents = "on_return",
+    archived           = "on_archive",
+  },
+}
+
+-- =============================================================
+-- Beispiel: Folgeaktionen an einem Formular konfigurieren
+-- =============================================================
+-- In Config.Formulare.Liste["mein_formular"] das Feld "integrationen"
+-- mit den gewünschten Hooks und Aktionen befüllen.
+--
+-- Beispiel (nicht aktiv – nur zur Dokumentation):
+--
+-- Config.Formulare.Liste["general_request"].integrationen = {
+--   on_approve = {
+--     {
+--       typ   = "send_webhook_event",
+--       event = "antrag_status_changed",
+--       daten = { text = "Antrag wurde genehmigt." },
+--     },
+--     {
+--       typ        = "set_db_flag",
+--       schluessel = "vorgang_abgeschlossen",
+--       wert       = "1",
+--     },
+--   },
+--   on_reject = {
+--     {
+--       typ   = "emit_server_event",
+--       event = "mein_script:antrag_abgelehnt",
+--       daten = { grund = "Anforderungen nicht erfüllt" },
+--     },
+--   },
+--   on_return  = {},
+--   on_archive = {},
+-- }
