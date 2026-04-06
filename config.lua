@@ -506,6 +506,68 @@ Config.Permissions = {
       deny  = {},
     },
   },
+
+  -- ----------------------------------------------------------
+  -- Katalog: Deutsche Bezeichnungen für Berechtigungs-Keys (UI-only)
+  -- Wird im Admin-Panel unter Permissions → Katalog angezeigt und
+  -- im Tab Job-Einstellungen als lesbarer Anzeigename verwendet.
+  -- Kein Einfluss auf Berechtigungslogik – nur Metadaten.
+  -- label_de : Anzeigename (Pflicht für lesbare Darstellung)
+  -- group_de : Gruppe/Kategorie (optional, für Sortierung/Filterung)
+  -- ----------------------------------------------------------
+  Katalog = {
+    ["system.open"]                         = { label_de = "Portal öffnen",                          group_de = "System" },
+    ["citizen.view"]                        = { label_de = "Bürger-Bereich anzeigen",               group_de = "Ansicht" },
+    ["justice.view"]                        = { label_de = "Justiz-Bereich anzeigen",                group_de = "Ansicht" },
+    ["admin.view"]                          = { label_de = "Admin-Bereich anzeigen",                 group_de = "Ansicht" },
+    ["categories.view"]                     = { label_de = "Kategorien anzeigen",                    group_de = "Kategorien" },
+    ["categories.manage"]                   = { label_de = "Kategorien verwalten",                   group_de = "Kategorien" },
+    ["forms.view"]                          = { label_de = "Formulare anzeigen",                     group_de = "Formulare" },
+    ["forms.manage"]                        = { label_de = "Formulare verwalten",                    group_de = "Formulare" },
+    ["submissions.create"]                  = { label_de = "Antrag stellen",                         group_de = "Anträge" },
+    ["submissions.view_own"]                = { label_de = "Eigene Anträge einsehen",                group_de = "Anträge" },
+    ["submissions.view_inbox"]              = { label_de = "Posteingang einsehen",                   group_de = "Anträge" },
+    ["submissions.view_assigned"]           = { label_de = "Zugewiesene Anträge einsehen",           group_de = "Anträge" },
+    ["submissions.view_all"]                = { label_de = "Alle Anträge einsehen",                  group_de = "Anträge" },
+    ["submissions.view_archive"]            = { label_de = "Archiv einsehen",                        group_de = "Anträge" },
+    ["submissions.take"]                    = { label_de = "Antrag übernehmen",                      group_de = "Anträge" },
+    ["submissions.assign"]                  = { label_de = "Antrag zuweisen",                        group_de = "Anträge" },
+    ["submissions.set_priority"]            = { label_de = "Priorität setzen",                       group_de = "Anträge" },
+    ["submissions.change_status"]           = { label_de = "Status ändern",                          group_de = "Anträge" },
+    ["submissions.approve"]                 = { label_de = "Antrag genehmigen",                      group_de = "Anträge" },
+    ["submissions.reject"]                  = { label_de = "Antrag ablehnen",                        group_de = "Anträge" },
+    ["submissions.archive"]                 = { label_de = "Antrag archivieren",                     group_de = "Anträge" },
+    ["submissions.delete"]                  = { label_de = "Antrag löschen",                         group_de = "Anträge" },
+    ["notes.internal.read"]                 = { label_de = "Interne Notizen lesen",                  group_de = "Notizen" },
+    ["notes.internal.write"]                = { label_de = "Interne Notizen schreiben",              group_de = "Notizen" },
+    ["message.public.read"]                 = { label_de = "Öffentliche Nachrichten lesen",          group_de = "Nachrichten" },
+    ["message.public.write"]                = { label_de = "Öffentliche Nachrichten schreiben",      group_de = "Nachrichten" },
+    ["question.ask"]                        = { label_de = "Rückfrage stellen",                      group_de = "Rückfragen" },
+    ["question.answer"]                     = { label_de = "Rückfrage beantworten",                  group_de = "Rückfragen" },
+    ["citizen.supplement"]                  = { label_de = "Unterlagen nachreichen",                 group_de = "Rückfragen" },
+    ["audit.view"]                          = { label_de = "Audit-Log einsehen",                     group_de = "Administration" },
+    ["webhook.test"]                        = { label_de = "Webhook testen",                         group_de = "Administration" },
+    ["admin.settings"]                      = { label_de = "Admin-Einstellungen",                    group_de = "Administration" },
+    ["admin.panel.open"]                    = { label_de = "Admin-Panel öffnen",                     group_de = "Administration" },
+    ["admin.config.write"]                  = { label_de = "Admin-Konfiguration speichern",          group_de = "Administration" },
+    ["form_editor.use"]                     = { label_de = "Formular-Editor nutzen",                 group_de = "Formular-Editor" },
+    ["form_editor.publish"]                 = { label_de = "Formular veröffentlichen",               group_de = "Formular-Editor" },
+    ["form_editor.archive"]                 = { label_de = "Formular archivieren (Editor)",          group_de = "Formular-Editor" },
+    ["workflow.lock.request"]               = { label_de = "Bearbeitungssperre anfordern",           group_de = "Workflow" },
+    ["workflow.lock.release"]               = { label_de = "Bearbeitungssperre freigeben",           group_de = "Workflow" },
+    ["workflow.lock.override"]              = { label_de = "Sperre überschreiben",                   group_de = "Workflow" },
+    ["workflow.sla.pause"]                  = { label_de = "SLA pausieren",                          group_de = "Workflow" },
+    ["workflow.sla.resume"]                 = { label_de = "SLA fortsetzen",                         group_de = "Workflow" },
+    ["attachment.add"]                      = { label_de = "Anhang hinzufügen",                      group_de = "Anhänge" },
+    ["attachment.remove"]                   = { label_de = "Anhang entfernen",                       group_de = "Anhänge" },
+    ["attachment.view"]                     = { label_de = "Anhänge ansehen",                        group_de = "Anhänge" },
+    ["export.pdf"]                          = { label_de = "PDF exportieren",                        group_de = "Export" },
+    ["delegate.submit_for_citizen"]         = { label_de = "Im Auftrag einreichen (Bürger)",         group_de = "Delegation" },
+    ["delegate.submit_for_company"]         = { label_de = "Im Auftrag einreichen (Firma)",          group_de = "Delegation" },
+    ["delegate.justice_create_for_citizen"] = { label_de = "Justiz-Antrag im Auftrag erstellen",     group_de = "Delegation" },
+    ["vollmacht.manage"]                    = { label_de = "Vollmachten verwalten",                  group_de = "Delegation" },
+    ["vollmacht.view"]                      = { label_de = "Vollmachten einsehen",                   group_de = "Delegation" },
+  },
 }
 
 
